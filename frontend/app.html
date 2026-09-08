@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>IDENTI-SKIN | AI-Powered Skin Infection Analysis (PUP CCIS)</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2225%22 fill=%22%23D45B28%22/><path d=%22M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z%22 fill=%22none%22 stroke=%22white%22 stroke-width=%228%22/><path d=%22M50 35 L50 65 M35 50 L65 50%22 stroke=%22white%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- ====================================================================
+         GLOBAL APPLICATION HEADER
+         ==================================================================== -->
+    <header class="global-header">
+      <div class="global-header-inner">
+        <!-- Brand identity -->
+        <div class="brand-section" onclick="switchViewMode('workstation')">
+          <div class="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </div>
+          <div class="brand-info">
+            <div class="brand-title">
+              IDENTI - SKIN
+              <span class="brand-badge">YOLOv26</span>
+            </div>
+            <div class="brand-sub">ITA-Guided Adaptive L*-CLAHE • PUP CCIS 2026</div>
+          </div>
+        </div>
+
+        <!-- View Mode Switcher (For Laptop/PC) -->
+        <div class="view-mode-selector">
+          <button class="view-btn active" data-mode="workstation" onclick="switchViewMode('workstation')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            Clinical Workstation
+          </button>
+          <button class="view-btn" data-mode="simulator" onclick="switchViewMode('simulator')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            Phone Simulator
+          </button>
+          <button class="view-btn" data-mode="poster" onclick="switchViewMode('poster')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            9-Screen Poster
+          </button>
+          <button class="view-btn" data-mode="architecture" onclick="switchViewMode('architecture')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            System Architecture
+          </button>
+        </div>
+
+        <!-- Header Actions -->
+        
+        <!-- Header Actions -->
+        <div class="header-actions">
+          <div class="compliance-badge" title="Data Privacy Act of 2012 Compliance">
+            <span class="badge-dot"></span>
+            <span>RA 10173 Protected</span>
+          </div>
+          <button class="thesis-btn" onclick="openReportModal()" title="Print / Export Clinical Report">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            Export Report
+          </button>
+          <button class="thesis-btn" onclick="openTriageModal()" title="Symptoms Triage Questionnaire">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Triage Quiz
+          </button>
+          <a href="index.html" class="thesis-btn" style="text-decoration:none;" title="Return to Landing / Welcome Page">
+            🏠 Welcome
+          </a>
+          <div id="user-header-badge" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; font-weight:700; padding:5px 10px; background:var(--brand-primary-light); color:var(--brand-primary); border:1px solid rgba(212,91,40,0.25); border-radius:8px;">
+            <span id="header-user-avatar">👨‍⚕️</span>
+            <span id="header-user-name">Dr. Maria Santos</span>
+            <span id="header-user-role" style="font-size:0.62rem; background:var(--brand-primary); color:#FFF; padding:2px 6px; border-radius:4px; font-weight:800;">CLINICIAN</span>
+          </div>
+          <a href="login.html" class="view-btn" style="padding:6px 10px; text-decoration:none;" title="Switch Account on Login Page">
+            🔐 Switch
+          </a>
+          <button onclick="logoutUser()" class="view-btn" style="padding:6px 10px; border-color:rgba(239,68,68,0.3); color:#DC2626; font-weight:700;" title="Sign out of account">
+            🚪 Exit
+          </button>
+        </div></div>
+    </header>
+
+    <!-- Hidden file input for uploads -->
+    <input type="file" id="main-file-input" accept="image/*" class="hidden">
+
+    <!-- ====================================================================
+         MAIN VIEWPORT CONTAINER
+         ==================================================================== -->
+    <main class="main-viewport">
+      
+      <!-- ==================================================================
+           VIEW 1: DESKTOP CLINICAL WORKSTATION (PC / LAPTOP VIEW)
+           ================================================================== -->
+      <section id="view-desktop-workstation" class="desktop-workstation">
+        
+        <!-- LEFT COLUMN: INPUT, PRESETS & TELEMETRY -->
+        <div class="desktop-left-col">
+          <!-- Upload Dropzone Card -->
+          <div class="med-card">
+            <div class="med-card-header">
+              <span class="med-card-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                Lesion Input
+              </span>
+              <span class="badge-tag orange">Local RA 10173</span>
+            </div>
+
+            <div id="main-dropzone" class="upload-dropzone" onclick="document.getElementById('main-file-input').click()">
+              <div class="upload-icon-circle">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              </div>
+              <div class="upload-prompt">Tap to Upload or Take a Photo</div>
+              <div class="upload-sub">Auto ITA-calibrated & processed locally<br>RA 10173 compliant</div>
+              <div class="upload-btn-group">
+                <button type="button" class="upload-btn" onclick="event.stopPropagation(); document.getElementById('main-file-input').click()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  Browse
+                </button>
+                <button type="button" class="upload-btn" onclick="event.stopPropagation(); openCameraCapture()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                  Camera
+                </button>
+              </div>
+            </div>
+
+            <!-- Presets Section -->
+            <div class="preset-section-title">
+              <span>Verified Presets (PH Context)</span>
+              <span style="color: var(--brand-primary); cursor: pointer;" onclick="selectPreset('buni')">Reset</span>
+            </div>
+
+            <div class="presets-grid">
+              <div class="preset-card active" data-preset="buni" onclick="selectPreset('buni')">
+                <img src="assets/sample_buni.jpg" class="preset-thumb" alt="Buni">
+                <div class="preset-info">
+                  <div class="preset-name">Buni (Tinea Corporis)</div>
+                  <div class="preset-sub">Fungal • Annular Ring</div>
+                </div>
+                <span class="preset-score">94.2%</span>
+              </div>
+
+              <div class="preset-card" data-preset="mamaso" onclick="selectPreset('mamaso')">
+                <img src="assets/sample_mamaso.jpg" class="preset-thumb" alt="Mamaso">
+                <div class="preset-info">
+                  <div class="preset-name">Mamaso (Impetigo)</div>
+                  <div class="preset-sub">Bacterial • Honey Crusts</div>
+                </div>
+                <span class="preset-score">92.1%</span>
+              </div>
+
+              <div class="preset-card" data-preset="kulugo" onclick="selectPreset('kulugo')">
+                <img src="assets/sample_kulugo.jpg" class="preset-thumb" alt="Kulugo">
+                <div class="preset-info">
+                  <div class="preset-name">Kulugo (Warts)</div>
+                  <div class="preset-sub">Viral • Verrucous Plaque</div>
+                </div>
+                <span class="preset-score" style="background:var(--status-gold-bg); color:var(--status-gold); border-color:#FDE68A;">88.7%</span>
+              </div>
+
+              <div class="preset-card" data-preset="an_an" onclick="selectPreset('an_an')">
+                <img src="assets/sample_an_an.jpg" class="preset-thumb" alt="An-an">
+                <div class="preset-info">
+                  <div class="preset-name">An-an (Tinea Versicolor)</div>
+                  <div class="preset-sub">Fungal • Hypopigmented</div>
+                </div>
+                <span class="preset-score">91.0%</span>
+              </div>
+
+              <div class="preset-card" data-preset="alipunga" data-name="Alipunga" onclick="selectPreset('alipunga')">
+                <img src="assets/sample_alipunga.jpg" class="preset-thumb" alt="Alipunga">
+                <div class="preset-info">
+                  <div class="preset-name">Alipunga (Athlete's Foot)</div>
+                  <div class="preset-sub">Fungal • Interdigital Scale</div>
+                </div>
+                <span class="preset-score">89.4%</span>
+              </div>
+
+              <div class="preset-card" data-preset="bulutong" onclick="selectPreset('bulutong')">
+                <img src="assets/sample_bulutong.jpg" class="preset-thumb" alt="Bulutong">
+                <div class="preset-info">
+                  <div class="preset-name">Bulutong (Chickenpox)</div>
+                  <div class="preset-sub">Viral • Umbilicated Vesicles</div>
+                </div>
+                <span class="preset-score">93.5%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CENTER COLUMN: INTERACTIVE IMAGE WORKSPACE -->
+        <div class="desktop-center-col">
+          <div class="workspace-viewport">
+            <div class="med-card-header">
+              <span class="med-card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                Image Workspace
+              </span>
+              <span class="badge-tag green">Live YOLOv26 Inference</span>
+            </div>
+
+            <!-- Canvas Viewport with Comparison Slider -->
+            <div id="main-workspace" class="workspace-canvas-container"></div>
+
+            <!-- Controls Below Workspace -->
+            <div class="workspace-controls">
+              <!-- Split Comparison Slider -->
+              <div class="control-row">
+                <span class="slider-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+                  Comparison Slider
+                </span>
+                <div class="slider-container">
+                  <input type="range" id="main-split-slider" min="0" max="100" value="50" class="range-slider">
+                </div>
+              </div>
+
+              <!-- Heatmap Opacity Slider -->
+              <div class="control-row">
+                <span class="slider-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                  Heatmap Opacity
+                </span>
+                <div class="slider-container">
+                  <input type="range" id="main-opacity-slider" min="0" max="100" value="70" class="range-slider">
+                  <span id="opacity-val-display" class="slider-val">70%</span>
+                </div>
+              </div>
+
+              <!-- Checkbox Toggles matching 3rd Page in Reference Image -->
+              <div class="toggle-group">
+                <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.clahe = !AppState.toggles.clahe; renderWorkspace('main-workspace', AppState.currentPreset);">
+                  <div class="toggle-checkbox">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span>Adaptive L* - CLAHE</span>
+                </div>
+
+                <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.yolo = !AppState.toggles.yolo; renderWorkspace('main-workspace', AppState.currentPreset);">
+                  <div class="toggle-checkbox">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span>Decoupled YOLOv26</span>
+                </div>
+
+                <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.heatmap = !AppState.toggles.heatmap; renderWorkspace('main-workspace', AppState.currentPreset);">
+                  <div class="toggle-checkbox">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span>Grad - CAM Heatmap</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: DUAL OUTPUT PANELS (PATIENT VIEW vs CLINICIAN DASHBOARD) -->
+        <div class="desktop-right-col">
+          <!-- Output Mode Tab Switcher -->
+          <div class="output-tab-bar">
+            <button class="output-tab-btn active" data-tab="patient">
+              Output A: Patient View
+            </button>
+            <button class="output-tab-btn" data-tab="clinician">
+              Output B: Panel Dashboard
+            </button>
+          </div>
+
+          <!-- TAB 1: PATIENT-FACING VIEW (SIMPLIFIED) -->
+          <div id="tab-content-patient">
+            <div class="patient-card">
+              <!-- Skin-Tone Telemetry Chip -->
+              <div class="telemetry-chip-bar">
+                <span class="chip-title">Skin-Tone Calibration:</span>
+                <span id="patient-ita-chip" class="chip-value">Fitzpatrick Type IV (Melanin-Rich) | ITA: 22.4° • Clip: 3.4</span>
+              </div>
+
+              <!-- Diagnosis Header -->
+              <div class="diagnosis-header">
+                <span id="patient-category-badge" class="category-pill fungal">FUNGAL INFECTION</span>
+                <h2 id="patient-condition-title" class="condition-title">Buni (Tinea Corporis)</h2>
+                <div id="patient-local-name" class="condition-local-name">Common Local Name: Ringworm</div>
+              </div>
+
+              <!-- Score Banner -->
+              <div class="score-banner">
+                <span class="score-title">Diagnostic Confidence Score:</span>
+                <span id="patient-confidence-score" class="score-num">94.2%</span>
+              </div>
+
+              <!-- Morphological Cues (Page 5 Reference) -->
+              <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">
+                Identified Morphological Features (Fine-Grained Cues)
+              </div>
+
+              <div class="features-container">
+                <div class="feature-box">
+                  <div class="feature-box-title">Surface Texture</div>
+                  <div id="feat-texture" class="feature-box-desc">Active peripheral scaling with central clearing</div>
+                </div>
+
+                <div class="feature-box">
+                  <div class="feature-box-title">Crust & Exudate</div>
+                  <div id="feat-crust" class="feature-box-desc">Absent / Dry Erythema / Non-exudative</div>
+                </div>
+
+                <div class="feature-box">
+                  <div class="feature-box-title">Boundary / Edge</div>
+                  <div id="feat-boundary" class="feature-box-desc">Sharply defined annular elevated ring</div>
+                </div>
+
+                <div class="feature-box">
+                  <div class="feature-box-title">Differential Key</div>
+                  <div id="feat-diff" class="feature-box-desc">Distinguished from Impetigo by ring border & absence of honey crust</div>
+                </div>
+              </div>
+
+              <!-- Diagnostic & Computational Insights (Page 6 Reference) -->
+              <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+                Diagnostic & Computational Insights
+              </div>
+
+              <ul id="diagnostic-insights-list" style="padding-left: 18px; font-size: 0.75rem; color: var(--text-body); margin-bottom: 14px;"></ul>
+
+              <!-- RA 10173 Compliance Disclaimer -->
+              <div class="compliance-box">
+                <div class="compliance-box-title">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                  <span>Data Privacy & Medical Disclaimer (RA 10173 Compliant)</span>
+                </div>
+                <p class="compliance-box-desc">
+                  In accordance with RA 10173 (Data Privacy Act of 2012), all skin image analysis is conducted locally without remote retention. This platform functions as an academic assistive research screening aid and does not substitute for certified clinical dermatological diagnosis. Always consult a licensed medical physician or dermatologist.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: CLINICIAN TECHNICAL DASHBOARD -->
+          <div id="tab-content-clinician" class="hidden">
+            <div class="med-card">
+              <div class="med-card-header">
+                <span class="med-card-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                  ITA Colorimetry & Adaptive CLAHE Telemetry
+                </span>
+              </div>
+
+              <!-- 4 Telemetry Boxes -->
+              <div class="telemetry-grid-4">
+                <div class="telemetry-stat-card">
+                  <div class="telemetry-stat-label">ITA Value</div>
+                  <div id="clinician-ita-val" class="telemetry-stat-num">24.4°</div>
+                  <div class="telemetry-stat-sub">Typology Angle</div>
+                </div>
+                <div class="telemetry-stat-card">
+                  <div class="telemetry-stat-label">CLAHE Clip Limit</div>
+                  <div id="clinician-clip-val" class="telemetry-stat-num">3.4</div>
+                  <div class="telemetry-stat-sub">f(ITA) Dynamic</div>
+                </div>
+                <div class="telemetry-stat-card">
+                  <div class="telemetry-stat-label">Fitzpatrick Class</div>
+                  <div id="clinician-fitz-val" class="telemetry-stat-num">TYPE IV</div>
+                  <div class="telemetry-stat-sub">Melanin-Rich</div>
+                </div>
+                <div class="telemetry-stat-card">
+                  <div class="telemetry-stat-label">Contrast Gain</div>
+                  <div id="clinician-gain-val" class="telemetry-stat-num">+35.5%</div>
+                  <div class="telemetry-stat-sub">Luminance Boost</div>
+                </div>
+              </div>
+
+              <!-- Decoupled Training Status -->
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+                Two-Stage Decoupled Representation Training Status
+              </div>
+
+              <div class="stage-status-card">
+                <div class="stage-header">
+                  <span class="stage-title">Stage 1: Localization Learning</span>
+                  <span class="stage-badge frozen">Frozen</span>
+                </div>
+                <p class="stage-desc">Spatial bounding box & edge geometry extraction. YOLOv26 CSP-Darknet backbone frozen to lock boundary features.</p>
+              </div>
+
+              <div class="stage-status-card active-head">
+                <div class="stage-header">
+                  <span class="stage-title">Stage 2: Fine-Grained Discrimination</span>
+                  <span class="stage-badge active">Active Head</span>
+                </div>
+                <p class="stage-desc">Discriminative feature specialization: yeast, bacterium, morphology optimized via Focal Loss for long-tail classes.</p>
+              </div>
+
+              <!-- Overlap Profiler Progress Bars -->
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin: 12px 0 6px;">
+                Fine-Grained Morphological Overlap Profiler
+              </div>
+              <div id="overlap-profiler-bars" class="profiler-bars"></div>
+
+              <!-- YOLOv26 Evaluation Metrics (Page 8 Reference) -->
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px;">
+                YOLOv26 Model Evaluation Metrics
+              </div>
+
+              <div class="metrics-5-grid">
+                <div class="metric-mini-card">
+                  <div class="metric-mini-label">Precision</div>
+                  <div id="metric-precision" class="metric-mini-num">92.4%</div>
+                  <div class="metric-mini-sub">True Positive Ratio</div>
+                </div>
+                <div class="metric-mini-card">
+                  <div class="metric-mini-label">Recall</div>
+                  <div id="metric-recall" class="metric-mini-num">89.1%</div>
+                  <div class="metric-mini-sub">Sensitivity</div>
+                </div>
+                <div class="metric-mini-card">
+                  <div class="metric-mini-label">F1-Score</div>
+                  <div id="metric-f1" class="metric-mini-num">0.907</div>
+                  <div class="metric-mini-sub">Harmonic Mean</div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <div class="metric-mini-card" style="flex:1;">
+                  <div class="metric-mini-label">mAP50</div>
+                  <div id="metric-map50" class="metric-mini-num">92.2%</div>
+                  <div class="metric-mini-sub">IoU 0.50 Threshold</div>
+                </div>
+                <div class="metric-mini-card" style="flex:1;">
+                  <div class="metric-mini-label">mAP50-95</div>
+                  <div id="metric-map5095" class="metric-mini-num">71.5%</div>
+                  <div class="metric-mini-sub">COCO Evaluation Metric</div>
+                </div>
+              </div>
+
+              <!-- Hardware Telemetry -->
+              <div style="display:flex; justify-content:space-between; background:var(--bg-subtle); border:1px solid var(--brand-border); border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:0.72rem;">
+                <div>Inference: <strong id="metric-latency" class="text-mono" style="color:var(--brand-primary);">12.4 ms</strong></div>
+                <div>Compute: <strong id="metric-gflops" class="text-mono" style="color:var(--brand-primary);">16.5 GFLOPs</strong></div>
+                <div>Attribution: <strong id="metric-attribution" class="text-mono" style="color:#15803D;">73.1%</strong></div>
+              </div>
+
+              <!-- Spatial Coordinates -->
+              <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">
+                Spatial Bounding Box Coordinates
+              </div>
+              <div class="bbox-coords-box">
+                <div><div class="coord-label">XMIN</div><div id="coord-xmin" class="coord-val">142</div></div>
+                <div><div class="coord-label">YMIN</div><div id="coord-ymin" class="coord-val">215</div></div>
+                <div><div class="coord-label">XMAX</div><div id="coord-xmax" class="coord-val">388</div></div>
+                <div><div class="coord-label">YMAX</div><div id="coord-ymax" class="coord-val">420</div></div>
+              </div>
+
+              <!-- Differential Diagnosis Probabilities -->
+              <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">
+                Differential Diagnosis Probabilities
+              </div>
+              <div id="differential-diag-list" style="background:#FFF; border:1px solid var(--brand-border); border-radius:8px; padding:10px; margin-bottom:14px;"></div>
+
+              <!-- 14x14 Raw XAI Gradients Array (Page 9 Reference) -->
+              <div class="gradients-section">
+                <div class="tensor-header">
+                  <div class="tensor-title">Raw XAI Gradients Array (Final Conv Layer)</div>
+                  <div class="tensor-formula">A_k = 1/Z Σ_i Σ_j (∂y^c / ∂A^k_ij)</div>
+                </div>
+                <div id="desktop-tensor-grid" class="tensor-grid-container"></div>
+                <div id="desktop-tensor-inspector" class="tensor-inspector-bar"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           VIEW 2: MOBILE PHONE SIMULATOR (AUTHENTIC DEVICE BEZEL)
+           ================================================================== -->
+      <section id="view-mobile-simulator" class="simulator-container hidden">
+        <!-- 9-Page Stepper Switcher -->
+        <div class="page-stepper-bar">
+          <button class="page-pill-btn active" data-page="1" onclick="setSimulatorPage(1)">1st Page: Splash</button>
+          <button class="page-pill-btn" data-page="2" onclick="setSimulatorPage(2)">2nd Page: Home</button>
+          <button class="page-pill-btn" data-page="3" onclick="setSimulatorPage(3)">3rd Page: Workspace</button>
+          <button class="page-pill-btn" data-page="4" onclick="setSimulatorPage(4)">4th Page: Output A</button>
+          <button class="page-pill-btn" data-page="5" onclick="setSimulatorPage(5)">5th Page: Morphological</button>
+          <button class="page-pill-btn" data-page="6" onclick="setSimulatorPage(6)">6th Page: Insights</button>
+          <button class="page-pill-btn" data-page="7" onclick="setSimulatorPage(7)">7th Page: Output B</button>
+          <button class="page-pill-btn" data-page="8" onclick="setSimulatorPage(8)">8th Page: YOLO Metrics</button>
+          <button class="page-pill-btn" data-page="9" onclick="setSimulatorPage(9)">9th Page: Raw XAI</button>
+        </div>
+
+        <!-- Smartphone Bezel Mockup -->
+        <div class="phone-bezel">
+          <!-- Dynamic Island / Top Notch -->
+          <div class="phone-island">
+            <div class="island-camera-lens"></div>
+          </div>
+
+          <!-- Inside Screen -->
+          <div class="phone-screen">
+            <!-- Mobile Header -->
+            <div class="phone-header">
+              <button class="phone-header-btn" onclick="switchViewMode('workstation')" title="Menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+              </button>
+              <span class="phone-header-title">IDENTI - SKIN</span>
+              <button class="phone-header-btn" onclick="alert('RA 10173 Protected Sandbox: All analyses occur on-device with zero cloud retention.')" title="Notification">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              </button>
+            </div>
+
+            <!-- Dynamic Screen Page Content -->
+            <div id="simulator-screen-content" class="phone-content"></div>
+
+            <!-- Fixed Mobile Bottom Navigation Bar -->
+            <nav class="phone-bottom-nav">
+              <button class="phone-nav-item active" onclick="setSimulatorPage(2)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                <span>Home</span>
+              </button>
+              <button class="phone-nav-item" onclick="setSimulatorPage(3)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                <span>Workspace</span>
+              </button>
+              <button class="phone-nav-item" onclick="setSimulatorPage(4)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                <span>Patient View</span>
+              </button>
+              <button class="phone-nav-item" onclick="setSimulatorPage(7)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                <span>Panel</span>
+              </button>
+              <button class="phone-nav-item" onclick="setSimulatorPage(9)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                <span>XAI</span>
+              </button>
+            </nav>
+
+            <!-- Home Bar Indicator -->
+            <div class="phone-home-indicator"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           VIEW 3: 9-SCREEN POSTER OVERVIEW (REFERENCE IMAGE MATCH)
+           ================================================================== -->
+      <section id="view-poster-overview" class="poster-container hidden">
+        <div class="poster-header-banner">
+          <div class="poster-title-row">
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-title);">
+              Reference Overview: All 9 Application Screens
+            </h2>
+            <span class="badge-tag orange">Exact Layout Replication</span>
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-muted);">
+            Matches <code style="font-family:var(--font-mono); color:var(--brand-primary);">a317c0c2-a883-4ed0-b64b-49e2ac6618f5.jpeg</code> specifications
+          </div>
+        </div>
+
+        <!-- 9 Phone Bezels Grid -->
+        <div id="poster-screens-grid" class="poster-grid-layout"></div>
+      </section>
+
+      <!-- ==================================================================
+           VIEW 4: SYSTEM ARCHITECTURE INTERACTIVE EXPLORER (THESIS FIG 8)
+           ================================================================== -->
+      <section id="view-architecture" class="architecture-explorer hidden">
+        <div class="architecture-hero-header">
+          <div class="badge-tag orange" style="display:inline-block; margin-bottom:8px;">
+            PUP College of Computer and Information Sciences • BSCS Thesis 2026
+          </div>
+          <h2 class="arch-title">
+            Figure 8. System Architecture of the Study
+          </h2>
+          <p class="arch-subtitle">
+            Resolving Morphological Overlap in Infectious Skin Diseases: An ITA-Guided Adaptive L*-CLAHE and Fine-Grained YOLOv26 Framework for Localization and Classification on Melanin-Rich Filipino Skin
+          </p>
+        </div>
+
+        <!-- Split Phases A & B Breakdown -->
+        <div class="arch-split-columns">
+          <!-- Phase A -->
+          <div class="phase-box phase-a">
+            <div class="phase-header-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              A. Offline Training & Calibration
+            </div>
+            <div class="phase-note">(Performed strictly before deployment; isolated environment)</div>
+
+            <div class="arch-step-list">
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>1. Public Foundation Dataset</span>
+                  <span class="badge-tag green" style="font-size:0.6rem;">70/20/10 Split</span>
+                </div>
+                <p class="arch-step-desc">
+                  Curated dermoscopic and clinical images across Fitzpatrick Skin Types I–V from public foundation datasets (DermNet, Kaggle).
+                </p>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>2. Phase 0: ITA Calibration</span>
+                  <span class="badge-tag gold" style="font-size:0.6rem;">Mapping Gate</span>
+                </div>
+                <p class="arch-step-desc">
+                  Computes Individual Typology Angle (ITA) on training data to empirically calibrate enhancement thresholds (β_high, β_mid, β_low) and define continuous mapping function:
+                </p>
+                <code class="arch-code-formula">clip_limit = f(ITA) = clamp(4.4 - 0.045 × ITA, 2.0, 4.0)</code>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>3. Stage 1: Localization Learning</span>
+                  <span class="badge-tag" style="background:#E0E7FF; color:#4338CA; font-size:0.6rem;">YOLOv26 Head</span>
+                </div>
+                <p class="arch-step-desc">
+                  Classification head frozen. Only bounding box regression losses (CIoU and DFL) and objectness loss active. Learns spatial boundaries and geometric lesion contours.
+                </p>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>4. Freeze Selected Backbone Layers</span>
+                  <span class="badge-tag" style="background:#E2E8F0; color:#475569; font-size:0.6rem;">CSP-Darknet</span>
+                </div>
+                <p class="arch-step-desc">
+                  YOLOv26 CSP-Darknet backbone and localization heads locked to prevent catastrophic forgetting and feature degradation.
+                </p>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>5. Stage 2: Fine-Grained Classification</span>
+                  <span class="badge-tag orange" style="font-size:0.6rem;">Focal Loss</span>
+                </div>
+                <p class="arch-step-desc">
+                  Unfreezes classification head to focus on disease-specific morphology (texture, crusting, scaling, annular borders) using Focal Loss:
+                </p>
+                <code class="arch-code-formula">FL(p_t) = -α_t (1 - p_t)^γ log(p_t)</code>
+              </div>
+
+              <div class="arch-step-item" style="border-left: 3px solid #E11D48;">
+                <div class="arch-step-title">
+                  <span>★ Clinical Hold-Out Set (Testing Set B)</span>
+                  <span class="badge-tag" style="background:#FFE4E6; color:#BE123C; font-size:0.6rem;">5-10% Total</span>
+                </div>
+                <p class="arch-step-desc">
+                  Philippine local clinical hold-out set is kept entirely outside the 70/20/10 split. Never used during training/validation; used purely as real-world out-of-distribution domain stress test.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phase B -->
+          <div class="phase-box phase-b">
+            <div class="phase-header-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              B. Online Inference & Evaluation
+            </div>
+            <div class="phase-note">(Deployed real-time runtime; no weight updates; frozen thresholds)</div>
+
+            <div class="arch-step-list">
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>1. New RGB Lesion Input</span>
+                  <span class="badge-tag green" style="font-size:0.6rem;">Patient / Clinician</span>
+                </div>
+                <p class="arch-step-desc">
+                  User uploads camera capture or clinical test image.
+                </p>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>2. Skin-Tone-Adaptive Preprocessing</span>
+                  <span class="badge-tag gold" style="font-size:0.6rem;">CIELAB Space</span>
+                </div>
+                <p class="arch-step-desc">
+                  RGB converted to CIELAB. K-means clustering (Silhouette score) extracts healthy skin mask. Computes:
+                </p>
+                <code class="arch-code-formula">ITA = arctan((L* - 50) / b*) × (180 / π)</code>
+                <p class="arch-step-desc" style="margin-top:6px;">
+                  Adaptive L*-CLAHE enhancement applied using frozen clip limit; recombined with chromatic a*, b* into normalized RGB tensor.
+                </p>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>3. Deployed YOLOv26 Model</span>
+                  <span class="badge-tag" style="background:#D1FAE5; color:#065F46; font-size:0.6rem;">Frozen Weights</span>
+                </div>
+                <p class="arch-step-desc">
+                  Runs single forward-pass inference. Does not update weights or recalibrate ITA. Generates 3 parallel output streams.
+                </p>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>4. Parallel Model Outputs</span>
+                  <span class="badge-tag" style="background:#EFF6FF; color:#1D4ED8; font-size:0.6rem;">3 Payload Streams</span>
+                </div>
+                <ul style="padding-left:16px; font-size:0.75rem; line-height:1.4;">
+                  <li><strong>Localization:</strong> Bounding boxes, coordinates (xmin, ymin, xmax, ymax) and IoU.</li>
+                  <li><strong>Classification:</strong> 8-class disease label and confidence score.</li>
+                  <li><strong>Explainability:</strong> Grad-CAM heatmap attention for morphology validation.</li>
+                </ul>
+              </div>
+
+              <div class="arch-step-item">
+                <div class="arch-step-title">
+                  <span>5. Dedicated Dual System Views</span>
+                  <span class="badge-tag orange" style="font-size:0.6rem;">Output A & B</span>
+                </div>
+                <ul style="padding-left:16px; font-size:0.75rem; line-height:1.4;">
+                  <li><strong>Technical Dashboard (Output B):</strong> Clinical audit, latency, GFLOPs, bounding boxes, raw XAI tensor activations.</li>
+                  <li><strong>Patient View (Output A):</strong> Simplified disease label, local name, confidence score, Grad-CAM overlay, RA 10173 disclaimer.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ablation Study Table (From Chapter 3 Methodology) -->
+        <div class="med-card" style="margin-top:20px;">
+          <div class="med-card-header">
+            <span class="med-card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              Controlled Ablation Study Design (Models A – D)
+            </span>
+            <span class="badge-tag orange">Experimental Protocol</span>
+          </div>
+
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:12px;">
+            Evaluating performance improvements across Fitzpatrick Skin Types I–V with analytical emphasis on melanin-rich Types III–V within the Philippine clinical domain.
+          </p>
+
+          <div class="ablation-table-container">
+            <table class="ablation-table">
+              <thead>
+                <tr>
+                  <th>Configuration</th>
+                  <th>Adaptive L*-CLAHE</th>
+                  <th>Focal Loss</th>
+                  <th>Decoupled Training</th>
+                  <th>mAP50</th>
+                  <th>mAP50-95</th>
+                  <th>Precision</th>
+                  <th>Recall</th>
+                  <th>F1-Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Model A</strong> (Baseline YOLOv26)</td>
+                  <td>❌ None</td>
+                  <td>❌ None</td>
+                  <td>❌ Joint End-to-End</td>
+                  <td>84.2%</td>
+                  <td>61.4%</td>
+                  <td>83.7%</td>
+                  <td>79.8%</td>
+                  <td>0.817</td>
+                </tr>
+                <tr>
+                  <td><strong>Model B</strong> (Fixed L*-CLAHE)</td>
+                  <td>⚠️ Fixed Clip (2.0)</td>
+                  <td>❌ None</td>
+                  <td>❌ Joint End-to-End</td>
+                  <td>87.1%</td>
+                  <td>64.5%</td>
+                  <td>86.8%</td>
+                  <td>83.4%</td>
+                  <td>0.850</td>
+                </tr>
+                <tr>
+                  <td><strong>Model C</strong> (Focal Loss)</td>
+                  <td>❌ None</td>
+                  <td>✅ Active (γ=2, α=0.25)</td>
+                  <td>❌ Joint End-to-End</td>
+                  <td>89.0%</td>
+                  <td>66.8%</td>
+                  <td>88.9%</td>
+                  <td>85.2%</td>
+                  <td>0.870</td>
+                </tr>
+                <tr class="highlight-row">
+                  <td><strong>Model D (Proposed Framework)</strong></td>
+                  <td>✅ ITA-Guided Adaptive f(ITA)</td>
+                  <td>✅ Active Focal Loss</td>
+                  <td>✅ Two-Stage Decoupled</td>
+                  <td><strong>92.2%</strong></td>
+                  <td><strong>71.5%</strong></td>
+                  <td><strong>92.4%</strong></td>
+                  <td><strong>89.1%</strong></td>
+                  <td><strong>0.907</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- System Architecture Figure Image -->
+        <div class="arch-diagram-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span style="font-size:0.85rem; font-weight:800; text-transform:uppercase; color:var(--text-title);">
+              Original Thesis Diagram: Figure 8 (System Architecture)
+            </span>
+            <a href="assets/architecture-diagram.png" target="_blank" class="thesis-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              Open Full Resolution
+            </a>
+          </div>
+          <img src="assets/architecture-diagram.png" alt="Figure 8 System Architecture" class="arch-diagram-img">
+        </div>
+      </section>
+    </main>
+
+    <!-- Mobile Persistent Bottom Navigation (Only visible on Phone / Viewport < 768px) -->
+    
+    <!-- ====================================================================
+         NATIVE MOBILE FULL-SCREEN APPLICATION (PHONE VIEWPORT < 768px)
+         ==================================================================== -->
+    <div id="mobile-native-view" class="mobile-app-root">
+      <!-- Mobile Native Top Bar -->
+      <header class="mobile-native-header">
+        <button class="mobile-header-icon-btn" onclick="toggleMobileDrawer(true)" title="Menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+
+        <div class="mobile-header-brand" onclick="switchMobileTab('home')">
+          <div class="mobile-brand-icon-mini">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          </div>
+          <span class="mobile-brand-title">IDENTI - SKIN</span>
+        </div>
+
+        <button class="mobile-header-icon-btn" onclick="openCameraCapture()" title="Camera">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </button>
+      </header>
+
+      <!-- Mobile Content Container (100% full screen) -->
+      <div class="mobile-native-content">
+        <!-- 1. HOME TAB -->
+        <div id="mob-tab-home" class="mob-tab-pane active">
+          <div class="mob-greeting-box">
+            <h1 class="mob-greeting-title">Welcome Back!</h1>
+            <p class="mob-greeting-sub">Analyze skin images and get AI-assisted insights in seconds.</p>
+          </div>
+
+          <!-- Quick Upload / Camera Dropzone -->
+          <div class="upload-dropzone mob-upload-card" onclick="document.getElementById('main-file-input').click()">
+            <div class="upload-icon-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <div class="upload-prompt">Tap to Upload or Take a Photo</div>
+            <div class="upload-sub">Auto ITA-calibrated & processed locally<br>RA 10173 compliant</div>
+            <div class="upload-btn-group" style="margin-top:10px;">
+              <button type="button" class="upload-btn" onclick="event.stopPropagation(); document.getElementById('main-file-input').click()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Upload File
+              </button>
+              <button type="button" class="upload-btn" onclick="event.stopPropagation(); openCameraCapture()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                Take Photo
+              </button>
+            </div>
+          </div>
+
+          <!-- Recent Analysis Section (Exact match to 2ND PAGE of reference) -->
+          <div class="mob-section-header">
+            <span class="mob-section-title">Recent Analysis</span>
+            <span class="mob-section-link" onclick="switchMobileTab('workspace')">See All</span>
+          </div>
+
+          <div class="presets-grid mob-presets-list">
+            <div class="preset-card active" onclick="selectPreset('buni'); switchMobileTab('workspace');">
+              <img src="assets/sample_buni.jpg" class="preset-thumb" alt="Buni">
+              <div class="preset-info">
+                <div class="preset-name">Buni (Tinea Corporis)</div>
+                <div class="preset-sub">Analyzed just now</div>
+              </div>
+              <span class="preset-score" style="font-size:0.68rem; padding:3px 8px; border-radius:6px;">94.2% Confidence</span>
+            </div>
+
+            <div class="preset-card" onclick="selectPreset('mamaso'); switchMobileTab('workspace');">
+              <img src="assets/sample_mamaso.jpg" class="preset-thumb" alt="Mamaso">
+              <div class="preset-info">
+                <div class="preset-name">Mamaso (Impetigo)</div>
+                <div class="preset-sub">Analyzed 2 days ago</div>
+              </div>
+              <span class="preset-score" style="font-size:0.68rem; padding:3px 8px; border-radius:6px;">92.1% Confidence</span>
+            </div>
+
+            <div class="preset-card" onclick="selectPreset('kulugo'); switchMobileTab('workspace');">
+              <img src="assets/sample_kulugo.jpg" class="preset-thumb" alt="Kulugo">
+              <div class="preset-info">
+                <div class="preset-name">Kulugo (Warts)</div>
+                <div class="preset-sub">Analyzed 5 days ago</div>
+              </div>
+              <span class="preset-score" style="font-size:0.68rem; padding:3px 8px; border-radius:6px; background:var(--status-gold-bg); color:var(--status-gold); border-color:#FDE68A;">88.7% Confidence</span>
+            </div>
+          </div>
+
+          <!-- Compliance Note in Home -->
+          <div class="compliance-box" style="margin-top:16px;">
+            <div class="compliance-box-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <span>DATA PRIVACY ACT OF 2012 (RA 10173)</span>
+            </div>
+            <p class="compliance-box-desc">
+              All skin photography is analyzed locally on this device. No images or biometric health records are stored in remote servers.
+            </p>
+          </div>
+        </div>
+
+        <!-- 2. WORKSPACE TAB -->
+        <div id="mob-tab-workspace" class="mob-tab-pane">
+          <div class="med-card" style="padding:14px; margin-bottom:12px;">
+            <div class="med-card-header">
+              <span class="med-card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                Image Workspace
+              </span>
+              <span class="badge-tag green">YOLOv26</span>
+            </div>
+
+            <!-- Full width Mobile Canvas Container -->
+            <div id="mobile-canvas-container" class="workspace-canvas-container" style="aspect-ratio:1/1; max-height:360px; margin-bottom:14px;"></div>
+
+            <!-- Controls -->
+            <div class="workspace-controls" style="gap:10px;">
+              <div class="control-row">
+                <span class="slider-label" style="font-size:0.75rem;">Comparison Slider</span>
+                <div class="slider-container">
+                  <input type="range" id="mob-split-slider" min="0" max="100" value="50" class="range-slider">
+                </div>
+              </div>
+
+              <div class="control-row">
+                <span class="slider-label" style="font-size:0.75rem;">Heatmap Opacity</span>
+                <div class="slider-container">
+                  <input type="range" id="mob-opacity-slider" min="0" max="100" value="70" class="range-slider">
+                  <span id="mob-opacity-val" class="slider-val" style="font-size:0.72rem;">70%</span>
+                </div>
+              </div>
+
+              <div class="toggle-group" style="grid-template-columns: 1fr; gap:6px; margin-top:4px;">
+                <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.clahe = !AppState.toggles.clahe; renderWorkspace('mobile-canvas-container', AppState.currentPreset);">
+                  <div class="toggle-checkbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                  <span>Adaptive L* - CLAHE Enhancement</span>
+                </div>
+
+                <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.yolo = !AppState.toggles.yolo; renderWorkspace('mobile-canvas-container', AppState.currentPreset);">
+                  <div class="toggle-checkbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                  <span>Decoupled YOLOv26 Bounding Box</span>
+                </div>
+
+                <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.heatmap = !AppState.toggles.heatmap; renderWorkspace('mobile-canvas-container', AppState.currentPreset);">
+                  <div class="toggle-checkbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                  <span>Grad - CAM Heatmap Overlay</span>
+                </div>
+              </div>
+
+              <button type="button" class="view-btn active" style="width:100%; margin-top:8px; padding:12px; justify-content:center; font-size:0.82rem;" onclick="switchMobileTab('patient')">
+                View Full Patient Report →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. PATIENT VIEW TAB -->
+        <div id="mob-tab-patient" class="mob-tab-pane">
+          <!-- Preset Selector Bar -->
+          <div class="mob-presets-carousel">
+            <button class="mob-preset-chip active" onclick="selectPreset('buni'); updateMobileView();">Buni</button>
+            <button class="mob-preset-chip" onclick="selectPreset('mamaso'); updateMobileView();">Mamaso</button>
+            <button class="mob-preset-chip" onclick="selectPreset('kulugo'); updateMobileView();">Kulugo</button>
+            <button class="mob-preset-chip" onclick="selectPreset('an_an'); updateMobileView();">An-an</button>
+            <button class="mob-preset-chip" onclick="selectPreset('alipunga'); updateMobileView();">Alipunga</button>
+            <button class="mob-preset-chip" onclick="selectPreset('bulutong'); updateMobileView();">Bulutong</button>
+          </div>
+
+          <div class="patient-card" style="padding:14px;">
+            <div class="telemetry-chip-bar" style="padding:6px 10px; margin-bottom:10px;">
+              <span class="chip-title">Skin-Tone:</span>
+              <span id="mob-patient-ita" class="chip-value" style="font-size:0.7rem;">Fitzpatrick Type IV | ITA: 22.4° • Clip: 3.4</span>
+            </div>
+
+            <div class="diagnosis-header" style="margin-bottom:8px;">
+              <span id="mob-patient-badge" class="category-pill fungal">FUNGAL INFECTION</span>
+              <h2 id="mob-patient-title" class="condition-title" style="font-size:1.3rem;">Buni (Tinea Corporis)</h2>
+              <div id="mob-patient-local" class="condition-local-name">Common Local Name: Ringworm</div>
+            </div>
+
+            <div class="score-banner" style="padding:10px 14px; margin-bottom:12px;">
+              <span class="score-title" style="font-size:0.75rem;">Confidence Score:</span>
+              <span id="mob-patient-score" class="score-num" style="font-size:1.45rem;">94.2%</span>
+            </div>
+
+            <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+              Identified Morphological Features
+            </div>
+
+            <div class="features-container" style="gap:6px; margin-bottom:12px;">
+              <div class="feature-box" style="padding:8px 10px;">
+                <div class="feature-box-title">Surface Texture</div>
+                <div id="mob-feat-texture" class="feature-box-desc" style="font-size:0.72rem;">Active peripheral scaling with central clearing</div>
+              </div>
+              <div class="feature-box" style="padding:8px 10px;">
+                <div class="feature-box-title">Crust & Exudate</div>
+                <div id="mob-feat-crust" class="feature-box-desc" style="font-size:0.72rem;">Absent / Dry Erythema / Non-exudative</div>
+              </div>
+              <div class="feature-box" style="padding:8px 10px;">
+                <div class="feature-box-title">Boundary / Edge</div>
+                <div id="mob-feat-boundary" class="feature-box-desc" style="font-size:0.72rem;">Sharply defined annular elevated ring</div>
+              </div>
+              <div class="feature-box" style="padding:8px 10px;">
+                <div class="feature-box-title">Differential Key</div>
+                <div id="mob-feat-diff" class="feature-box-desc" style="font-size:0.72rem;">Distinguished from Impetigo by ring border & absence of honey crust</div>
+              </div>
+            </div>
+
+            <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+              Diagnostic & Computational Insights
+            </div>
+            <ul id="mob-insights-list" style="padding-left: 16px; font-size: 0.72rem; color: var(--text-body); margin-bottom: 12px; line-height: 1.4;"></ul>
+
+            <div class="compliance-box" style="margin-top:0;">
+              <div class="compliance-box-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>DATA PRIVACY & MEDICAL DISCLAIMER</span>
+              </div>
+              <p class="compliance-box-desc">
+                RA 10173 compliant on-device AI. This application is an academic screening aid and does not substitute for certified clinical dermatological diagnosis.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. CLINICIAN PANEL TAB -->
+        <div id="mob-tab-panel" class="mob-tab-pane">
+          <div class="med-card" style="padding:14px;">
+            <div class="med-card-header">
+              <span class="med-card-title">Output B: Panel Dashboard</span>
+              <span class="badge-tag green">Telemetry</span>
+            </div>
+
+            <div class="telemetry-grid-4" style="gap:6px; margin-bottom:12px;">
+              <div class="telemetry-stat-card" style="padding:8px 4px;">
+                <div class="telemetry-stat-label">ITA Value</div>
+                <div id="mob-ita-val" class="telemetry-stat-num" style="font-size:1.1rem;">24.4°</div>
+              </div>
+              <div class="telemetry-stat-card" style="padding:8px 4px;">
+                <div class="telemetry-stat-label">Clip Limit</div>
+                <div id="mob-clip-val" class="telemetry-stat-num" style="font-size:1.1rem;">3.4</div>
+              </div>
+              <div class="telemetry-stat-card" style="padding:8px 4px;">
+                <div class="telemetry-stat-label">Fitzpatrick</div>
+                <div id="mob-fitz-val" class="telemetry-stat-num" style="font-size:0.95rem;">TYPE IV</div>
+              </div>
+              <div class="telemetry-stat-card" style="padding:8px 4px;">
+                <div class="telemetry-stat-label">Contrast Gain</div>
+                <div id="mob-gain-val" class="telemetry-stat-num" style="font-size:1.1rem;">+35.5%</div>
+              </div>
+            </div>
+
+            <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+              Decoupled Training Status
+            </div>
+
+            <div class="stage-status-card" style="padding:8px 10px; margin-bottom:6px;">
+              <div class="stage-header">
+                <span class="stage-title" style="font-size:0.7rem;">Stage 1: Localization Learning</span>
+                <span class="stage-badge frozen">FROZEN</span>
+              </div>
+              <p class="stage-desc" style="font-size:0.65rem;">Spatial bounding box & edge geometry extraction. CSP-Darknet locked.</p>
+            </div>
+
+            <div class="stage-status-card active-head" style="padding:8px 10px; margin-bottom:12px;">
+              <div class="stage-header">
+                <span class="stage-title" style="font-size:0.7rem;">Stage 2: Discrimination</span>
+                <span class="stage-badge active">ACTIVE HEAD</span>
+              </div>
+              <p class="stage-desc" style="font-size:0.65rem;">Focal Loss penalized long-tail classes and morphological mimics.</p>
+            </div>
+
+            <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+              Morphological Overlap Profiler
+            </div>
+            <div id="mob-overlap-bars" class="profiler-bars" style="gap:6px; margin-bottom:14px;"></div>
+
+            <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+              YOLOv26 Model Evaluation Metrics
+            </div>
+            <div class="metrics-5-grid" style="gap:6px; margin-bottom:10px;">
+              <div class="metric-mini-card">
+                <div class="metric-mini-label">Precision</div>
+                <div id="mob-metric-precision" class="metric-mini-num" style="font-size:0.92rem;">92.4%</div>
+              </div>
+              <div class="metric-mini-card">
+                <div class="metric-mini-label">Recall</div>
+                <div id="mob-metric-recall" class="metric-mini-num" style="font-size:0.92rem;">89.1%</div>
+              </div>
+              <div class="metric-mini-card">
+                <div class="metric-mini-label">F1-Score</div>
+                <div id="mob-metric-f1" class="metric-mini-num" style="font-size:0.92rem;">0.907</div>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; background:var(--bg-subtle); border:1px solid var(--brand-border); border-radius:8px; padding:8px 10px; margin-bottom:10px; font-size:0.68rem;">
+              <div>Latency: <strong id="mob-metric-latency" class="text-mono" style="color:var(--brand-primary);">12.4 ms</strong></div>
+              <div>GFLOPs: <strong id="mob-metric-gflops" class="text-mono" style="color:var(--brand-primary);">16.5</strong></div>
+              <div>Attribution: <strong id="mob-metric-attribution" class="text-mono" style="color:#15803D;">73.1%</strong></div>
+            </div>
+
+            <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">
+              Spatial Bounding Box Coordinates
+            </div>
+            <div class="bbox-coords-box" style="margin-bottom:10px;">
+              <div><div class="coord-label">XMIN</div><div id="mob-coord-xmin" class="coord-val" style="font-size:0.75rem;">142</div></div>
+              <div><div class="coord-label">YMIN</div><div id="mob-coord-ymin" class="coord-val" style="font-size:0.75rem;">215</div></div>
+              <div><div class="coord-label">XMAX</div><div id="mob-coord-xmax" class="coord-val" style="font-size:0.75rem;">388</div></div>
+              <div><div class="coord-label">YMAX</div><div id="mob-coord-ymax" class="coord-val" style="font-size:0.75rem;">420</div></div>
+            </div>
+
+            <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">
+              Differential Diagnosis Probabilities
+            </div>
+            <div id="mob-differential-list" style="background:#FFF; border:1px solid var(--brand-border); border-radius:8px; padding:8px 10px;"></div>
+          </div>
+        </div>
+
+        <!-- 5. XAI TAB -->
+        <div id="mob-tab-xai" class="mob-tab-pane">
+          <div class="gradients-section" style="padding:14px;">
+            <div class="tensor-header">
+              <div class="tensor-title">Raw XAI Gradients Array</div>
+              <div class="tensor-formula">A_k = 1/Z Σ_i Σ_j (∂y^c / ∂A^k_ij)</div>
+            </div>
+            <div id="mob-tensor-grid" class="tensor-grid-container" style="max-width:280px;"></div>
+            <div id="mob-tensor-inspector" class="tensor-inspector-bar" style="font-size:0.65rem; padding:8px;"></div>
+            <p style="font-size:0.68rem; color:var(--text-muted); line-height:1.35; margin-top:10px;">
+              Tap any tensor grid cell to inspect spatial feature activations from the final YOLOv26 convolutional layer.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Bottom Navigation Bar -->
+      <nav class="mobile-native-bottom-nav">
+        <button class="mob-nav-btn active" data-mobtab="home" onclick="switchMobileTab('home')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span>Home</span>
+        </button>
+        <button class="mob-nav-btn" data-mobtab="workspace" onclick="switchMobileTab('workspace')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          <span>Workspace</span>
+        </button>
+        <button class="mob-nav-btn" data-mobtab="patient" onclick="switchMobileTab('patient')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+          <span>Patient</span>
+        </button>
+        <button class="mob-nav-btn" data-mobtab="panel" onclick="switchMobileTab('panel')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          <span>Panel</span>
+        </button>
+        <button class="mob-nav-btn" data-mobtab="xai" onclick="switchMobileTab('xai')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>XAI</span>
+        </button>
+      </nav>
+
+      <!-- Slide-Over Drawer for Mobile -->
+      <div id="mobile-drawer" class="mobile-drawer-overlay hidden" onclick="toggleMobileDrawer(false)">
+        <div class="mobile-drawer-panel" onclick="event.stopPropagation()">
+          <div class="mobile-drawer-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div class="brand-icon" style="width:30px; height:30px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+              <span style="font-size:0.95rem; font-weight:800;">IDENTI-SKIN Menu</span>
+            </div>
+            <button class="modal-close-btn" onclick="toggleMobileDrawer(false)">×</button>
+          </div>
+          <div class="mobile-drawer-body">
+            <!-- Active Logged In User Profile Card -->
+            <div style="padding:12px; background:var(--bg-subtle); border-radius:14px; border:1px solid var(--brand-border); margin-bottom:16px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg, #FF6F3C, #D45B28); color:#FFF; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:800;" id="mob-user-avatar">👨‍⚕️</div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:0.85rem; font-weight:800; color:var(--text-title); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="mob-user-name">Dr. Maria Santos</div>
+                  <div style="font-size:0.68rem; color:var(--brand-primary); font-weight:700;" id="mob-user-role">Clinician • CCIS Researcher</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:10px;">
+                <a href="login.html" class="upload-btn" style="flex:1; padding:6px 8px; font-size:0.72rem; text-decoration:none; text-align:center; background:#FFF;">Switch Account</a>
+                <button onclick="logoutUser()" class="upload-btn" style="padding:6px 12px; font-size:0.72rem; color:#DC2626; border-color:rgba(220,38,38,0.3); background:#FFF;">Sign Out</button>
+              </div>
+            </div>
+
+            <!-- Page Navigation Separated -->
+            <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Pages & Flows</div>
+            <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
+              <a href="index.html" class="upload-btn" style="text-decoration:none; display:flex; align-items:center; gap:8px;">
+                <span>🏠</span> <span>Welcome / Landing Page</span>
+              </a>
+              <a href="login.html" class="upload-btn" style="text-decoration:none; display:flex; align-items:center; gap:8px; background:var(--brand-primary); color:#FFF; border-color:var(--brand-primary); font-weight:800;">
+                <span>🔐</span> <span>Dedicated Login Page</span>
+              </a>
+              <a href="register.html" class="upload-btn" style="text-decoration:none; display:flex; align-items:center; gap:8px;">
+                <span>📝</span> <span>Create New Account</span>
+              </a>
+            </div>
+
+            <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Quick Philippine Presets</div>
+            <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
+              <button class="upload-btn" onclick="selectPreset('buni'); toggleMobileDrawer(false); switchMobileTab('patient');">Buni (Tinea Corporis)</button>
+              <button class="upload-btn" onclick="selectPreset('mamaso'); toggleMobileDrawer(false); switchMobileTab('patient');">Mamaso (Impetigo)</button>
+              <button class="upload-btn" onclick="selectPreset('kulugo'); toggleMobileDrawer(false); switchMobileTab('patient');">Kulugo (Warts)</button>
+              <button class="upload-btn" onclick="selectPreset('an_an'); toggleMobileDrawer(false); switchMobileTab('patient');">An-an (Tinea Versicolor)</button>
+              <button class="upload-btn" onclick="selectPreset('alipunga'); toggleMobileDrawer(false); switchMobileTab('patient');">Alipunga (Athlete's Foot)</button>
+              <button class="upload-btn" onclick="selectPreset('bulutong'); toggleMobileDrawer(false); switchMobileTab('patient');">Bulutong (Chickenpox)</button>
+            </div>
+
+            <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Tools & Reports</div>
+            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openReportModal();">🖨️ Export Clinical PDF Report</button>
+            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openTriageModal();">📋 Symptoms Triage Quiz</button>
+            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openCameraCapture();">📷 Open Camera</button>
+            <button class="upload-btn" style="margin-bottom:12px; width:100%;" onclick="toggleMobileDrawer(false); document.getElementById('main-file-input').click();">📁 Browse Photo</button>
+            <div style="font-size:0.65rem; color:var(--text-muted); line-height:1.35; padding:10px; background:var(--bg-subtle); border-radius:8px; border:1px solid var(--brand-border);">
+              PUP CCIS BSCS Thesis 2026<br>
+              Resolving Morphological Overlap in Infectious Skin Diseases<br>
+              <strong>RA 10173 Protected</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="mobile-persistent-nav hidden">
+      <button class="phone-nav-item active" onclick="switchViewMode('workstation'); selectPreset(AppState.currentPreset);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Workspace</span>
+      </button>
+      <button class="phone-nav-item" onclick="switchViewMode('simulator'); setSimulatorPage(4);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+        <span>Patient View</span>
+      </button>
+      <button class="phone-nav-item" onclick="switchViewMode('simulator'); setSimulatorPage(7);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Clinician</span>
+      </button>
+      <button class="phone-nav-item" onclick="switchViewMode('poster');">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <span>9-Screens</span>
+      </button>
+      <button class="phone-nav-item" onclick="switchViewMode('architecture');">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>Thesis</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+
+    <!-- ====================================================================
+         MODAL 1: AUTHENTICATION (LOGIN & REGISTRATION)
+         ==================================================================== -->
+    <div id="auth-modal" class="modal-overlay hidden" onclick="closeAuthModal()">
+      <div class="modal-card auth-card" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="brand-icon" style="width:32px; height:32px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+            <div>
+              <h3 id="auth-title" style="font-size:1.1rem; font-weight:800; color:var(--text-title);">Sign In to IDENTI-SKIN</h3>
+              <div style="font-size:0.7rem; color:var(--text-muted);">PUP CCIS • Skin Infection AI Analysis</div>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="closeAuthModal()">×</button>
+        </div>
+
+        <!-- Auth Tabs (Login vs Register) -->
+        <div class="output-tab-bar" style="margin-bottom:16px;">
+          <button id="tab-btn-login" class="output-tab-btn active" onclick="setAuthTab('login')">Sign In</button>
+          <button id="tab-btn-register" class="output-tab-btn" onclick="setAuthTab('register')">Register New Account</button>
+        </div>
+
+        <!-- Quick 1-Tap Demo Accounts -->
+        <div style="background:var(--bg-subtle); border:1px solid var(--brand-border); border-radius:10px; padding:10px 12px; margin-bottom:16px;">
+          <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">
+            ⚡ Quick 1-Tap Demo Access:
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="upload-btn" style="flex:1; font-size:0.72rem; padding:6px;" onclick="demoLogin('clinician')">
+              👨‍⚕️ Clinician / Researcher
+            </button>
+            <button type="button" class="upload-btn" style="flex:1; font-size:0.72rem; padding:6px;" onclick="demoLogin('patient')">
+              👤 Patient User
+            </button>
+          </div>
+        </div>
+
+        <!-- Login Form -->
+        <form id="form-login" onsubmit="handleAuthSubmit(event, 'login')">
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label">Email or PUP WebMail</label>
+            <input type="email" id="login-email" class="form-input" placeholder="e.g. researcher@pup.edu.ph" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label class="form-label">Password</label>
+              <a href="#" style="font-size:0.68rem; color:var(--brand-primary); text-decoration:none;" onclick="alert('Demo Mode: Use password "password123" or click the 1-Tap Demo buttons above.')">Forgot Password?</a>
+            </div>
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Sign In As Role</label>
+            <select id="login-role" class="form-input">
+              <option value="clinician">Dermatologist / Clinical Researcher (Full Panel & Weights)</option>
+              <option value="patient">Patient / Public User (Simplified View & Triage)</option>
+            </select>
+          </div>
+
+          <button type="submit" class="view-btn active" style="width:100%; padding:12px; justify-content:center; font-size:0.85rem; margin-bottom:12px;">
+            Sign In to Account
+          </button>
+        </form>
+
+        <!-- Register Form (Hidden by default) -->
+        <form id="form-register" class="hidden" onsubmit="handleAuthSubmit(event, 'register')">
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label">Full Name</label>
+            <input type="text" id="reg-name" class="form-input" placeholder="e.g. Dr. Maria Santos" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="reg-email" class="form-input" placeholder="e.g. maria.santos@hospital.ph" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label">Password</label>
+            <input type="password" id="reg-pass" class="form-input" placeholder="Min. 8 characters" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label">Account Role</label>
+            <select id="reg-role" class="form-input">
+              <option value="clinician">Dermatologist / Medical Researcher</option>
+              <option value="patient">Patient / Individual</option>
+            </select>
+          </div>
+
+          <div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:14px; font-size:0.7rem; color:var(--text-body);">
+            <input type="checkbox" id="reg-consent" required style="margin-top:2px;">
+            <label for="reg-consent">
+              I agree to the <strong>RA 10173 (Data Privacy Act of 2012)</strong> policy. My uploaded skin images will be processed locally and securely on-device.
+            </label>
+          </div>
+
+          <button type="submit" class="view-btn active" style="width:100%; padding:12px; justify-content:center; font-size:0.85rem; margin-bottom:12px;">
+            Create New Account
+          </button>
+        </form>
+
+        <div style="font-size:0.65rem; text-align:center; color:var(--text-muted);">
+          Protected under RA 10173 • Polytechnic University of the Philippines
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         MODAL 2: CLINICAL REPORT GENERATOR (PRINT / PDF VIEW)
+         ==================================================================== -->
+    <div id="report-modal" class="modal-overlay hidden" onclick="closeReportModal()">
+      <div class="modal-card report-card" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            <div>
+              <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-title);">Clinical Diagnostic Consultation Report</h3>
+              <div style="font-size:0.7rem; color:var(--text-muted);">PUP CCIS Tele-Dermatology Screening Summary</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="thesis-btn" onclick="window.print()">
+              🖨️ Print / Save PDF
+            </button>
+            <button class="modal-close-btn" onclick="closeReportModal()">×</button>
+          </div>
+        </div>
+
+        <div id="report-printable-area" class="report-body">
+          <!-- Report Header -->
+          <div class="report-doc-header">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="brand-icon" style="width:36px; height:36px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+              <div>
+                <div style="font-size:1.1rem; font-weight:900; color:#2A1A14;">IDENTI-SKIN DIAGNOSTIC SUMMARY</div>
+                <div style="font-size:0.68rem; color:#846F65;">ITA-Guided Adaptive L*-CLAHE & YOLOv26 • RA 10173 Verified</div>
+              </div>
+            </div>
+            <div style="text-align:right; font-size:0.72rem; color:#4A3830;">
+              <div><strong>Date:</strong> <span id="report-date"></span></div>
+              <div><strong>Report ID:</strong> <span class="text-mono" id="report-id">PUP-2026-0842</span></div>
+            </div>
+          </div>
+
+          <!-- Patient & Skin Tone Telemetry -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:14px 0; background:#FFF7F2; padding:12px; border-radius:8px; border:1px solid #F0C4AD;">
+            <div>
+              <div style="font-size:0.65rem; font-weight:800; text-transform:uppercase; color:#846F65;">Patient Profile</div>
+              <div style="font-size:0.85rem; font-weight:800; color:#2A1A14;" id="report-patient-name">Juan Dela Cruz</div>
+              <div style="font-size:0.72rem; color:#4A3830;">Evaluated User (Age: 32 • Philippine Context)</div>
+            </div>
+            <div>
+              <div style="font-size:0.65rem; font-weight:800; text-transform:uppercase; color:#846F65;">Skin-Tone Colorimetry (ITA-Core)</div>
+              <div style="font-size:0.85rem; font-weight:800; color:#D45B28;" id="report-ita-summary">Type IV (Melanin-Rich) • ITA: 22.4°</div>
+              <div style="font-size:0.72rem; color:#4A3830;">Adaptive CLAHE Clip Limit: 3.4 (+35.5% Gain)</div>
+            </div>
+          </div>
+
+          <!-- Diagnosis Outcome -->
+          <div style="border:1.5px solid #D45B28; border-radius:10px; padding:14px; margin-bottom:14px; background:#FFF;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span id="report-category" class="category-pill fungal">FUNGAL INFECTION</span>
+              <span style="font-size:1.3rem; font-weight:900; color:#D45B28; font-family:var(--font-mono);" id="report-confidence">94.2%</span>
+            </div>
+            <div style="font-size:1.3rem; font-weight:900; color:#2A1A14;" id="report-condition-name">Buni (Tinea Corporis)</div>
+            <div style="font-size:0.78rem; color:#846F65;" id="report-local-name">Common Philippine Term: Ringworm</div>
+          </div>
+
+          <!-- Morphological Cues Table -->
+          <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:#2A1A14; margin-bottom:6px;">
+            Identified Fine-Grained Morphological Cues
+          </div>
+          <table class="ablation-table" style="margin-bottom:14px;">
+            <tbody>
+              <tr><td style="width:30%; font-weight:700;">Surface Texture</td><td id="report-texture">Active peripheral scaling with central clearing</td></tr>
+              <tr><td style="font-weight:700;">Crust & Exudate</td><td id="report-crust">Absent / Dry Erythema / Non-exudative</td></tr>
+              <tr><td style="font-weight:700;">Boundary / Edge</td><td id="report-boundary">Sharply defined annular elevated ring</td></tr>
+              <tr><td style="font-weight:700;">Differential Key</td><td id="report-diff">Distinguished from Impetigo by ring border & absence of honey crust</td></tr>
+            </tbody>
+          </table>
+
+          <!-- Model & Attribution Telemetry -->
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; background:#FBF0E9; padding:8px; border-radius:6px; font-size:0.7rem; text-align:center; margin-bottom:14px;">
+            <div><div style="font-size:0.6rem; color:#846F65;">YOLOv26 mAP50</div><strong style="color:#2A1A14;">92.2%</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Inference Latency</div><strong style="color:#2A1A14;">12.4 ms</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Grad-CAM IoU</div><strong style="color:#2A1A14;">78.2%</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Attribution Ratio</div><strong style="color:#15803D;">73.1%</strong></div>
+          </div>
+
+          <!-- Medical Disclaimer & Signatures -->
+          <div class="compliance-box" style="margin-bottom:14px;">
+            <div class="compliance-box-title">MANDATORY MEDICAL SCREENING DISCLAIMER (RA 10173 COMPLIANT)</div>
+            <div class="compliance-box-desc">
+              This report is generated by an assistive deep learning algorithm (PUP CCIS Thesis 2026). It does not represent a legally binding dermatological diagnosis. Final clinical diagnosis and pharmaceutical intervention must be validated by a board-certified dermatologist.
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-top:20px; padding-top:12px; border-top:1px dashed #F0C4AD;">
+            <div style="font-size:0.72rem; color:#846F65;">
+              Evaluated by: <strong>IDENTI-SKIN Clinical System v2.6</strong><br>
+              Local Data Integrity: Verified On-Device
+            </div>
+            <div style="text-align:center; min-width:180px;">
+              <div style="border-bottom:1px solid #2A1A14; width:100%; height:25px;"></div>
+              <div style="font-size:0.68rem; color:#4A3830; margin-top:4px;">Attending Physician / Dermatologist</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         MODAL 3: PRE-SCREENING SYMPTOMS TRIAGE QUESTIONNAIRE
+         ==================================================================== -->
+    <div id="triage-modal" class="modal-overlay hidden" onclick="closeTriageModal()">
+      <div class="modal-card" style="max-width:560px;" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="brand-icon" style="width:32px; height:32px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+            <div>
+              <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-title);">Pre-Screening Lesion Triage</h3>
+              <div style="font-size:0.7rem; color:var(--text-muted);">Philippine Clinical Symptoms Questionnaire</div>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="closeTriageModal()">×</button>
+        </div>
+
+        <form id="triage-form" onsubmit="handleTriageSubmit(event)">
+          <div style="margin-bottom:14px;">
+            <label class="form-label">1. Saan matatagpuan ang lesion / pantal? (Anatomical Location)</label>
+            <select id="triage-location" class="form-input">
+              <option value="body">Katawan / Braso / Binti (Trunk, Arms, Legs)</option>
+              <option value="face">Mukha / Labi (Face, Perioral)</option>
+              <option value="feet">Paa / Pagitan ng Daliri (Feet, Interdigital webs)</option>
+              <option value="hands">Kamay / Daliri (Hands, Palms)</option>
+              <option value="chest">Dibdib / Likod (Chest, Upper Back)</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label class="form-label">2. Ano ang pangunahing nararamdaman? (Primary Sensation)</label>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <label class="toggle-pill active" style="font-size:0.72rem;">
+                <input type="radio" name="sensation" value="itchy" checked style="margin-right:6px;"> Makati (Pruritic / Itchy)
+              </label>
+              <label class="toggle-pill" style="font-size:0.72rem;">
+                <input type="radio" name="sensation" value="painful" style="margin-right:6px;"> Masakit / Mahapdi (Painful / Tender)
+              </label>
+              <label class="toggle-pill" style="font-size:0.72rem;">
+                <input type="radio" name="sensation" value="rough" style="margin-right:6px;"> Magaspang / Buko (Rough / Asymptomatic)
+              </label>
+              <label class="toggle-pill" style="font-size:0.72rem;">
+                <input type="radio" name="sensation" value="none" style="margin-right:6px;"> Walang maramdam (No sensation)
+              </label>
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label class="form-label">3. Hitsura ng Sugat o Balat (Visual Cues)</label>
+            <select id="triage-visual" class="form-input">
+              <option value="ring">Pabilog na may namumulang gilid at malinis ang gitna (Annular Ring)</option>
+              <option value="honey">Kulay pulut-pukyutan na langib / basa (Honey-colored crusts)</option>
+              <option value="wart">Parang cauliflower na magaspang na bukol (Verrucous rough papule)</option>
+              <option value="patches">Maputing patse na may pinong balakubak (Hypopigmented scale)</option>
+              <option value="macerated">Basang puting balat sa pagitan ng daliri (Macerated skin)</option>
+              <option value="blisters">Maliit na paltos na may tubig (Fluid-filled vesicles)</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label class="form-label">4. Gaano na katagal ang kondisyon? (Duration)</label>
+            <select id="triage-duration" class="form-input">
+              <option value="acute">Wala pang 1 linggo (Less than 1 week)</option>
+              <option value="subacute">1 hanggang 4 na linggo (1-4 weeks)</option>
+              <option value="chronic">Higit sa 1 buwan (Chronic > 1 month)</option>
+            </select>
+          </div>
+
+          <button type="submit" class="view-btn active" style="width:100%; padding:12px; justify-content:center; font-size:0.85rem;">
+            Match With AI Clinical Presets →
+          </button>
+        </form>
+      </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Welcome | IDENTI-SKIN (PUP CCIS)</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 25%, #FFF0E6 0%, #FFF8F3 60%, #FDF1EA 100%);
+      font-family: var(--font-sans);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Subtle decorative curved rings from reference 1st Page */
+    .bg-wave-1 {
+      position: absolute;
+      width: 580px;
+      height: 580px;
+      border-radius: 50%;
+      border: 1px dashed rgba(212, 91, 40, 0.18);
+      top: -80px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .bg-wave-2 {
+      position: absolute;
+      width: 820px;
+      height: 820px;
+      border-radius: 50%;
+      border: 1px solid rgba(212, 91, 40, 0.08);
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .welcome-card {
+      width: 100%;
+      max-width: 400px;
+      height: 100%;
+      max-height: 720px;
+      background: #FFFFFF;
+      border: 1px solid var(--brand-border);
+      border-radius: 36px;
+      box-shadow: 0 16px 40px rgba(42, 26, 20, 0.1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 50px 24px 34px;
+      box-sizing: border-box;
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      body, html {
+        background: #FFF8F3;
+      }
+      .welcome-card {
+        max-width: 100vw;
+        max-height: 100dvh;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        padding: 60px 24px 36px;
+      }
+    }
+
+    .welcome-logo-box {
+      width: 84px;
+      height: 84px;
+      background: linear-gradient(135deg, #FF6F3C 0%, #D45B28 100%);
+      border-radius: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 10px 25px rgba(212, 91, 40, 0.35);
+      color: #FFF;
+      animation: logoFloat 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes logoFloat {
+      from { transform: translateY(0); }
+      to { transform: translateY(-6px); }
+    }
+
+    .welcome-title {
+      font-size: 1.75rem;
+      font-weight: 900;
+      letter-spacing: 1.2px;
+      color: var(--text-title);
+      margin-bottom: 8px;
+    }
+
+    .welcome-tagline {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      max-width: 270px;
+      margin: 0 auto;
+    }
+
+    .welcome-actions-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 40px;
+      margin-bottom: 20px;
+    }
+
+    .btn-get-started {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 15px 20px;
+      background: var(--brand-primary);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 16px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(212, 91, 40, 0.35);
+      transition: all 0.2s ease;
+    }
+    .btn-get-started:hover {
+      background: var(--brand-primary-hover);
+      transform: translateY(-2px);
+    }
+
+    .btn-have-account {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px 20px;
+      background: #FFFFFF;
+      color: var(--text-title);
+      border: 1.5px solid var(--brand-border);
+      border-radius: 16px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-have-account:hover {
+      border-color: var(--brand-primary);
+      color: var(--brand-primary);
+      background: var(--brand-primary-light);
+    }
+
+    .welcome-footer-compliance {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-wave-1"></div>
+  <div class="bg-wave-2"></div>
+
+  <div class="welcome-card">
+    <div style="width: 100%;">
+      <!-- Shield Logo -->
+      <div class="welcome-logo-box">
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+          <line x1="8" y1="12" x2="16" y2="12"></line>
+        </svg>
+      </div>
+
+      <!-- App Title & Tagline -->
+      <h1 class="welcome-title">IDENTI - SKIN</h1>
+      <p class="welcome-tagline">
+        AI - Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision
+      </p>
+
+      <!-- Action Buttons matching 1st Page -->
+      <div class="welcome-actions-group">
+        <a href="app.html#home" class="btn-get-started">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          Get Started
+        </a>
+
+        <a href="login.html" class="btn-have-account">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          I Have an Account
+        </a>
+      </div>
+    </div>
+
+    <!-- Security Compliance Footer -->
+    <div class="welcome-footer-compliance">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        <polyline points="9 12 11 14 15 10"></polyline>
+      </svg>
+      <span>Your data is protected & safe - <strong>RA 10173 Compliant</strong></span>
+    </div>
+  </div>
+</body>
+</html>

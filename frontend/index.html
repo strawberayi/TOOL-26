@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>IDENTI-SKIN | AI-Powered Skin Infection Analysis (PUP CCIS)</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2225%22 fill=%22%23D45B28%22/><path d=%22M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z%22 fill=%22none%22 stroke=%22white%22 stroke-width=%228%22/><path d=%22M50 35 L50 65 M35 50 L65 50%22 stroke=%22white%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+  <style>
+    /* ==========================================================================
+       LANDING PAGE & WELCOME FLOW STYLES
+       ========================================================================== */
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      min-height: 100vh;
+      min-height: 100dvh;
+      font-family: var(--font-sans);
+      background: radial-gradient(circle at 50% 20%, #FFF3EC 0%, #FFF8F3 55%, #FDF0E7 100%);
+      color: var(--text-title);
+      overflow-x: hidden;
+    }
+
+    /* Ambient decorative rings */
+    .ambient-ring-1 {
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      border: 1px dashed rgba(212, 91, 40, 0.15);
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .ambient-ring-2 {
+      position: absolute;
+      width: 1050px;
+      height: 1050px;
+      border-radius: 50%;
+      border: 1px solid rgba(212, 91, 40, 0.07);
+      top: -260px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Top active user notification bar (if already logged in) */
+    #active-session-banner {
+      background: linear-gradient(90deg, #D45B28, #FF6F3C);
+      color: #FFF;
+      padding: 8px 16px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(212, 91, 40, 0.25);
+    }
+    #active-session-banner a {
+      color: #FFF;
+      text-decoration: underline;
+      font-weight: 900;
+    }
+    #active-session-banner button {
+      background: rgba(255, 255, 255, 0.25);
+      border: none;
+      color: #FFF;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    /* --------------------------------------------------------------------------
+       MOBILE VIEW: EXACT PAGE 1 SCREEN (Phones <= 768px)
+       -------------------------------------------------------------------------- */
+    @media (max-width: 768px) {
+      .desktop-landing-wrapper {
+        display: none !important;
+      }
+      .mobile-page1-wrapper {
+        display: flex !important;
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       DESKTOP VIEW: CLINICAL PORTAL (Screens > 768px)
+       -------------------------------------------------------------------------- */
+    @media (min-width: 769px) {
+      .desktop-landing-wrapper {
+        display: block !important;
+      }
+      .mobile-page1-wrapper {
+        display: none !important;
+      }
+    }
+
+    /* Mobile Page 1 Container */
+    .mobile-page1-wrapper {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 60px 24px 34px;
+      box-sizing: border-box;
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    .mob-shield-box {
+      width: 86px;
+      height: 86px;
+      background: linear-gradient(135deg, #FF6F3C 0%, #D45B28 100%);
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 22px;
+      box-shadow: 0 12px 30px rgba(212, 91, 40, 0.4);
+      color: #FFF;
+      animation: floatShield 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes floatShield {
+      from { transform: translateY(0); }
+      to { transform: translateY(-7px); }
+    }
+
+    .mob-page1-title {
+      font-size: 1.85rem;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      color: var(--text-title);
+      margin-bottom: 8px;
+    }
+
+    .mob-page1-tagline {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      max-width: 280px;
+      margin: 0 auto;
+    }
+
+    .mob-page1-actions {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 40px;
+      margin-bottom: 20px;
+    }
+
+    .mob-btn-primary {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 15px 20px;
+      background: var(--brand-primary);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 16px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(212, 91, 40, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .mob-btn-secondary {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px 20px;
+      background: #FFFFFF;
+      color: var(--text-title);
+      border: 1.5px solid var(--brand-border);
+      border-radius: 16px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mob-page1-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Desktop Landing Styles */
+    .desktop-nav {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      z-index: 20;
+    }
+    .desktop-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-title);
+    }
+    .desktop-brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #FF6F3C, #D45B28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+      box-shadow: 0 4px 12px rgba(212, 91, 40, 0.3);
+    }
+    .desktop-brand-text {
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    .desktop-hero {
+      max-width: 1200px;
+      margin: 30px auto 60px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 40px;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--brand-primary-light);
+      border: 1px solid rgba(212, 91, 40, 0.3);
+      color: var(--brand-primary);
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .hero-h1 {
+      font-size: 2.7rem;
+      font-weight: 900;
+      line-height: 1.15;
+      color: var(--text-title);
+      margin-bottom: 16px;
+    }
+
+    .hero-desc {
+      font-size: 1.05rem;
+      color: var(--text-body);
+      line-height: 1.6;
+      margin-bottom: 30px;
+      max-width: 580px;
+    }
+
+    .hero-btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .btn-hero-primary {
+      padding: 14px 28px;
+      background: var(--brand-primary);
+      color: #FFF;
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 6px 18px rgba(212, 91, 40, 0.35);
+      transition: all 0.2s ease;
+    }
+    .btn-hero-primary:hover {
+      background: var(--brand-primary-hover);
+      transform: translateY(-2px);
+    }
+
+    .btn-hero-secondary {
+      padding: 13px 24px;
+      background: #FFFFFF;
+      color: var(--text-title);
+      border: 1.5px solid var(--brand-border);
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-hero-secondary:hover {
+      border-color: var(--brand-primary);
+      color: var(--brand-primary);
+    }
+
+    .demo-strip {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--brand-border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 520px;
+    }
+
+    /* Floating preview card on desktop */
+    .hero-preview-phone {
+      width: 320px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border: 10px solid #2A1A14;
+      border-radius: 46px;
+      box-shadow: 0 25px 60px rgba(42, 26, 20, 0.2);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 24px;
+      text-align: center;
+      position: relative;
+    }
+
+    .features-grid {
+      max-width: 1200px;
+      margin: 0 auto 60px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: #FFFFFF;
+      border: 1px solid var(--brand-border);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 4px 15px rgba(42, 26, 20, 0.04);
+      transition: transform 0.2s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+    }
+    .feature-icon-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--brand-primary-light);
+      color: var(--brand-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .feature-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text-title);
+      margin-bottom: 6px;
+    }
+    .feature-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient rings -->
+  <div class="ambient-ring-1"></div>
+  <div class="ambient-ring-2"></div>
+
+  <!-- Active session banner if user is already signed in -->
+  <div id="active-session-banner" style="display:none;">
+    <span>👋 Welcome back, <strong id="active-user-name">Dr. Maria Santos</strong>!</span>
+    <a href="app.html">Launch Clinical Workstation →</a>
+    <button onclick="clearActiveSession()">Sign Out</button>
+  </div>
+
+  <!-- ========================================================================
+       1. MOBILE NATIVE VIEW (Matches Page 1 from reference photo)
+       ======================================================================== -->
+  <div class="mobile-page1-wrapper">
+    <div style="width: 100%;">
+      <!-- Glowing Orange Shield Logo -->
+      <div class="mob-shield-box">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+          <line x1="8" y1="12" x2="16" y2="12"></line>
+        </svg>
+      </div>
+
+      <!-- App Title & Subtitle -->
+      <h1 class="mob-page1-title">IDENTI - SKIN</h1>
+      <p class="mob-page1-tagline">
+        AI - Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision
+      </p>
+
+      <!-- Action Buttons -->
+      <div class="mob-page1-actions">
+        <!-- Get Started -> Goes to full App or Camera -->
+        <a href="app.html#home" class="mob-btn-primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          Get Started
+        </a>
+
+        <!-- I Have an Account -> Goes to separate Login Page -->
+        <a href="login.html" class="mob-btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          I Have an Account
+        </a>
+      </div>
+
+      <!-- Quick 1-tap demo access for test evaluation -->
+      <div style="display:flex; justify-content:center; gap:8px; margin-top:6px;">
+        <button onclick="quickDemoLanding('clinician')" style="background:none; border:none; color:var(--brand-primary); font-size:0.75rem; font-weight:700; cursor:pointer; text-decoration:underline;">
+          👨‍⚕️ Clinician Demo
+        </button>
+        <span style="color:var(--text-muted); font-size:0.75rem;">•</span>
+        <button onclick="quickDemoLanding('patient')" style="background:none; border:none; color:var(--brand-primary); font-size:0.75rem; font-weight:700; cursor:pointer; text-decoration:underline;">
+          👤 Patient Demo
+        </button>
+      </div>
+    </div>
+
+    <!-- RA 10173 Security & Privacy Badge -->
+    <div class="mob-page1-footer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        <polyline points="9 12 11 14 15 10"></polyline>
+      </svg>
+      <span>Your data is protected & safe - <strong>RA 10173 Compliant</strong></span>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       2. DESKTOP LANDING VIEW (Screens > 768px: Laptop / PC)
+       ======================================================================== -->
+  <div class="desktop-landing-wrapper">
+    <!-- Desktop Navigation Header -->
+    <nav class="desktop-nav">
+      <a href="index.html" class="desktop-brand">
+        <div class="desktop-brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+        </div>
+        <div>
+          <div class="desktop-brand-text">IDENTI - SKIN</div>
+          <div style="font-size:0.7rem; color:var(--text-muted); font-weight:700;">PUP CCIS • Thesis 2026</div>
+        </div>
+      </a>
+
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div class="compliance-badge" style="margin:0;">
+          <span class="badge-dot"></span>
+          <span>RA 10173 Protected</span>
+        </div>
+        <a href="login.html" class="btn-hero-secondary" style="padding:8px 16px; font-size:0.85rem;">
+          🔐 Sign In
+        </a>
+        <a href="register.html" class="btn-hero-secondary" style="padding:8px 16px; font-size:0.85rem;">
+          📝 Register
+        </a>
+        <a href="app.html" class="btn-hero-primary" style="padding:9px 18px; font-size:0.85rem;">
+          🚀 Open Workstation →
+        </a>
+      </div>
+    </nav>
+
+    <!-- Desktop Hero Section -->
+    <section class="desktop-hero">
+      <div>
+        <div class="hero-badge">
+          <span>🎓 BSCS Thesis 2026</span>
+          <span>•</span>
+          <span>Melanin-Rich Skin Types III–V</span>
+        </div>
+        <h1 class="hero-h1">
+          Resolving Morphological Overlap in Infectious Skin Diseases
+        </h1>
+        <p class="hero-desc">
+          An AI-powered dermatological diagnostic framework combining <strong>Individual Typology Angle (ITA)-guided Adaptive L*-CLAHE</strong> with a <strong>dual-branch fine-grained YOLOv26</strong> architecture, engineered specifically for dark and melanin-rich Filipino skin.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="hero-btn-row">
+          <a href="login.html" class="btn-hero-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            Dedicated Sign In Page
+          </a>
+          <a href="app.html" class="btn-hero-secondary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            Launch Workstation Directly
+          </a>
+          <a href="register.html" class="btn-hero-secondary">
+            📝 Create Account
+          </a>
+        </div>
+
+        <!-- 1-Tap Quick Demo Strip -->
+        <div class="demo-strip">
+          <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted); text-transform:uppercase;">⚡ Quick Demo:</span>
+          <button onclick="quickDemoLanding('clinician')" class="btn-hero-secondary" style="padding:6px 12px; font-size:0.78rem; cursor:pointer;">
+            👨‍⚕️ Clinician (Dr. Maria Santos)
+          </button>
+          <button onclick="quickDemoLanding('patient')" class="btn-hero-secondary" style="padding:6px 12px; font-size:0.78rem; cursor:pointer;">
+            👤 Patient (Juan Dela Cruz)
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Column: Interactive Mockup Showcase -->
+      <div>
+        <div class="hero-preview-phone">
+          <div class="mob-shield-box" style="margin-bottom:16px; width:72px; height:72px;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </div>
+          <h2 style="font-size:1.35rem; font-weight:900; margin-bottom:6px; color:var(--text-title);">IDENTI - SKIN</h2>
+          <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.4; margin-bottom:24px;">
+            AI-Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision
+          </p>
+
+          <a href="app.html#home" class="mob-btn-primary" style="padding:11px 18px; font-size:0.85rem; margin-bottom:10px;">
+            📷 Get Started
+          </a>
+          <a href="login.html" class="mob-btn-secondary" style="padding:10px 18px; font-size:0.85rem; margin-bottom:20px;">
+            👤 I Have an Account
+          </a>
+
+          <div style="font-size:0.68rem; color:#15803D; font-weight:700; display:flex; align-items:center; gap:4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 12 11 14 15 10"></polyline><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            RA 10173 Protected
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4-Feature Highlights Grid -->
+    <section class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>
+        </div>
+        <div class="feature-title">ITA-Guided L*-CLAHE</div>
+        <div class="feature-desc">Dynamically calibrates clip limits based on CIELAB Individual Typology Angle ($ITA = \arctan((L^* - 50)/b^*) \times 180/\pi$) to enhance lesion margins on Fitzpatrick Types III–V.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+        </div>
+        <div class="feature-title">Dual-Branch YOLOv26</div>
+        <div class="feature-desc">Stage 1 CIoU localization with backbone freezing, followed by Stage 2 Focal Loss fine-grained classification to resolve fungal vs bacterial vs viral mimics.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </div>
+        <div class="feature-title">Grad-CAM Explainable AI</div>
+        <div class="feature-desc">Real-time convolutional gradient heatmaps and 14×14 tensor activation arrays validating whether the AI focused on annular ridges, central clearing, or crusts.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+        </div>
+        <div class="feature-title">RA 10173 Compliance</div>
+        <div class="feature-desc">Strict Data Privacy Act of 2012 adherence with client-side inference, anonymized telemetry, and explicit patient consent protocols before image ingest.</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Check if user is already signed in
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        const saved = localStorage.getItem('identi_skin_user');
+        if (saved) {
+          const user = JSON.parse(saved);
+          if (user && user.name) {
+            const banner = document.getElementById('active-session-banner');
+            const nameSpan = document.getElementById('active-user-name');
+            if (banner && nameSpan) {
+              nameSpan.textContent = user.name + ' (' + (user.role === 'clinician' ? 'Clinician' : 'Patient') + ')';
+              banner.style.display = 'flex';
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    function clearActiveSession() {
+      localStorage.removeItem('identi_skin_user');
+      const banner = document.getElementById('active-session-banner');
+      if (banner) banner.style.display = 'none';
+    }
+
+    function quickDemoLanding(role) {
+      const user = role === 'clinician' ? {
+        name: 'Dr. Maria Santos',
+        email: 'dr.santos@pup.edu.ph',
+        role: 'clinician'
+      } : {
+        name: 'Juan Dela Cruz',
+        email: 'juan.delacruz@gmail.com',
+        role: 'patient'
+      };
+
+      localStorage.setItem('identi_skin_user', JSON.stringify(user));
+      window.location.href = 'app.html' + (role === 'clinician' ? '#panel' : '#patient');
+    }
+  </script>
+</body>
+</html>
