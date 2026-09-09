@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Node / Capacitor
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Android build outputs & caches
+.gradle/
+build/
+*/build/
+*/.gradle/
+local.properties
+.idea/
+*.iml
+*.log
+
+# Allow the built release/debug APK in phone-development/output
+!phone-development/output/identi-skin-debug.apk
+
+# OS files
+.DS_Store
+Thumbs.db

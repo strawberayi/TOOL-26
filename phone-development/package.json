@@ -1,0 +1,16 @@
+{
+  "name": "identi-skin",
+  "version": "1.0.0",
+  "description": "IDENTI-SKIN Android Application",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Frontend ready'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "appId": "ph.edu.pup.ccis.identiskin",
+  "appName": "IDENTI-SKIN",
+  "webDir": "../frontend",
+  "server": {
+    "androidScheme": "https"
+  }
+}

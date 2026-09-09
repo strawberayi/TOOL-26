@@ -12,6 +12,8 @@ Given an image, TOOL-26 isolates the most plausible skin region using dynamic K-
 | --- | --- |
 | [backend/masking_ita.py](backend/masking_ita.py) | The full pipeline: colour conversion, clustering, mask validation, ITA, brackets. Importable, no server required. |
 | [backend/api.py](backend/api.py) | FastAPI wrapper exposing a single `POST /analyze` upload endpoint. |
+| [frontend/](frontend/) | Web application interface (Clinical Workstation, Mobile Simulator, Landing & Auth). |
+| [phone-development/](phone-development/) | Android mobile app development workspace, build scripts, and compiled APK. |
 
 ---
 
