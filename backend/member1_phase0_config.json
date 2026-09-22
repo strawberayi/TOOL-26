@@ -1,0 +1,52 @@
+{
+  "version": "1.0.0-provisional",
+  "status": "PROVISIONAL_UNTIL_160_IMAGE_PILOT_APPROVAL",
+  "require_all_eight_classes": true,
+  "random_seed": 42,
+  "quality": {
+    "minimum_short_side": 256,
+    "minimum_laplacian_variance": 50.0,
+    "black_luma_max": 5,
+    "white_luma_min": 250,
+    "maximum_clipped_fraction": 0.30,
+    "minimum_luminance_span": 20.0
+  },
+  "deduplication": {
+    "phash_hamming_max": 6,
+    "minimum_correlation": 0.95
+  },
+  "split": {
+    "ratios": {"train": 0.70, "validation": 0.20, "test_a": 0.10}
+  },
+  "masking": {
+    "k_values": [2, 3, 4, 5],
+    "random_state": 42,
+    "n_init": 20,
+    "k_selection_max_side": 512,
+    "max_k_selection_pixels": 10000,
+    "max_silhouette_samples": 5000,
+    "l_min": 20.0,
+    "l_max": 90.0,
+    "a_min": -5.0,
+    "a_max": 35.0,
+    "b_min": 0.0,
+    "b_max": 50.0,
+    "shadow_l_threshold": 20.0,
+    "highlight_l_threshold": 95.0,
+    "maximum_shadow_fraction": 0.10,
+    "maximum_highlight_fraction": 0.10,
+    "minimum_pixel_plausibility_fraction": 0.85,
+    "mask_area_min_percent": 5.0,
+    "mask_area_max_percent": 85.0,
+    "minimum_valid_pixel_count": 1000,
+    "center_crop_width_ratio": 0.60,
+    "center_crop_height_ratio": 0.60,
+    "minimum_abs_b": 0.001,
+    "minimum_short_side": 256,
+    "minimum_laplacian_variance": 50.0,
+    "black_luma_max": 5,
+    "white_luma_min": 250,
+    "maximum_clipped_fraction": 0.30,
+    "minimum_luminance_span": 20.0
+  }
+}

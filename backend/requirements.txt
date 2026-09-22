@@ -1,0 +1,8 @@
+numpy>=2.0
+opencv-python>=4.10
+Pillow>=11.0
+scikit-learn>=1.5
+pandas>=2.2
+fastapi>=0.115
+python-multipart>=0.0.12
+uvicorn>=0.30

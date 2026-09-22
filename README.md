@@ -12,6 +12,8 @@ Given an image, TOOL-26 isolates the most plausible skin region using dynamic K-
 | --- | --- |
 | [backend/masking_ita.py](backend/masking_ita.py) | The full pipeline: colour conversion, clustering, mask validation, ITA, brackets. Importable, no server required. |
 | [backend/api.py](backend/api.py) | FastAPI wrapper exposing a single `POST /analyze` upload endpoint. |
+| [backend/run_member1_batch.py](backend/run_member1_batch.py) | Archive inventory, manifest cleaning/splitting, duplicate control, and Phase 0 batch export. |
+| [docs/member1_phase0_protocol.md](docs/member1_phase0_protocol.md) | Frozen-scope Member 1 methodology and pilot protocol. |
 | [frontend/](frontend/) | Web application interface (Clinical Workstation, Mobile Simulator, Landing & Auth). |
 | [phone-development/](phone-development/) | Android mobile app development workspace, build scripts, and compiled APK. |
 
@@ -65,6 +67,8 @@ For the API, additionally:
 pip install fastapi uvicorn python-multipart
 ```
 
+The complete reproducible dependency list is in `backend/requirements.txt`.
+
 ---
 
 ## Usage — Python module
@@ -93,7 +97,7 @@ for result in results:
     print(result.filename, result.status, result.ita, result.bracket)
 ```
 
-Files are processed in sorted filename order. Supported extensions default to `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tif`, `.tiff`.
+Files are processed in sorted filename order. Supported extensions default to `.jpg`, `.jpeg`, `.png`, `.webp`, `.tif`, `.tiff`.
 
 ### Export to CSV
 
@@ -171,7 +175,7 @@ Interactive docs are served at `http://127.0.0.1:8000/docs`.
 | `ita` | Individual Typology Angle, in degrees. |
 | `bracket` | `Darkest`, `Medium`, or `Lightest`. |
 | `calibration_eligible` | `True` only when a mask passed every validation step. |
-| `failure_reason` | Populated on failure, e.g. `NO_PLAUSIBLE_CLUSTER`, `MASK_AREA_OUT_OF_RANGE`, `LUMINANCE_OUT_OF_RANGE`, `EMPTY_MASK`. |
+| `failure_reason` | Populated on failure, e.g. `NO_PLAUSIBLE_CLUSTER`, `RESOLUTION_TOO_LOW`, or `ITA_UNSTABLE_B_ZERO`. |
 
 ---
 
@@ -185,8 +189,8 @@ from masking_ita import MaskingITAConfig, MaskingITAProcessor
 config = MaskingITAConfig(
     k_values=(2, 3, 4, 5),
     random_state=42,
-    n_init=10,
-    max_silhouette_samples=10_000,
+    n_init=20,
+    max_silhouette_samples=5_000,
 
     # plausible-skin Lab limits
     l_min=20.0, l_max=90.0,
@@ -194,17 +198,17 @@ config = MaskingITAConfig(
     b_min=0.0,  b_max=50.0,
 
     # mask area limits (% of image)
-    mask_area_min_percent=2.0,
-    mask_area_max_percent=70.0,
+    mask_area_min_percent=5.0,
+    mask_area_max_percent=85.0,
 
     # center-weighted fallback crop
     center_crop_width_ratio=0.60,
     center_crop_height_ratio=0.60,
 
     # numerical guard for ITA
-    minimum_abs_b=1e-6,
+    minimum_abs_b=0.001,
 
-    # standardize L*, a*, b* before K-Means
+    # Kept for backward compatibility; the protocol requires False.
     use_standardized_features=False,
 )
 
@@ -214,8 +218,8 @@ processor = MaskingITAProcessor(config)
 Notes:
 
 - `random_state` and the deterministic silhouette sampling make runs reproducible.
-- `use_standardized_features` changes the geometry K-Means sees — keep it constant across a calibration dataset.
-- Invalid configurations (e.g. `k < 2`, inverted area limits, crop ratios outside `(0, 1]`) raise `ValueError` at construction time.
+- The frozen protocol uses corrected, unstandardized LAB features; setting `use_standardized_features=True` is rejected.
+- Invalid configurations (e.g. changing the required k set, inverted area limits, or crop ratios outside `(0, 1]`) raise `ValueError` at construction time.
 
 ---
 

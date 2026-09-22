@@ -24,6 +24,10 @@ local.properties
 *.iml
 *.log
 
+# Generated calibration data (raw archives remain outside this repository)
+phase0_work/
+phase0_outputs/
+
 # Allow the built release/debug APK in phone-development/output
 !phone-development/output/identi-skin-debug.apk
 
