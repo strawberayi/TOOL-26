@@ -41,6 +41,11 @@ OUTPUT:
         mask_clahe_validation.csv
         image_ita_manifest.csv
         phase0_calibration.json
+        clahe_all_manifest.csv
+        clahe_all/
+            Darkest/
+            Medium/
+            Lightest/
         clahe_samples/
 """
 
@@ -57,6 +62,7 @@ from typing import Optional
 import cv2
 import numpy as np
 import pandas as pd
+from PIL import Image
 
 
 # ============================================================
@@ -243,22 +249,67 @@ def load_rgb_image(
 ) -> np.ndarray:
     """
     Load image as RGB.
+
+    Primary loader:
+        OpenCV
+
+    Fallback loader:
+        Pillow (PIL)
+
+    Some valid JPEG files can be opened by Pillow but fail
+    with cv2.imread() because of decoder/encoding differences.
+    The Pillow fallback keeps those valid images in the same
+    CLAHE pipeline instead of marking them as failed.
     """
+
+    image_path = Path(image_path)
+
+    # --------------------------------------------------------
+    # PRIMARY: OpenCV
+    # --------------------------------------------------------
 
     image = cv2.imread(
         str(image_path),
         cv2.IMREAD_COLOR
     )
 
-    if image is None:
-        raise FileNotFoundError(
-            f"Cannot read image: {image_path}"
+    if image is not None:
+        return cv2.cvtColor(
+            image,
+            cv2.COLOR_BGR2RGB
         )
 
-    return cv2.cvtColor(
-        image,
-        cv2.COLOR_BGR2RGB
-    )
+    # --------------------------------------------------------
+    # FALLBACK: Pillow
+    # --------------------------------------------------------
+
+    try:
+        with Image.open(image_path) as pil_image:
+            pil_image = pil_image.convert("RGB")
+            image_rgb = np.asarray(
+                pil_image,
+                dtype=np.uint8
+            )
+
+        # Make sure the array is contiguous for OpenCV operations.
+        image_rgb = np.ascontiguousarray(image_rgb)
+
+        if (
+            image_rgb.ndim != 3
+            or image_rgb.shape[2] != 3
+            or image_rgb.size == 0
+        ):
+            raise ValueError(
+                f"Invalid RGB image shape: {image_rgb.shape}"
+            )
+
+        return image_rgb
+
+    except Exception as exc:
+        raise FileNotFoundError(
+            f"Cannot read image with OpenCV or Pillow: "
+            f"{image_path} | {exc}"
+        ) from exc
 
 
 # ============================================================
@@ -1128,6 +1179,157 @@ def save_qc_samples(
 
 
 # ============================================================
+# #12 APPLY FROZEN CLAHE TO ALL TRAINING IMAGES
+# ============================================================
+
+def export_all_clahe(
+    dataframe: pd.DataFrame,
+    beta_mapping: dict,
+    output_dir: str | Path,
+    config: CLAHECalibrationConfig,
+) -> pd.DataFrame:
+    """
+    Apply the frozen ITA -> beta mapping to EVERY image in the
+    Member 1 manifest, not only calibration-eligible images.
+
+    Calibration uses only calibration_eligible=True images, but
+    the frozen beta values are then applied to the complete
+    training manifest. Therefore, if the manifest contains 1,776
+    training images, this function attempts to export 1,776 CLAHE
+    images.
+
+    No images are removed here. Any processing error is recorded
+    in the export manifest so the final count can be checked.
+    """
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Keep all final CLAHE images separated by their frozen ITA bracket.
+    # The bracket is determined by Member 1 ITA and is recorded in the
+    # export manifest.
+    bracket_dirs = {
+        "Darkest": output_dir / "Darkest",
+        "Medium": output_dir / "Medium",
+        "Lightest": output_dir / "Lightest",
+    }
+    for bracket_dir in bracket_dirs.values():
+        bracket_dir.mkdir(parents=True, exist_ok=True)
+
+    records = []
+    total = len(dataframe)
+
+    print("\n[5/7] Applying frozen CLAHE to ALL training images...")
+    print(f"Total images to export: {total}")
+
+    for index, (_, row) in enumerate(dataframe.iterrows(), start=1):
+        image_id = str(row["image_id"])
+        image_path = row["image_path"]
+        bracket = str(row["bracket"])
+
+        # Use the frozen beta corresponding to the image's ITA bracket.
+        if bracket not in beta_mapping:
+            records.append({
+                "image_id": image_id,
+                "disease_label": row.get("disease_label", ""),
+                "ITA": row.get("ITA", np.nan),
+                "bracket": bracket,
+                "selected_beta": np.nan,
+                "input_image": str(image_path),
+                "clahe_output": "",
+                "status": "FAILED",
+                "error": f"Unknown ITA bracket: {bracket}",
+            })
+            continue
+
+        beta = float(beta_mapping[bracket])
+        # Save the image inside the folder matching its ITA bracket.
+        output_path = bracket_dirs[bracket] / f"{image_id}_clahe.png"
+
+        try:
+            image = load_rgb_image(image_path)
+
+            enhanced = apply_clahe(
+                image_rgb=image,
+                beta=beta,
+                tile_grid_size=(
+                    config.tile_grid_width,
+                    config.tile_grid_height,
+                ),
+            )
+
+            ok = cv2.imwrite(
+                str(output_path),
+                cv2.cvtColor(enhanced, cv2.COLOR_RGB2BGR),
+            )
+
+            if not ok:
+                raise IOError(f"Failed to write output: {output_path}")
+
+            records.append({
+                "image_id": image_id,
+                "disease_label": row.get("disease_label", ""),
+                "ITA": row.get("ITA", np.nan),
+                "bracket": bracket,
+                "selected_beta": beta,
+                "input_image": str(image_path),
+                "clahe_output": str(output_path),
+                "status": "SUCCESS",
+                "error": "",
+            })
+
+        except Exception as exc:
+            records.append({
+                "image_id": image_id,
+                "disease_label": row.get("disease_label", ""),
+                "ITA": row.get("ITA", np.nan),
+                "bracket": bracket,
+                "selected_beta": beta,
+                "input_image": str(image_path),
+                "clahe_output": "",
+                "status": "FAILED",
+                "error": str(exc),
+            })
+
+        if index % 100 == 0 or index == total:
+            success_count = sum(
+                1 for record in records
+                if record["status"] == "SUCCESS"
+            )
+            print(
+                f"  Progress: {index}/{total} | "
+                f"successful: {success_count} | "
+                f"failed: {index - success_count}"
+            )
+
+    export_df = pd.DataFrame(records)
+    export_manifest = output_dir.parent / "clahe_all_manifest.csv"
+    export_df.to_csv(export_manifest, index=False)
+
+    success_count = int((export_df["status"] == "SUCCESS").sum())
+    failed_count = int((export_df["status"] == "FAILED").sum())
+
+    print("\nALL-IMAGE CLAHE EXPORT COMPLETE")
+    print(f"  Input images : {total}")
+    print(f"  Successful   : {success_count}")
+    print(f"  Failed       : {failed_count}")
+    print(f"  Manifest     : {export_manifest}")
+    print(f"  Output folder: {output_dir}")
+
+    if success_count > 0:
+        print("\n  OUTPUTS BY ITA BRACKET:")
+        for bracket_name in ["Darkest", "Medium", "Lightest"]:
+            bracket_success = int(((export_df["status"] == "SUCCESS") & (export_df["bracket"] == bracket_name)).sum())
+            print(f"    {bracket_name:<8}: {bracket_success}")
+            print(f"      Folder: {bracket_dirs[bracket_name]}")
+
+    if failed_count > 0:
+        print("\nWARNING: Some images were not exported. Check clahe_all_manifest.csv.")
+
+    return export_df
+
+
+# ============================================================
 # #12 FROZEN CONFIGURATION
 # ============================================================
 
@@ -1613,11 +1815,26 @@ def run_phase0_calibration(
     )
 
     # ========================================================
+    # #12 APPLY FROZEN SETTINGS TO ALL TRAINING IMAGES
+    # ========================================================
+
+    clahe_all_dir = output_dir / "clahe_all"
+
+    clahe_all_df = export_all_clahe(
+        dataframe=dataframe,
+        beta_mapping=beta_mapping,
+        output_dir=clahe_all_dir,
+        config=config,
+    )
+
+    clahe_all_manifest_path = output_dir / "clahe_all_manifest.csv"
+
+    # ========================================================
     # FINAL SUMMARY
     # ========================================================
 
     print(
-        "\n[6/6] Phase 0 complete."
+        "\n[7/7] Phase 0 complete."
     )
 
     print("\n" + "=" * 60)
@@ -1652,6 +1869,18 @@ def run_phase0_calibration(
         f"  {config_path}"
     )
 
+    print(
+        f"  {clahe_all_manifest_path}"
+    )
+
+    print(
+        f"  {clahe_all_dir}"
+    )
+
+    print(
+        f"  ALL-IMAGE CLAHE: {len(clahe_all_df)} rows"
+    )
+
     print("=" * 60)
 
     return {
@@ -1672,6 +1901,21 @@ def run_phase0_calibration(
 
         "validation_sheet":
             str(validation_path),
+
+        "clahe_all_manifest":
+            str(clahe_all_manifest_path),
+
+        "clahe_all_output_dir":
+            str(clahe_all_dir),
+
+        "clahe_all_count":
+            int(len(clahe_all_df)),
+
+        "clahe_all_success":
+            int((clahe_all_df["status"] == "SUCCESS").sum()),
+
+        "clahe_all_failed":
+            int((clahe_all_df["status"] == "FAILED").sum()),
     }
 
 

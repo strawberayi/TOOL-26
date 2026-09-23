@@ -1,0 +1,46 @@
+{
+    "phase": "phase0",
+    "configuration_version": "phase0_v1",
+    "calibration_date": "2026-09-23T20:02:43.440875",
+    "ITA_brackets": {
+        "Darkest": "ITA < 28",
+        "Medium": "28 <= ITA <= 41",
+        "Lightest": "ITA > 41"
+    },
+    "clip_limit_mapping": {
+        "ITA < 28": "beta_high",
+        "28 <= ITA <= 41": "beta_mid",
+        "ITA > 41": "beta_low"
+    },
+    "beta_high": 5.5,
+    "beta_mid": 5.5,
+    "beta_low": 5.5,
+    "beta_search": {
+        "start": 2.0,
+        "end": 10.0,
+        "step": 0.5
+    },
+    "CLAHE": {
+        "tile_grid_size": [
+            8,
+            8
+        ],
+        "channel": "L"
+    },
+    "validation": {
+        "noise_limit": 0.15,
+        "minimum_contrast_gain": 0.0,
+        "minimum_acceptance_rate": 0.8,
+        "contrast_metric": "variance of local contrast L - GaussianBlur(L), evaluated inside valid skin mask",
+        "noise_metric": "mean absolute L-channel change divided by 255, evaluated inside valid skin mask"
+    },
+    "random_seed": 42,
+    "calibration_dataset_version": "public_training_data",
+    "upstream_module": "masking_ita.py",
+    "upstream_requirements": [
+        "successful skin mask",
+        "ITA calculated from corrected CIELAB values",
+        "ITA bracket",
+        "calibration_eligible=True"
+    ]
+}

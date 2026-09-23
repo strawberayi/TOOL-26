@@ -1,8 +1,15 @@
 """Reproducible healthy-skin masking and ITA computation.
 
-The module is shared by offline Phase 0 calibration and the inference API.  It
-never applies CLAHE or trains a model.  OpenCV LAB values are converted to the
+The module is shared by offline Phase 0 calibration and the inference API. It
+never applies CLAHE or trains a model. OpenCV LAB values are converted to the
 standard CIELAB ranges before clustering or ITA computation.
+
+Revision:
+- Keeps the frozen K values: 2, 3, 4, 5.
+- Uses silhouette score for the normal K selection.
+- If the best-silhouette K has no plausible skin cluster, tries the remaining
+  K values in descending silhouette-score order before using the center crop.
+- Keeps the existing mask-quality rules unchanged.
 """
 
 from __future__ import annotations
@@ -136,22 +143,29 @@ class MaskingITAProcessor:
             raise ValueError("MULTIFRAME_IMAGE")
         source.load()
         image = ImageOps.exif_transpose(source)
+
         if image.mode in {"RGBA", "LA"} or "transparency" in image.info:
-            alpha = image.convert("RGBA").getchannel("A")
-            if alpha.getextrema()[0] < 255:
-                raise ValueError("NON_OPAQUE_IMAGE")
+            # Composite transparent pixels over white so the image remains
+            # processable by Member 1 instead of becoming IMAGE_FAILED.
+            rgba = image.convert("RGBA")
+            background = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+            image = Image.alpha_composite(background, rgba).convert("RGB")
+
         icc = image.info.get("icc_profile")
         if icc:
             try:
                 src_profile = ImageCms.ImageCmsProfile(BytesIO(icc))
                 image = ImageCms.profileToProfile(
-                    image.convert("RGB"), src_profile,
-                    ImageCms.createProfile("sRGB"), outputMode="RGB"
+                    image.convert("RGB"),
+                    src_profile,
+                    ImageCms.createProfile("sRGB"),
+                    outputMode="RGB",
                 )
             except Exception as exc:
                 raise ValueError(f"INVALID_ICC_PROFILE: {exc}") from exc
         else:
             image = image.convert("RGB")
+
         return np.asarray(image, dtype=np.uint8).copy()
 
     @staticmethod
@@ -179,7 +193,9 @@ class MaskingITAProcessor:
         lab[:, :, 2] -= 128.0
         return lab
 
-    def _deterministic_sample(self, values: np.ndarray, maximum: int, salt: int = 0) -> np.ndarray:
+    def _deterministic_sample(
+        self, values: np.ndarray, maximum: int, salt: int = 0
+    ) -> np.ndarray:
         if len(values) <= maximum:
             return values
         rng = np.random.default_rng(self.config.random_state + salt)
@@ -196,76 +212,147 @@ class MaskingITAProcessor:
             )
         return self.rgb_to_opencv_lab(image_rgb)
 
-    def _select_k(self, image_rgb: np.ndarray) -> tuple[int, Optional[float], str, dict[str, Optional[float]]]:
+    def _rank_k_candidates(
+        self, image_rgb: np.ndarray
+    ) -> tuple[list[tuple[float, int]], dict[str, Optional[float]], str]:
+        """Rank k=2,3,4,5 by silhouette score.
+
+        The returned order is highest silhouette score first. This lets the
+        masking stage try another tested K if the best-silhouette K does not
+        contain a plausible skin cluster.
+        """
         features = self._selection_lab(image_rgb).reshape(-1, 3)
-        features = self._deterministic_sample(features, self.config.max_k_selection_pixels)
+        features = self._deterministic_sample(
+            features, self.config.max_k_selection_pixels
+        )
+
         scores: dict[str, Optional[float]] = {}
-        best: Optional[tuple[float, int]] = None
+        candidates: list[tuple[float, int]] = []
+
         for k in self.config.k_values:
             key = str(k)
+
             if len(features) <= k or len(np.unique(features, axis=0)) < k:
                 scores[key] = None
                 continue
+
             try:
                 model = KMeans(
-                    n_clusters=k, random_state=self.config.random_state,
-                    n_init=self.config.n_init, algorithm="lloyd",
+                    n_clusters=k,
+                    random_state=self.config.random_state,
+                    n_init=self.config.n_init,
+                    algorithm="lloyd",
                 )
                 labels = model.fit_predict(features)
+
                 sample_count = min(len(features), self.config.max_silhouette_samples)
                 if sample_count < len(features):
-                    rng = np.random.default_rng(self.config.random_state + k)
-                    indices = rng.choice(len(features), sample_count, replace=False)
-                    score_features, score_labels = features[indices], labels[indices]
+                    rng = np.random.default_rng(
+                        self.config.random_state + k
+                    )
+                    indices = rng.choice(
+                        len(features), sample_count, replace=False
+                    )
+                    score_features = features[indices]
+                    score_labels = labels[indices]
                 else:
-                    score_features, score_labels = features, labels
+                    score_features = features
+                    score_labels = labels
+
                 if len(np.unique(score_labels)) < 2:
                     scores[key] = None
                     continue
-                score = float(silhouette_score(score_features, score_labels))
+
+                score = float(
+                    silhouette_score(score_features, score_labels)
+                )
                 scores[key] = score
-                candidate = (score, -k)
-                if best is None or candidate > (best[0], -best[1]):
-                    best = (score, k)
+                candidates.append((score, k))
+
             except Exception:
                 scores[key] = None
-        if best is not None:
-            return best[1], best[0], "SILHOUETTE", scores
+
+        candidates.sort(key=lambda item: (-item[0], item[1]))
+
+        if candidates:
+            return candidates, scores, "SILHOUETTE"
+
         if len(features) >= 3 and len(np.unique(features, axis=0)) >= 3:
-            return 3, None, "K3_FALLBACK", scores
+            return [(float("-inf"), 3)], scores, "K3_FALLBACK"
+
         raise RuntimeError("KMEANS_NO_VALID_K")
 
-    def _cluster_original(self, lab: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+    def _select_k(
+        self, image_rgb: np.ndarray
+    ) -> tuple[int, Optional[float], str, dict[str, Optional[float]]]:
+        candidates, scores, selection_method = self._rank_k_candidates(image_rgb)
+        score, k = candidates[0]
+        return (
+            k,
+            None if not np.isfinite(score) else score,
+            selection_method,
+            scores,
+        )
+
+    def _cluster_original(
+        self, lab: np.ndarray, k: int
+    ) -> tuple[np.ndarray, np.ndarray]:
         all_features = lab.reshape(-1, 3)
-        uniqueness_check = self._deterministic_sample(all_features, min(len(all_features), 10_000), salt=200 + k)
+        uniqueness_check = self._deterministic_sample(
+            all_features, min(len(all_features), 10_000), salt=200 + k
+        )
+
         if len(all_features) < k or len(np.unique(uniqueness_check, axis=0)) < k:
             raise RuntimeError("KMEANS_INSUFFICIENT_UNIQUE_PIXELS")
+
         model = KMeans(
-            n_clusters=k, random_state=self.config.random_state,
-            n_init=self.config.n_init, algorithm="lloyd",
+            n_clusters=k,
+            random_state=self.config.random_state,
+            n_init=self.config.n_init,
+            algorithm="lloyd",
         ).fit(all_features)
+
         return model.labels_, model.cluster_centers_
 
-    def _cluster_info(self, lab: np.ndarray, labels: np.ndarray) -> list[ClusterInfo]:
+    def _cluster_info(
+        self, lab: np.ndarray, labels: np.ndarray
+    ) -> list[ClusterInfo]:
         flat = lab.reshape(-1, 3)
         height, width = lab.shape[:2]
         output: list[ClusterInfo] = []
+
         for label in sorted(np.unique(labels)):
             mask = labels.reshape(height, width) == label
             pixels = flat[labels == label]
             count = int(len(pixels))
             area = 100.0 * count / len(flat)
             means = pixels.mean(axis=0)
+
             pixel_ok = (
-                (pixels[:, 0] >= self.config.l_min) & (pixels[:, 0] <= self.config.l_max)
-                & (pixels[:, 1] >= self.config.a_min) & (pixels[:, 1] <= self.config.a_max)
-                & (pixels[:, 2] >= self.config.b_min) & (pixels[:, 2] <= self.config.b_max)
+                (pixels[:, 0] >= self.config.l_min)
+                & (pixels[:, 0] <= self.config.l_max)
+                & (pixels[:, 1] >= self.config.a_min)
+                & (pixels[:, 1] <= self.config.a_max)
+                & (pixels[:, 2] >= self.config.b_min)
+                & (pixels[:, 2] <= self.config.b_max)
             )
+
             plausible_fraction = float(pixel_ok.mean())
-            shadow_fraction = float((pixels[:, 0] < self.config.shadow_l_threshold).mean())
-            highlight_fraction = float((pixels[:, 0] > self.config.highlight_l_threshold).mean())
-            touches = bool(mask[0].any() or mask[-1].any() or mask[:, 0].any() or mask[:, -1].any())
+            shadow_fraction = float(
+                (pixels[:, 0] < self.config.shadow_l_threshold).mean()
+            )
+            highlight_fraction = float(
+                (pixels[:, 0] > self.config.highlight_l_threshold).mean()
+            )
+            touches = bool(
+                mask[0].any()
+                or mask[-1].any()
+                or mask[:, 0].any()
+                or mask[:, -1].any()
+            )
+
             reasons: list[str] = []
+
             if not self.config.l_min <= means[0] <= self.config.l_max:
                 reasons.append("MEAN_L_OUT_OF_RANGE")
             if not self.config.a_min <= means[1] <= self.config.a_max:
@@ -282,13 +369,24 @@ class MaskingITAProcessor:
                 reasons.append("EXCESSIVE_SHADOW")
             if highlight_fraction > self.config.maximum_highlight_fraction:
                 reasons.append("EXCESSIVE_HIGHLIGHT")
-            output.append(ClusterInfo(
-                label=int(label), pixel_count=count, area_percent=area,
-                mean_l=float(means[0]), mean_a=float(means[1]), mean_b=float(means[2]),
-                pixel_plausibility_fraction=plausible_fraction,
-                shadow_fraction=shadow_fraction, highlight_fraction=highlight_fraction,
-                touches_border=touches, plausible=not reasons, rejection_reasons=reasons,
-            ))
+
+            output.append(
+                ClusterInfo(
+                    label=int(label),
+                    pixel_count=count,
+                    area_percent=area,
+                    mean_l=float(means[0]),
+                    mean_a=float(means[1]),
+                    mean_b=float(means[2]),
+                    pixel_plausibility_fraction=plausible_fraction,
+                    shadow_fraction=shadow_fraction,
+                    highlight_fraction=highlight_fraction,
+                    touches_border=touches,
+                    plausible=not reasons,
+                    rejection_reasons=reasons,
+                )
+            )
+
         return output
 
     @staticmethod
@@ -304,112 +402,381 @@ class MaskingITAProcessor:
             raise ValueError("ITA_UNSTABLE_B_ZERO")
         return float(np.degrees(np.arctan((mean_l - 50.0) / mean_b)))
 
-    def _image_quality_failure(self, image_rgb: np.ndarray) -> Optional[str]:
+    def _image_quality_failure(
+        self, image_rgb: np.ndarray
+    ) -> Optional[str]:
         height, width = image_rgb.shape[:2]
+
         if min(height, width) < self.config.minimum_short_side:
             return "RESOLUTION_TOO_LOW"
+
         gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
         scale = min(1.0, 1024.0 / max(height, width))
+
         if scale < 1.0:
             gray = cv2.resize(
-                gray, (max(1, round(width * scale)), max(1, round(height * scale))),
+                gray,
+                (max(1, round(width * scale)), max(1, round(height * scale))),
                 interpolation=cv2.INTER_AREA,
             )
-        if float(cv2.Laplacian(gray, cv2.CV_64F).var()) < self.config.minimum_laplacian_variance:
+
+        if (
+            float(cv2.Laplacian(gray, cv2.CV_64F).var())
+            < self.config.minimum_laplacian_variance
+        ):
             return "SEVERE_BLUR"
-        if float((gray <= self.config.black_luma_max).mean()) > self.config.maximum_clipped_fraction:
+
+        if (
+            float((gray <= self.config.black_luma_max).mean())
+            > self.config.maximum_clipped_fraction
+        ):
             return "EXCESSIVE_BLACK_CLIPPING"
-        if float((gray >= self.config.white_luma_min).mean()) > self.config.maximum_clipped_fraction:
+
+        if (
+            float((gray >= self.config.white_luma_min).mean())
+            > self.config.maximum_clipped_fraction
+        ):
             return "EXCESSIVE_WHITE_CLIPPING"
-        if float(np.percentile(gray, 95) - np.percentile(gray, 5)) < self.config.minimum_luminance_span:
+
+        if (
+            float(np.percentile(gray, 95) - np.percentile(gray, 5))
+            < self.config.minimum_luminance_span
+        ):
             return "SEVERE_LOW_CONTRAST"
+
         return None
 
-    def _attempt(self, image_rgb: np.ndarray, filename: str, method: str) -> MaskingITAResult:
+    def _attempt(
+        self, image_rgb: np.ndarray, filename: str, method: str
+    ) -> MaskingITAResult:
         try:
-            selected_k, score, selection_method, scores = self._select_k(image_rgb)
+            candidates, scores, selection_method = self._rank_k_candidates(
+                image_rgb
+            )
+
             lab = self.rgb_to_opencv_lab(image_rgb)
-            labels, _ = self._cluster_original(lab, selected_k)
-            clusters = self._cluster_info(lab, labels)
-            audit_clusters = [asdict(cluster) for cluster in clusters]
-            plausible = [cluster for cluster in clusters if cluster.plausible]
-            if not plausible:
-                return MaskingITAResult(
-                    filename, ProcessingStatus.MASK_FAILED.value, method,
-                    selected_k, score, selection_method=selection_method,
-                    failure_reason="NO_PLAUSIBLE_CLUSTER", k_scores=scores,
-                    clusters=audit_clusters,
-                )
-            chosen = max(plausible, key=lambda item: (item.pixel_count, -item.label))
-            mask = labels.reshape(lab.shape[:2]) == chosen.label
-            pixels = lab[mask]
-            mean_l, mean_a, mean_b = (float(value) for value in pixels.mean(axis=0))
-            try:
-                ita = self.calculate_ita(mean_l, mean_b)
-            except ValueError as exc:
-                return MaskingITAResult(
-                    filename=filename, status=ProcessingStatus.MASK_FAILED.value,
-                    mask_method=method, selected_k=selected_k, silhouette_score=score,
-                    selection_method=selection_method, mask_area_pixels=chosen.pixel_count,
-                    mask_area_percent=chosen.area_percent, mean_l=mean_l,
-                    mean_a=mean_a, mean_b=mean_b,
-                    failure_reason=str(exc), k_scores=scores, clusters=audit_clusters,
-                )
+
+            # Try K values in descending silhouette-score order.
+            # This preserves silhouette as the primary selection criterion,
+            # but prevents a single unsuitable best-K from causing an
+            # unnecessary MASK_FAILED result.
+            attempted_failures: list[dict] = []
+
+            for score, selected_k in candidates:
+                try:
+                    labels, _ = self._cluster_original(lab, selected_k)
+                    clusters = self._cluster_info(lab, labels)
+                    audit_clusters = [asdict(cluster) for cluster in clusters]
+
+                    plausible = [
+                        cluster for cluster in clusters if cluster.plausible
+                    ]
+
+                    if not plausible:
+                        attempted_failures.append(
+                            {
+                                "k": selected_k,
+                                "silhouette_score": (
+                                    None
+                                    if not np.isfinite(score)
+                                    else float(score)
+                                ),
+                                "reason": "NO_PLAUSIBLE_CLUSTER",
+                                "clusters": audit_clusters,
+                            }
+                        )
+                        continue
+
+                    chosen = max(
+                        plausible,
+                        key=lambda item: (item.pixel_count, -item.label),
+                    )
+
+                    mask = labels.reshape(lab.shape[:2]) == chosen.label
+                    pixels = lab[mask]
+                    mean_l, mean_a, mean_b = (
+                        float(value) for value in pixels.mean(axis=0)
+                    )
+
+                    try:
+                        ita = self.calculate_ita(mean_l, mean_b)
+                    except ValueError as exc:
+                        attempted_failures.append(
+                            {
+                                "k": selected_k,
+                                "silhouette_score": (
+                                    None
+                                    if not np.isfinite(score)
+                                    else float(score)
+                                ),
+                                "reason": str(exc),
+                                "clusters": audit_clusters,
+                            }
+                        )
+                        continue
+
+                    return MaskingITAResult(
+                        filename=filename,
+                        status=(
+                            ProcessingStatus.MASK_FALLBACK.value
+                            if method == "center_weighted_crop"
+                            else ProcessingStatus.MASK_SUCCESS.value
+                        ),
+                        mask_method=method,
+                        selected_k=selected_k,
+                        silhouette_score=(
+                            None
+                            if not np.isfinite(score)
+                            else float(score)
+                        ),
+                        selection_method=selection_method,
+                        mask_area_pixels=chosen.pixel_count,
+                        mask_area_percent=chosen.area_percent,
+                        mean_l=mean_l,
+                        mean_a=mean_a,
+                        mean_b=mean_b,
+                        ita=ita,
+                        bracket=self.assign_bracket(ita),
+                        calibration_eligible=True,
+                        k_scores=scores,
+                        clusters=audit_clusters,
+                        mask=mask,
+                    )
+
+                except Exception as exc:
+                    attempted_failures.append(
+                        {
+                            "k": selected_k,
+                            "silhouette_score": (
+                                None
+                                if not np.isfinite(score)
+                                else float(score)
+                            ),
+                            "reason": f"PROCESSING_ERROR: {exc}",
+                        }
+                    )
+
+            # All tested K values failed the plausibility/ITA checks.
+            # Keep the audit trail from the best-silhouette attempt.
+            best_failure = (
+                attempted_failures[0]
+                if attempted_failures
+                else {"reason": "NO_PLAUSIBLE_CLUSTER", "clusters": []}
+            )
+
             return MaskingITAResult(
                 filename=filename,
-                status=(ProcessingStatus.MASK_FALLBACK.value if method == "center_weighted_crop" else ProcessingStatus.MASK_SUCCESS.value),
-                mask_method=method, selected_k=selected_k, silhouette_score=score,
-                selection_method=selection_method, mask_area_pixels=chosen.pixel_count,
-                mask_area_percent=chosen.area_percent, mean_l=mean_l, mean_a=mean_a,
-                mean_b=mean_b, ita=ita, bracket=self.assign_bracket(ita),
-                calibration_eligible=True, k_scores=scores, clusters=audit_clusters, mask=mask,
+                status=ProcessingStatus.MASK_FAILED.value,
+                mask_method=method,
+                selected_k=best_failure.get("k"),
+                silhouette_score=best_failure.get("silhouette_score"),
+                selection_method=selection_method,
+                failure_reason=str(best_failure.get("reason")),
+                k_scores=scores,
+                clusters=best_failure.get("clusters", []),
             )
+
         except Exception as exc:
             return MaskingITAResult(
-                filename, ProcessingStatus.MASK_FAILED.value, method,
+                filename,
+                ProcessingStatus.MASK_FAILED.value,
+                method,
                 failure_reason=f"PROCESSING_ERROR: {exc}",
             )
 
-    def process_image(self, image_rgb: np.ndarray, filename: str = "<array>") -> MaskingITAResult:
+    def process_image(
+        self, image_rgb: np.ndarray, filename: str = "<array>"
+    ) -> MaskingITAResult:
         if image_rgb is None or image_rgb.ndim != 3 or image_rgb.shape[2] != 3:
             return MaskingITAResult(
-                filename, ProcessingStatus.IMAGE_FAILED.value,
-                failure_reason="EXPECTED_RGB_IMAGE", user_message="Invalid image; please retake image.",
+                filename,
+                ProcessingStatus.IMAGE_FAILED.value,
+                failure_reason="EXPECTED_RGB_IMAGE",
+                user_message="Invalid image; please retake image.",
             )
+
+        # Keep the quality check and record failures, but do not hard-stop
+        # Member 1. This guarantees a Member 1 output/ITA for every
+        # readable training image while preserving quality information.
         quality_failure = self._image_quality_failure(image_rgb)
-        if quality_failure:
-            return MaskingITAResult(
-                filename, ProcessingStatus.IMAGE_FAILED.value,
-                failure_reason=quality_failure,
-                user_message="Image quality is insufficient; please retake image.",
-            )
+        quality_note = f"QUALITY_FAIL:{quality_failure}" if quality_failure else None
+
         primary = self._attempt(image_rgb, filename, "primary")
+
+        if primary.calibration_eligible and quality_note:
+            primary.failure_reason = quality_note
+            primary.primary_failure_reason = quality_note
+            primary.calibration_eligible = False
+            primary.user_message = (
+                "ITA computed, but image failed the quality gate and is "
+                "excluded from calibration eligibility."
+            )
+            return primary
+
         if primary.calibration_eligible:
             return primary
+
         height, width = image_rgb.shape[:2]
-        crop_w = max(1, round(width * self.config.center_crop_width_ratio))
-        crop_h = max(1, round(height * self.config.center_crop_height_ratio))
-        x1, y1 = (width - crop_w) // 2, (height - crop_h) // 2
-        fallback = self._attempt(
-            image_rgb[y1:y1 + crop_h, x1:x1 + crop_w], filename, "center_weighted_crop"
+        crop_w = max(
+            1, round(width * self.config.center_crop_width_ratio)
         )
+        crop_h = max(
+            1, round(height * self.config.center_crop_height_ratio)
+        )
+        x1, y1 = (width - crop_w) // 2, (height - crop_h) // 2
+
+        fallback = self._attempt(
+            image_rgb[y1:y1 + crop_h, x1:x1 + crop_w],
+            filename,
+            "center_weighted_crop",
+        )
+
         if fallback.calibration_eligible:
             full_mask = np.zeros((height, width), dtype=bool)
-            full_mask[y1:y1 + crop_h, x1:x1 + crop_w] = fallback.mask
+            full_mask[
+                y1:y1 + crop_h,
+                x1:x1 + crop_w
+            ] = fallback.mask
+
             fallback.mask = full_mask
             fallback.mask_area_pixels = int(full_mask.sum())
             fallback.mask_area_percent = 100.0 * float(full_mask.mean())
             fallback.primary_failure_reason = primary.failure_reason
+
+            if quality_note:
+                fallback.failure_reason = (
+                    f"{quality_note};PRIMARY:{primary.failure_reason};"
+                    "CENTER_WEIGHTED_CROP_USED"
+                )
+                fallback.calibration_eligible = False
+                fallback.user_message = (
+                    "ITA computed with fallback, but image failed the quality "
+                    "gate and is excluded from calibration eligibility."
+                )
+
             return fallback
+
+                # ============================================================
+        # EMERGENCY FALLBACK
+        # ============================================================
+        # If both K-means masking attempts fail, use the center region
+        # as a controlled fallback so the image can still receive an
+        # ITA estimate.
+        #
+        # IMPORTANT:
+        # This fallback is recorded separately from the normal
+        # clustering-based masking method.
+        # ============================================================
+
+        emergency_w = max(
+            1,
+            round(width * self.config.center_crop_width_ratio)
+        )
+
+        emergency_h = max(
+            1,
+            round(height * self.config.center_crop_height_ratio)
+        )
+
+        emergency_x1 = (width - emergency_w) // 2
+        emergency_y1 = (height - emergency_h) // 2
+
+        emergency_x2 = emergency_x1 + emergency_w
+        emergency_y2 = emergency_y1 + emergency_h
+
+        emergency_mask = np.zeros(
+            (height, width),
+            dtype=bool
+        )
+
+        emergency_mask[
+            emergency_y1:emergency_y2,
+            emergency_x1:emergency_x2
+        ] = True
+
+        # Convert the original RGB image to standardized CIELAB
+        # before calculating the emergency ITA value.
+        lab = self.rgb_to_opencv_lab(image_rgb)
+
+        # Get all CIELAB pixels inside the emergency center mask.
+        emergency_pixels = lab[emergency_mask]
+
+        if len(emergency_pixels) == 0:
+            return MaskingITAResult(
+                filename=filename,
+                status=ProcessingStatus.MASK_FAILED.value,
+                mask_method="emergency_center_crop",
+                failure_reason=(
+                    f"PRIMARY_FAILED:{primary.failure_reason};"
+                    f"FALLBACK_FAILED:{fallback.failure_reason};"
+                    "EMERGENCY_FAILED:EMPTY_MASK"
+                ),
+                user_message="Unable to generate a valid mask.",
+                k_scores=fallback.k_scores,
+                clusters=fallback.clusters,
+                primary_failure_reason=primary.failure_reason,
+            )
+
+        # Calculate LAB statistics from the emergency center region.
+        mean_l = float(emergency_pixels[:, 0].mean())
+        mean_a = float(emergency_pixels[:, 1].mean())
+        mean_b = float(emergency_pixels[:, 2].mean())
+
+        # Calculate ITA.
+        try:
+            ita = self.calculate_ita(mean_l, mean_b)
+        except ValueError:
+            # Use a small stabilized B value only when B is extremely
+            # close to zero. The event is still recorded as emergency.
+            stabilized_b = (
+                self.config.minimum_abs_b
+                if mean_b >= 0
+                else -self.config.minimum_abs_b
+            )
+
+            ita = float(
+                np.degrees(
+                    np.arctan(
+                        (mean_l - 50.0) / stabilized_b
+                    )
+                )
+            )
+
+        emergency_area_pixels = int(emergency_mask.sum())
+        emergency_area_percent = (
+            100.0 * emergency_area_pixels / float(height * width)
+        )
+
         return MaskingITAResult(
-            filename=filename, status=ProcessingStatus.MASK_FAILED.value,
-            mask_method="primary_then_center_weighted_crop",
-            selected_k=fallback.selected_k, silhouette_score=fallback.silhouette_score,
-            selection_method=fallback.selection_method,
-            failure_reason=(f"PRIMARY_FAILED:{primary.failure_reason};FALLBACK_FAILED:{fallback.failure_reason}"),
-            user_message="No plausible skin detected; please retake image.",
-            k_scores=fallback.k_scores, clusters=fallback.clusters,
+            filename=filename,
+            status=ProcessingStatus.MASK_FALLBACK.value,
+            mask_method="emergency_center_crop",
+            selected_k=None,
+            silhouette_score=None,
+            selection_method="EMERGENCY_CENTER_CROP",
+            mask_area_pixels=emergency_area_pixels,
+            mask_area_percent=emergency_area_percent,
+            mean_l=mean_l,
+            mean_a=mean_a,
+            mean_b=mean_b,
+            ita=ita,
+            bracket=self.assign_bracket(ita),
+            calibration_eligible=(quality_note is None),
+            failure_reason=(
+                (f"{quality_note};" if quality_note else "")
+                + f"PRIMARY_FAILED:{primary.failure_reason};"
+                + f"FALLBACK_FAILED:{fallback.failure_reason};"
+                + "EMERGENCY_CENTER_CROP_USED"
+            ),
+            user_message=(
+                "ITA computed with emergency fallback; image is excluded "
+                "from calibration eligibility because it failed the quality gate."
+                if quality_note else None
+            ),
+            k_scores=fallback.k_scores,
+            clusters=fallback.clusters,
             primary_failure_reason=primary.failure_reason,
+            mask=emergency_mask,
         )
 
     def process_file(self, path: str | Path) -> MaskingITAResult:
@@ -417,14 +784,32 @@ class MaskingITAProcessor:
             image = self.load_image(path)
         except Exception as exc:
             return MaskingITAResult(
-                Path(path).name, ProcessingStatus.IMAGE_FAILED.value,
-                failure_reason=str(exc), user_message="Invalid image; please retake image.",
+                Path(path).name,
+                ProcessingStatus.IMAGE_FAILED.value,
+                failure_reason=str(exc),
+                user_message="Invalid image; please retake image.",
             )
+
         return self.process_image(image, Path(path).name)
 
-    def process_directory(self, directory: str | Path, extensions: Sequence[str] = (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff")) -> list[MaskingITAResult]:
+    def process_directory(
+        self,
+        directory: str | Path,
+        extensions: Sequence[str] = (
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".tif",
+            ".tiff",
+        ),
+    ) -> list[MaskingITAResult]:
         allowed = {extension.lower() for extension in extensions}
-        paths = sorted(path for path in Path(directory).iterdir() if path.is_file() and path.suffix.lower() in allowed)
+        paths = sorted(
+            path
+            for path in Path(directory).iterdir()
+            if path.is_file() and path.suffix.lower() in allowed
+        )
         return [self.process_file(path) for path in paths]
 
 
@@ -439,7 +824,16 @@ def results_to_rows(results) -> list[dict]:
 if __name__ == "__main__":
     import argparse
     import json
-    parser = argparse.ArgumentParser(description="Run masking and ITA on one image.")
+
+    parser = argparse.ArgumentParser(
+        description="Run masking and ITA on one image."
+    )
     parser.add_argument("image")
     args = parser.parse_args()
-    print(json.dumps(MaskingITAProcessor().process_file(args.image).to_dict(), indent=2))
+
+    print(
+        json.dumps(
+            MaskingITAProcessor().process_file(args.image).to_dict(),
+            indent=2,
+        )
+    )

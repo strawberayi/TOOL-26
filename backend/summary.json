@@ -1,0 +1,25 @@
+{
+  "total_train_attempted": 1776,
+  "mask_ita_success": 943,
+  "mask_ita_failed": 833,
+  "by_status": {
+    "MASK_SUCCESS": 1737,
+    "MASK_FALLBACK": 39
+  },
+  "by_disease": {
+    "Varicella": 214,
+    "HFMD": 218,
+    "Molluscum": 212,
+    "Impetigo": 222,
+    "Tinea corporis": 226,
+    "Tinea versicolor": 213,
+    "Warts": 252,
+    "Tinea pedis": 219
+  },
+  "by_proxy_group": {
+    "UNKNOWN": 1776
+  },
+  "by_source": {
+    "LOCAL_TRAIN_DATASET": 1776
+  }
+}

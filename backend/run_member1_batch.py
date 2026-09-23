@@ -306,167 +306,549 @@ def build_supplemental_manifest(
 
 
 def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> Path:
-    config, config_hash = load_config(config_path)
-    rows = read_csv(input_path)
-    required = {"image_path", "disease_label", "source_repository"}
-    if not rows or not required.issubset(rows[0]):
-        raise ValueError(f"Input CSV must contain: {sorted(required)}")
-    present_classes = {row["disease_label"].strip() for row in rows}
-    if config.get("require_all_eight_classes", True) and present_classes != DISEASE_LABELS:
-        raise ValueError(
-            f"Phase 0 requires all eight classes; missing={sorted(DISEASE_LABELS - present_classes)}, "
-            f"unexpected={sorted(present_classes - DISEASE_LABELS)}"
-        )
-    supplied_ids = [row.get("image_id", "").strip() for row in rows if row.get("image_id", "").strip()]
-    if len(supplied_ids) != len(set(supplied_ids)):
-        raise ValueError("Input manifest contains duplicate image_id values.")
-    ratios = config["split"]["ratios"]
-    if set(ratios) != {"train", "validation", "test_a"} or not np.isclose(sum(ratios.values()), 1.0):
-        raise ValueError("Split ratios must contain train/validation/test_a and sum to 1.0.")
+    """
+    Prepare the existing TRAIN dataset for Member 1 masking.
 
+    IMPORTANT:
+    The input manifest is already the TRAIN dataset.
+    This function does NOT create a new 70/20/10 split.
+
+    Every input record is kept as:
+        split = "train"
+
+    Only images that PASS quality checking and are UNIQUE
+    are marked as calibration_eligible for masking/ITA.
+    """
+
+    config, config_hash = load_config(config_path)
+
+    # ============================================================
+    # 1. READ INPUT MANIFEST
+    # ============================================================
+    rows = read_csv(input_path)
+
+    required = {
+        "image_path",
+        "disease_label",
+        "source_repository",
+    }
+
+    if not rows or not required.issubset(rows[0]):
+        raise ValueError(
+            f"Input CSV must contain: {sorted(required)}"
+        )
+
+    # ============================================================
+    # 2. VERIFY ALL 8 DISEASE CLASSES
+    # ============================================================
+    present_classes = {
+        row["disease_label"].strip()
+        for row in rows
+    }
+
+    if config.get("require_all_eight_classes", True):
+        missing = DISEASE_LABELS - present_classes
+        unexpected = present_classes - DISEASE_LABELS
+
+        if missing or unexpected:
+            raise ValueError(
+                f"Phase 0 requires all eight classes; "
+                f"missing={sorted(missing)}, "
+                f"unexpected={sorted(unexpected)}"
+            )
+
+    # ============================================================
+    # 3. CHECK IMAGE IDS
+    # ============================================================
+    supplied_ids = [
+        row.get("image_id", "").strip()
+        for row in rows
+        if row.get("image_id", "").strip()
+    ]
+
+    if len(supplied_ids) != len(set(supplied_ids)):
+        raise ValueError(
+            "Input manifest contains duplicate image_id values."
+        )
+
+    # ============================================================
+    # 4. STANDARDIZED IMAGE OUTPUT DIRECTORY
+    # ============================================================
     standardized_dir = output_dir / "standardized"
-    standardized_dir.mkdir(parents=True, exist_ok=True)
+    standardized_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
     records: list[dict[str, Any]] = []
     hashes: list[str | None] = []
     phashes: list[int | None] = []
     signatures: list[np.ndarray | None] = []
 
+    # ============================================================
+    # 5. IMAGE STANDARDIZATION + QUALITY SCREENING
+    # ============================================================
     for source_row in rows:
-        raw_path = Path(source_row["image_path"]).expanduser().resolve()
+
+        raw_path = (
+            Path(source_row["image_path"])
+            .expanduser()
+            .resolve()
+        )
+
         disease = source_row["disease_label"].strip()
         repository = source_row["source_repository"].strip()
+
         if disease not in DISEASE_LABELS:
-            raise ValueError(f"Unknown disease label: {disease}")
+            raise ValueError(
+                f"Unknown disease label: {disease}"
+            )
+
         if not repository:
-            raise ValueError(f"Missing source_repository for {raw_path}")
-        image_id = source_row.get("image_id", "").strip() or stable_id(repository, str(raw_path))
+            raise ValueError(
+                f"Missing source_repository for {raw_path}"
+            )
+
+        image_id = (
+            source_row.get("image_id", "").strip()
+            or stable_id(repository, str(raw_path))
+        )
+
         record: dict[str, Any] = dict(source_row)
+
+        # IMPORTANT:
+        # This dataset is already TRAIN.
         record.update({
-            "image_id": image_id, "unique_id": image_id, "raw_image_path": str(raw_path),
-            "data_origin": "public", "disease_label": disease,
-            "source_repository": repository, "processed_image_path": "",
-            "image_quality_status": "REJECTED", "quality_reason": "",
-            "duplicate_status": "NOT_EVALUATED", "canonical_image_id": "",
-            "lineage_group_id": "", "split": "", "calibration_eligible": False,
+            "image_id": image_id,
+            "unique_id": image_id,
+            "raw_image_path": str(raw_path),
+            "data_origin": "public",
+            "disease_label": disease,
+            "source_repository": repository,
+            "processed_image_path": "",
+            "image_quality_status": "REJECTED",
+            "quality_reason": "",
+            "duplicate_status": "NOT_EVALUATED",
+            "canonical_image_id": "",
+            "lineage_group_id": "",
+            "split": "train",
+            "calibration_eligible": False,
         })
+
         try:
+            # ----------------------------------------------------
+            # CHECK FORMAT
+            # ----------------------------------------------------
             with Image.open(raw_path) as probe:
-                source_format = (probe.format or "").upper()
+                source_format = (
+                    probe.format or ""
+                ).upper()
+
             if source_format not in ACCEPTED_FORMATS:
-                raise ValueError(f"UNSUPPORTED_FORMAT:{source_format or 'UNKNOWN'}")
-            rgb = MaskingITAProcessor.load_image(raw_path)
-            status, reason, metrics = quality_metrics(rgb, config["quality"])
-            manual_status = source_row.get("manual_quality_status", "PASS").strip().upper() or "PASS"
+                raise ValueError(
+                    f"UNSUPPORTED_FORMAT:"
+                    f"{source_format or 'UNKNOWN'}"
+                )
+
+            # ----------------------------------------------------
+            # LOAD IMAGE
+            # ----------------------------------------------------
+            rgb = MaskingITAProcessor.load_image(
+                raw_path
+            )
+
+            # ----------------------------------------------------
+            # QUALITY CHECK
+            # ----------------------------------------------------
+            status, reason, metrics = quality_metrics(
+                rgb,
+                config["quality"]
+            )
+
+            manual_status = (
+                source_row
+                .get("manual_quality_status", "PASS")
+                .strip()
+                .upper()
+                or "PASS"
+            )
+
             if manual_status != "PASS":
-                status, reason = "REJECTED", f"MANUAL_{manual_status}"
-            processed_path = standardized_dir / f"{image_id}.png"
-            Image.fromarray(rgb).save(processed_path, format="PNG", optimize=False)
+                status = "REJECTED"
+                reason = f"MANUAL_{manual_status}"
+
+            # ----------------------------------------------------
+            # SAVE STANDARDIZED PNG
+            # ----------------------------------------------------
+            processed_path = (
+                standardized_dir
+                / f"{image_id}.png"
+            )
+
+            Image.fromarray(rgb).save(
+                processed_path,
+                format="PNG",
+                optimize=False
+            )
+
+            # ----------------------------------------------------
+            # IMAGE HASH
+            # ----------------------------------------------------
             normalized_hash = hashlib.sha256(
-                f"{rgb.shape}".encode("ascii") + rgb.tobytes()
+                f"{rgb.shape}".encode("ascii")
+                + rgb.tobytes()
             ).hexdigest()
+
             record.update(metrics)
+
             record.update({
-                "source_format": source_format, "processed_image_path": str(processed_path.resolve()),
-                "image_quality_status": status, "quality_reason": reason,
+                "source_format": source_format,
+                "processed_image_path": str(
+                    processed_path.resolve()
+                ),
+                "image_quality_status": status,
+                "quality_reason": reason,
                 "normalized_sha256": normalized_hash,
             })
+
             hashes.append(normalized_hash)
             phashes.append(perceptual_hash(rgb))
             signatures.append(visual_signature(rgb))
+
         except Exception as exc:
+
             record["quality_reason"] = str(exc)
-            hashes.append(None); phashes.append(None); signatures.append(None)
+
+            hashes.append(None)
+            phashes.append(None)
+            signatures.append(None)
+
         records.append(record)
 
-    candidates = [index for index, row in enumerate(records) if row["image_quality_status"] == "PASS"]
+    # ============================================================
+    # 6. DUPLICATE DETECTION
+    # ============================================================
+    candidates = [
+        index
+        for index, row in enumerate(records)
+        if row["image_quality_status"] == "PASS"
+    ]
+
     groups = DisjointSet(len(records))
+
+    # ------------------------------------------------------------
+    # EXACT DUPLICATES
+    # ------------------------------------------------------------
     exact_seen: dict[str, int] = {}
+
     for index in candidates:
+
         digest = hashes[index]
+
         if digest in exact_seen:
-            groups.union(index, exact_seen[digest])
+            groups.union(
+                index,
+                exact_seen[digest]
+            )
         else:
             exact_seen[digest] = index
+
+    # ------------------------------------------------------------
+    # NEAR DUPLICATES
+    # ------------------------------------------------------------
     for position, left in enumerate(candidates):
+
         for right in candidates[position + 1:]:
+
             if groups.find(left) == groups.find(right):
                 continue
-            if (phashes[left] ^ phashes[right]).bit_count() <= config["deduplication"]["phash_hamming_max"]:
-                if signature_correlation(signatures[left], signatures[right]) >= config["deduplication"]["minimum_correlation"]:
-                    groups.union(left, right)
 
-    components: dict[int, list[int]] = defaultdict(list)
+            if (
+                phashes[left]
+                ^ phashes[right]
+            ).bit_count() <= config[
+                "deduplication"
+            ]["phash_hamming_max"]:
+
+                if (
+                    signature_correlation(
+                        signatures[left],
+                        signatures[right]
+                    )
+                    >= config[
+                        "deduplication"
+                    ]["minimum_correlation"]
+                ):
+                    groups.union(
+                        left,
+                        right
+                    )
+
+    # ============================================================
+    # 7. BUILD DUPLICATE GROUPS
+    # ============================================================
+    components: dict[
+        int,
+        list[int]
+    ] = defaultdict(list)
+
     for index in candidates:
-        components[groups.find(index)].append(index)
+        components[
+            groups.find(index)
+        ].append(index)
+
+    # ============================================================
+    # 8. SELECT CANONICAL IMAGE
+    # ============================================================
     for component in components.values():
-        labels = {records[index]["disease_label"] for index in component}
+
+        labels = {
+            records[index]["disease_label"]
+            for index in component
+        }
+
         if len(labels) != 1:
-            raise ValueError(f"Duplicate group has conflicting disease labels: {[records[i]['image_id'] for i in component]}")
+            raise ValueError(
+                "Duplicate group has conflicting "
+                f"disease labels: "
+                f"{[records[i]['image_id'] for i in component]}"
+            )
+
         representative = max(
             component,
             key=lambda index: (
-                float(records[index].get("laplacian_variance", 0)),
-                int(records[index].get("short_side", 0)),
+                float(
+                    records[index].get(
+                        "laplacian_variance",
+                        0
+                    )
+                ),
+                int(
+                    records[index].get(
+                        "short_side",
+                        0
+                    )
+                ),
                 records[index]["image_id"],
             ),
         )
+
         for index in component:
-            records[index]["canonical_image_id"] = records[representative]["image_id"]
+
+            records[index][
+                "canonical_image_id"
+            ] = records[
+                representative
+            ]["image_id"]
+
             if index == representative:
-                records[index]["duplicate_status"] = "UNIQUE"
+
+                records[index][
+                    "duplicate_status"
+                ] = "UNIQUE"
+
             else:
-                records[index]["duplicate_status"] = (
-                    "EXACT_DUPLICATE_EXCLUDED" if hashes[index] == hashes[representative]
+
+                records[index][
+                    "duplicate_status"
+                ] = (
+                    "EXACT_DUPLICATE_EXCLUDED"
+                    if hashes[index]
+                    == hashes[representative]
                     else "NEAR_DUPLICATE_EXCLUDED"
                 )
-                records[index]["calibration_eligible"] = False
-    for index, record in enumerate(records):
-        if record["image_quality_status"] != "PASS":
-            record["duplicate_status"] = "NOT_EVALUATED"
 
-    eligible = [row for row in records if row["image_quality_status"] == "PASS" and row["duplicate_status"] == "UNIQUE"]
+                records[index][
+                    "calibration_eligible"
+                ] = False
+
+    # ============================================================
+    # 9. MARK QUALITY-FAILED IMAGES
+    # ============================================================
+    for record in records:
+
+        if (
+            record["image_quality_status"]
+            != "PASS"
+        ):
+            record[
+                "duplicate_status"
+            ] = "NOT_EVALUATED"
+
+    # ============================================================
+    # 10. BUILD ELIGIBLE TRAINING RECORDS
+    # ============================================================
+    eligible = [
+        row
+        for row in records
+        if (
+            row["image_quality_status"]
+            == "PASS"
+            and
+            row["duplicate_status"]
+            == "UNIQUE"
+        )
+    ]
+
+    # ============================================================
+    # 11. LINEAGE GROUPING
+    # ============================================================
     for row in eligible:
-        supplied = row.get("source_item_id", "").strip() or row.get("lineage_id", "").strip()
-        row["lineage_group_id"] = supplied or stable_id("lineage", row["canonical_image_id"])
-    lineage_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+        supplied = (
+            row.get("source_item_id", "").strip()
+            or row.get("lineage_id", "").strip()
+        )
+
+        row["lineage_group_id"] = (
+            supplied
+            or stable_id(
+                "lineage",
+                row["canonical_image_id"]
+            )
+        )
+
+    lineage_rows: dict[
+        str,
+        list[dict[str, Any]]
+    ] = defaultdict(list)
+
     for row in eligible:
-        lineage_rows[row["lineage_group_id"]].append(row)
-    for lineage, members in lineage_rows.items():
-        if len({member["disease_label"] for member in members}) != 1:
-            raise ValueError(f"Lineage {lineage} contains conflicting labels.")
+        lineage_rows[
+            row["lineage_group_id"]
+        ].append(row)
 
-    strata: dict[tuple[str, str], list[tuple[str, list[dict[str, Any]]]]] = defaultdict(list)
+    # ============================================================
+    # 12. VALIDATE LINEAGES
+    # ============================================================
     for lineage, members in lineage_rows.items():
-        tones = {member.get("proxy_skin_tone_group", "").strip().upper() for member in members}
-        tones.discard("")
-        tone = next(iter(tones)) if len(tones) == 1 else "UNKNOWN"
-        if tone not in {"A", "B", "UNKNOWN"}:
-            raise ValueError(f"Invalid proxy_skin_tone_group in lineage {lineage}")
-        strata[(members[0]["disease_label"], tone)].append((lineage, members))
-    seed = int(config["random_seed"])
-    for groups_in_stratum in strata.values():
-        groups_in_stratum.sort(key=lambda item: hashlib.sha256(f"{seed}:{item[0]}".encode()).hexdigest())
-        total = sum(len(members) for _, members in groups_in_stratum)
-        targets = {name: total * float(ratio) for name, ratio in ratios.items()}
-        assigned = {name: 0 for name in ratios}
-        for _, members in groups_in_stratum:
-            split = max(ratios, key=lambda name: (targets[name] - assigned[name]) / max(targets[name], 1.0))
-            for member in members:
-                member["split"] = split
-                member["calibration_eligible"] = split == "train"
-            assigned[split] += len(members)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "cleaned_split_manifest.csv"
-    write_csv(output_path, records)
+        if (
+            len({
+                member["disease_label"]
+                for member in members
+            })
+            != 1
+        ):
+            raise ValueError(
+                f"Lineage {lineage} "
+                "contains conflicting labels."
+            )
+
+    # ============================================================
+    # 13. KEEP ALL PROVIDED DATA AS TRAIN
+    # ============================================================
+    #
+    # IMPORTANT:
+    # The old code created a new 70/20/10 split here.
+    # That behavior has been removed.
+    #
+    # Every record supplied to this function remains TRAIN.
+    #
+    # Only PASS + UNIQUE records are calibration/masking eligible.
+    # ============================================================
+
+    for record in records:
+
+        record["split"] = "train"
+
+        record["calibration_eligible"] = (
+            record["image_quality_status"]
+            == "PASS"
+            and
+            record["duplicate_status"]
+            == "UNIQUE"
+        )
+
+    # ============================================================
+    # 14. WRITE CLEANED MANIFEST
+    # ============================================================
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    output_path = (
+        output_dir
+        / "cleaned_split_manifest.csv"
+    )
+
+    write_csv(
+        output_path,
+        records
+    )
+
+    # ============================================================
+    # 15. METADATA
+    # ============================================================
     metadata = {
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "scope": "global_public_dataset", "config_sha256": config_hash,
-        "input_manifest_sha256": file_sha256(input_path), "counts": dict(Counter(row["split"] or "excluded" for row in records)),
-    }
-    (output_dir / "manifest_preparation_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    return output_path
+        "created_at_utc":
+            datetime.now(
+                timezone.utc
+            ).isoformat(),
 
+        "scope":
+            "existing_train_dataset",
+
+        "config_sha256":
+            config_hash,
+
+        "input_manifest_sha256":
+            file_sha256(input_path),
+
+        "counts":
+            dict(
+                Counter(
+                    row["split"]
+                    or "excluded"
+                    for row in records
+                )
+            ),
+
+        "total_records":
+            len(records),
+
+        "eligible_train_count":
+            sum(
+                1
+                for row in records
+                if row["calibration_eligible"]
+            ),
+
+        "disease_counts":
+            dict(
+                Counter(
+                    row["disease_label"]
+                    for row in records
+                )
+            ),
+
+        "eligible_disease_counts":
+            dict(
+                Counter(
+                    row["disease_label"]
+                    for row in records
+                    if row["calibration_eligible"]
+                )
+            ),
+
+        "note":
+            "All provided records were retained as train. "
+            "No new train/validation/test split was created."
+    }
+
+    (
+        output_dir
+        / "manifest_preparation_metadata.json"
+    ).write_text(
+        json.dumps(
+            metadata,
+            indent=2
+        ),
+        encoding="utf-8"
+    )
+
+    return output_path
 
 def runtime_metadata(config_hash: str, manifest_path: Path, random_seed: int) -> dict[str, Any]:
     return {
@@ -560,11 +942,21 @@ def run_phase0(manifest_path: Path, output_dir: Path, config_path: Path, allow_p
     processor = MaskingITAProcessor(MaskingITAConfig(**config["masking"]))
     masks_dir, audits_dir = output_dir / "masks", output_dir / "audits"
     masks_dir.mkdir(parents=True, exist_ok=True); audits_dir.mkdir(parents=True, exist_ok=True)
+    # ============================================================
+    # PROCESS ALL TRAINING IMAGES
+    # ============================================================
+    # IMPORTANT:
+    # All records marked as TRAIN are sent to masking/ITA.
+    # Quality/duplicate status is kept as metadata, but it no longer
+    # removes an image from the TRAIN masking run.
+    #
+    # Images that cannot be processed are still recorded in the output
+    # with their failure status instead of silently being excluded.
     input_rows = [
         row for row in rows
         if (
-            row["data_origin"].lower() == "public" and row["split"] == "train"
-            and row["image_quality_status"] == "PASS" and row["duplicate_status"] == "UNIQUE"
+            row.get("split", "").strip().lower() == "train"
+            and row.get("processed_image_path", "").strip()
         )
     ]
     present_training_classes = {row["disease_label"] for row in input_rows}
@@ -603,7 +995,7 @@ def run_phase0(manifest_path: Path, output_dir: Path, config_path: Path, allow_p
         })
         output_rows.append(out)
     if not output_rows:
-        raise ValueError("No eligible public training rows were found.")
+        raise ValueError("No TRAIN images with processed_image_path were found.")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "image_ita_manifest.csv"
     write_csv(output_path, output_rows)
@@ -611,7 +1003,9 @@ def run_phase0(manifest_path: Path, output_dir: Path, config_path: Path, allow_p
     if failures:
         write_csv(output_dir / "failed_images.csv", failures)
     summary = {
-        "total": len(output_rows), "eligible": len(output_rows) - len(failures), "failed": len(failures),
+        "total_train_attempted": len(output_rows),
+        "mask_ita_success": len(output_rows) - len(failures),
+        "mask_ita_failed": len(failures),
         "by_status": dict(Counter(row["status"] for row in output_rows)),
         "by_disease": dict(Counter(row["disease_label"] for row in output_rows)),
         "by_proxy_group": dict(Counter(row.get("proxy_skin_tone_group", "") or "UNKNOWN" for row in output_rows)),
