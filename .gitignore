@@ -34,3 +34,11 @@ phase0_outputs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# YOLO ablation datasets, runs, and weights
+datasets/
+runs/
+weights/
+
+# Executed notebook copies (training logs, ~35 MB)
+notebooks/run_stage*.ipynb

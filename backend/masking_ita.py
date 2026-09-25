@@ -145,11 +145,10 @@ class MaskingITAProcessor:
         image = ImageOps.exif_transpose(source)
 
         if image.mode in {"RGBA", "LA"} or "transparency" in image.info:
-            # Composite transparent pixels over white so the image remains
-            # processable by Member 1 instead of becoming IMAGE_FAILED.
-            rgba = image.convert("RGBA")
-            background = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-            image = Image.alpha_composite(background, rgba).convert("RGB")
+            # Protocol: transparent images are rejected, not composited.
+            alpha = image.convert("RGBA").getchannel("A")
+            if alpha.getextrema()[0] < 255:
+                raise ValueError("NON_OPAQUE_IMAGE")
 
         icc = image.info.get("icc_profile")
         if icc:
@@ -656,127 +655,24 @@ class MaskingITAProcessor:
 
             return fallback
 
-                # ============================================================
-        # EMERGENCY FALLBACK
-        # ============================================================
-        # If both K-means masking attempts fail, use the center region
-        # as a controlled fallback so the image can still receive an
-        # ITA estimate.
-        #
-        # IMPORTANT:
-        # This fallback is recorded separately from the normal
-        # clustering-based masking method.
-        # ============================================================
-
-        emergency_w = max(
-            1,
-            round(width * self.config.center_crop_width_ratio)
-        )
-
-        emergency_h = max(
-            1,
-            round(height * self.config.center_crop_height_ratio)
-        )
-
-        emergency_x1 = (width - emergency_w) // 2
-        emergency_y1 = (height - emergency_h) // 2
-
-        emergency_x2 = emergency_x1 + emergency_w
-        emergency_y2 = emergency_y1 + emergency_h
-
-        emergency_mask = np.zeros(
-            (height, width),
-            dtype=bool
-        )
-
-        emergency_mask[
-            emergency_y1:emergency_y2,
-            emergency_x1:emergency_x2
-        ] = True
-
-        # Convert the original RGB image to standardized CIELAB
-        # before calculating the emergency ITA value.
-        lab = self.rgb_to_opencv_lab(image_rgb)
-
-        # Get all CIELAB pixels inside the emergency center mask.
-        emergency_pixels = lab[emergency_mask]
-
-        if len(emergency_pixels) == 0:
-            return MaskingITAResult(
-                filename=filename,
-                status=ProcessingStatus.MASK_FAILED.value,
-                mask_method="emergency_center_crop",
-                failure_reason=(
-                    f"PRIMARY_FAILED:{primary.failure_reason};"
-                    f"FALLBACK_FAILED:{fallback.failure_reason};"
-                    "EMERGENCY_FAILED:EMPTY_MASK"
-                ),
-                user_message="Unable to generate a valid mask.",
-                k_scores=fallback.k_scores,
-                clusters=fallback.clusters,
-                primary_failure_reason=primary.failure_reason,
-            )
-
-        # Calculate LAB statistics from the emergency center region.
-        mean_l = float(emergency_pixels[:, 0].mean())
-        mean_a = float(emergency_pixels[:, 1].mean())
-        mean_b = float(emergency_pixels[:, 2].mean())
-
-        # Calculate ITA.
-        try:
-            ita = self.calculate_ita(mean_l, mean_b)
-        except ValueError:
-            # Use a small stabilized B value only when B is extremely
-            # close to zero. The event is still recorded as emergency.
-            stabilized_b = (
-                self.config.minimum_abs_b
-                if mean_b >= 0
-                else -self.config.minimum_abs_b
-            )
-
-            ita = float(
-                np.degrees(
-                    np.arctan(
-                        (mean_l - 50.0) / stabilized_b
-                    )
-                )
-            )
-
-        emergency_area_pixels = int(emergency_mask.sum())
-        emergency_area_percent = (
-            100.0 * emergency_area_pixels / float(height * width)
-        )
-
+        # Protocol: when both attempts fail the image is MASK_FAILED and no
+        # ITA is calculated. Never substitute an unvalidated region.
         return MaskingITAResult(
             filename=filename,
-            status=ProcessingStatus.MASK_FALLBACK.value,
-            mask_method="emergency_center_crop",
-            selected_k=None,
-            silhouette_score=None,
-            selection_method="EMERGENCY_CENTER_CROP",
-            mask_area_pixels=emergency_area_pixels,
-            mask_area_percent=emergency_area_percent,
-            mean_l=mean_l,
-            mean_a=mean_a,
-            mean_b=mean_b,
-            ita=ita,
-            bracket=self.assign_bracket(ita),
-            calibration_eligible=(quality_note is None),
+            status=ProcessingStatus.MASK_FAILED.value,
+            mask_method="primary_then_center_weighted_crop",
+            selected_k=fallback.selected_k,
+            silhouette_score=fallback.silhouette_score,
+            selection_method=fallback.selection_method,
             failure_reason=(
                 (f"{quality_note};" if quality_note else "")
                 + f"PRIMARY_FAILED:{primary.failure_reason};"
-                + f"FALLBACK_FAILED:{fallback.failure_reason};"
-                + "EMERGENCY_CENTER_CROP_USED"
+                + f"FALLBACK_FAILED:{fallback.failure_reason}"
             ),
-            user_message=(
-                "ITA computed with emergency fallback; image is excluded "
-                "from calibration eligibility because it failed the quality gate."
-                if quality_note else None
-            ),
+            user_message="No plausible skin detected; please retake image.",
             k_scores=fallback.k_scores,
             clusters=fallback.clusters,
             primary_failure_reason=primary.failure_reason,
-            mask=emergency_mask,
         )
 
     def process_file(self, path: str | Path) -> MaskingITAResult:

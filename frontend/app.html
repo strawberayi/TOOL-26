@@ -293,9 +293,9 @@
                 <span id="patient-confidence-score" class="score-num">94.2%</span>
               </div>
 
-              <!-- Morphological Cues (Page 5 Reference) -->
+              <!-- Lesion Features (Page 5 Reference) -->
               <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">
-                Identified Morphological Features (Fine-Grained Cues)
+                Identified Lesion Features (Fine-Grained Cues)
               </div>
 
               <div class="features-container">
@@ -397,7 +397,7 @@
 
               <!-- Overlap Profiler Progress Bars -->
               <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin: 12px 0 6px;">
-                Fine-Grained Morphological Overlap Profiler
+                Fine-Grained Class Overlap Profiler
               </div>
               <div id="overlap-profiler-bars" class="profiler-bars"></div>
 
@@ -485,7 +485,7 @@
           <button class="page-pill-btn" data-page="2" onclick="setSimulatorPage(2)">2nd Page: Home</button>
           <button class="page-pill-btn" data-page="3" onclick="setSimulatorPage(3)">3rd Page: Workspace</button>
           <button class="page-pill-btn" data-page="4" onclick="setSimulatorPage(4)">4th Page: Output A</button>
-          <button class="page-pill-btn" data-page="5" onclick="setSimulatorPage(5)">5th Page: Morphological</button>
+          <button class="page-pill-btn" data-page="5" onclick="setSimulatorPage(5)">5th Page: Lesion Features</button>
           <button class="page-pill-btn" data-page="6" onclick="setSimulatorPage(6)">6th Page: Insights</button>
           <button class="page-pill-btn" data-page="7" onclick="setSimulatorPage(7)">7th Page: Output B</button>
           <button class="page-pill-btn" data-page="8" onclick="setSimulatorPage(8)">8th Page: YOLO Metrics</button>
@@ -744,9 +744,7 @@
               <thead>
                 <tr>
                   <th>Configuration</th>
-                  <th>Adaptive L*-CLAHE</th>
-                  <th>Focal Loss</th>
-                  <th>Decoupled Training</th>
+                  <th>Preprocessing</th>
                   <th>mAP50</th>
                   <th>mAP50-95</th>
                   <th>Precision</th>
@@ -754,51 +752,8 @@
                   <th>F1-Score</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Model A</strong> (Baseline YOLOv26)</td>
-                  <td>❌ None</td>
-                  <td>❌ None</td>
-                  <td>❌ Joint End-to-End</td>
-                  <td>84.2%</td>
-                  <td>61.4%</td>
-                  <td>83.7%</td>
-                  <td>79.8%</td>
-                  <td>0.817</td>
-                </tr>
-                <tr>
-                  <td><strong>Model B</strong> (Fixed L*-CLAHE)</td>
-                  <td>⚠️ Fixed Clip (2.0)</td>
-                  <td>❌ None</td>
-                  <td>❌ Joint End-to-End</td>
-                  <td>87.1%</td>
-                  <td>64.5%</td>
-                  <td>86.8%</td>
-                  <td>83.4%</td>
-                  <td>0.850</td>
-                </tr>
-                <tr>
-                  <td><strong>Model C</strong> (Focal Loss)</td>
-                  <td>❌ None</td>
-                  <td>✅ Active (γ=2, α=0.25)</td>
-                  <td>❌ Joint End-to-End</td>
-                  <td>89.0%</td>
-                  <td>66.8%</td>
-                  <td>88.9%</td>
-                  <td>85.2%</td>
-                  <td>0.870</td>
-                </tr>
-                <tr class="highlight-row">
-                  <td><strong>Model D (Proposed Framework)</strong></td>
-                  <td>✅ ITA-Guided Adaptive f(ITA)</td>
-                  <td>✅ Active Focal Loss</td>
-                  <td>✅ Two-Stage Decoupled</td>
-                  <td><strong>92.2%</strong></td>
-                  <td><strong>71.5%</strong></td>
-                  <td><strong>92.4%</strong></td>
-                  <td><strong>89.1%</strong></td>
-                  <td><strong>0.907</strong></td>
-                </tr>
+              <tbody id="ablation-table-body">
+                <tr><td colspan="7">Results pending: models are still training.</td></tr>
               </tbody>
             </table>
           </div>
@@ -875,37 +830,10 @@
           <!-- Recent Analysis Section (Exact match to 2ND PAGE of reference) -->
           <div class="mob-section-header">
             <span class="mob-section-title">Recent Analysis</span>
-            <span class="mob-section-link" onclick="switchMobileTab('workspace')">See All</span>
+            <span class="mob-section-link" onclick="switchMobileTab('patient')">View</span>
           </div>
 
-          <div class="presets-grid mob-presets-list">
-            <div class="preset-card active" onclick="selectPreset('buni'); switchMobileTab('workspace');">
-              <img src="assets/sample_buni.jpg" class="preset-thumb" alt="Buni">
-              <div class="preset-info">
-                <div class="preset-name">Buni (Tinea Corporis)</div>
-                <div class="preset-sub">Analyzed just now</div>
-              </div>
-              <span class="preset-score" style="font-size:0.68rem; padding:3px 8px; border-radius:6px;">94.2% Confidence</span>
-            </div>
-
-            <div class="preset-card" onclick="selectPreset('mamaso'); switchMobileTab('workspace');">
-              <img src="assets/sample_mamaso.jpg" class="preset-thumb" alt="Mamaso">
-              <div class="preset-info">
-                <div class="preset-name">Mamaso (Impetigo)</div>
-                <div class="preset-sub">Analyzed 2 days ago</div>
-              </div>
-              <span class="preset-score" style="font-size:0.68rem; padding:3px 8px; border-radius:6px;">92.1% Confidence</span>
-            </div>
-
-            <div class="preset-card" onclick="selectPreset('kulugo'); switchMobileTab('workspace');">
-              <img src="assets/sample_kulugo.jpg" class="preset-thumb" alt="Kulugo">
-              <div class="preset-info">
-                <div class="preset-name">Kulugo (Warts)</div>
-                <div class="preset-sub">Analyzed 5 days ago</div>
-              </div>
-              <span class="preset-score" style="font-size:0.68rem; padding:3px 8px; border-radius:6px; background:var(--status-gold-bg); color:var(--status-gold); border-color:#FDE68A;">88.7% Confidence</span>
-            </div>
-          </div>
+          <div id="mob-recent-analysis" class="presets-grid mob-presets-list"></div>
 
           <!-- Compliance Note in Home -->
           <div class="compliance-box" style="margin-top:16px;">
@@ -976,16 +904,6 @@
 
         <!-- 3. PATIENT VIEW TAB -->
         <div id="mob-tab-patient" class="mob-tab-pane">
-          <!-- Preset Selector Bar -->
-          <div class="mob-presets-carousel">
-            <button class="mob-preset-chip active" onclick="selectPreset('buni'); updateMobileView();">Buni</button>
-            <button class="mob-preset-chip" onclick="selectPreset('mamaso'); updateMobileView();">Mamaso</button>
-            <button class="mob-preset-chip" onclick="selectPreset('kulugo'); updateMobileView();">Kulugo</button>
-            <button class="mob-preset-chip" onclick="selectPreset('an_an'); updateMobileView();">An-an</button>
-            <button class="mob-preset-chip" onclick="selectPreset('alipunga'); updateMobileView();">Alipunga</button>
-            <button class="mob-preset-chip" onclick="selectPreset('bulutong'); updateMobileView();">Bulutong</button>
-          </div>
-
           <div class="patient-card" style="padding:14px;">
             <div class="telemetry-chip-bar" style="padding:6px 10px; margin-bottom:10px;">
               <span class="chip-title">Skin-Tone:</span>
@@ -999,31 +917,17 @@
             </div>
 
             <div class="score-banner" style="padding:10px 14px; margin-bottom:12px;">
-              <span class="score-title" style="font-size:0.75rem;">Confidence Score:</span>
-              <span id="mob-patient-score" class="score-num" style="font-size:1.45rem;">94.2%</span>
+              <span class="score-title" style="font-size:0.75rem;">Most likely to be:</span>
+              <span id="mob-patient-score" class="score-num" style="font-size:1rem; text-align:right;">Buni (Tinea Corporis)</span>
             </div>
 
-            <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
-              Identified Morphological Features
-            </div>
-
-            <div class="features-container" style="gap:6px; margin-bottom:12px;">
-              <div class="feature-box" style="padding:8px 10px;">
-                <div class="feature-box-title">Surface Texture</div>
-                <div id="mob-feat-texture" class="feature-box-desc" style="font-size:0.72rem;">Active peripheral scaling with central clearing</div>
-              </div>
-              <div class="feature-box" style="padding:8px 10px;">
-                <div class="feature-box-title">Crust & Exudate</div>
-                <div id="mob-feat-crust" class="feature-box-desc" style="font-size:0.72rem;">Absent / Dry Erythema / Non-exudative</div>
-              </div>
-              <div class="feature-box" style="padding:8px 10px;">
-                <div class="feature-box-title">Boundary / Edge</div>
-                <div id="mob-feat-boundary" class="feature-box-desc" style="font-size:0.72rem;">Sharply defined annular elevated ring</div>
-              </div>
-              <div class="feature-box" style="padding:8px 10px;">
-                <div class="feature-box-title">Differential Key</div>
-                <div id="mob-feat-diff" class="feature-box-desc" style="font-size:0.72rem;">Distinguished from Impetigo by ring border & absence of honey crust</div>
-              </div>
+            <div id="mob-patient-features" class="patient-features">
+              <div class="patient-features-title">Lesion Features</div>
+              <div class="patient-features-sub" id="mob-feat-note"></div>
+              <div class="patient-feature-row"><span>Surface texture</span><p id="mob-feat-texture">—</p></div>
+              <div class="patient-feature-row"><span>Crust &amp; exudate</span><p id="mob-feat-crust">—</p></div>
+              <div class="patient-feature-row"><span>Border / distribution</span><p id="mob-feat-boundary">—</p></div>
+              <div class="patient-feature-row"><span>How to tell apart</span><p id="mob-feat-key">—</p></div>
             </div>
 
             <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
@@ -1045,6 +949,21 @@
 
         <!-- 4. CLINICIAN PANEL TAB -->
         <div id="mob-tab-panel" class="mob-tab-pane">
+          <div class="panel-hero">
+            <div>
+              <div class="panel-eyebrow">Technical dashboard</div>
+              <h2>Panel evidence</h2>
+              <p>On-device evaluation for SOP 1, 2, and 3</p>
+            </div>
+            <span class="panel-live-badge"><span></span> Ready</span>
+          </div>
+
+          <div class="panel-view-switch" role="tablist" aria-label="Panel view">
+            <button class="panel-view-btn" data-panel-view="run" onclick="switchPanelView('run')" role="tab">Current run</button>
+            <button class="panel-view-btn active" data-panel-view="benchmark" onclick="switchPanelView('benchmark')" role="tab">SOP benchmark</button>
+          </div>
+
+          <div id="mob-panel-run" class="panel-subview">
           <div class="med-card" style="padding:14px;">
             <div class="med-card-header">
               <span class="med-card-title">Output B: Panel Dashboard</span>
@@ -1071,7 +990,15 @@
             </div>
 
             <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
-              Decoupled Training Status
+              Pipeline Phase Status
+            </div>
+
+            <div class="stage-status-card phase-zero" style="padding:8px 10px; margin-bottom:6px;">
+              <div class="stage-header">
+                <span class="stage-title" style="font-size:0.7rem;">Phase 0: Preprocessing</span>
+                <span class="stage-badge calibrated">CALIBRATED</span>
+              </div>
+              <p class="stage-desc" style="font-size:0.65rem;">Adaptive ITA–CLAHE (<span id="mob-phase-ita">24.4°</span> → Clip <span id="mob-phase-clip">3.4</span>).</p>
             </div>
 
             <div class="stage-status-card" style="padding:8px 10px; margin-bottom:6px;">
@@ -1087,11 +1014,11 @@
                 <span class="stage-title" style="font-size:0.7rem;">Stage 2: Discrimination</span>
                 <span class="stage-badge active">ACTIVE HEAD</span>
               </div>
-              <p class="stage-desc" style="font-size:0.65rem;">Focal Loss penalized long-tail classes and morphological mimics.</p>
+              <p class="stage-desc" style="font-size:0.65rem;">Focal Loss penalized long-tail classes and look-alike lesions.</p>
             </div>
 
             <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
-              Morphological Overlap Profiler
+              Class Overlap Profiler
             </div>
             <div id="mob-overlap-bars" class="profiler-bars" style="gap:6px; margin-bottom:14px;"></div>
 
@@ -1133,6 +1060,63 @@
               Differential Diagnosis Probabilities
             </div>
             <div id="mob-differential-list" style="background:#FFF; border:1px solid var(--brand-border); border-radius:8px; padding:8px 10px;"></div>
+          </div>
+          </div>
+
+          <div id="mob-panel-benchmark" class="panel-subview active">
+            <section class="sop-card">
+              <div class="sop-card-heading">
+                <span class="sop-number">01</span>
+                <div><h3>Ablation Benchmark</h3><p>Held-out test set: localization and classification</p></div>
+              </div>
+              <p class="model-select-hint">Tap a model to select it</p>
+              <div class="model-key-grid" id="mob-model-key"></div>
+              <div class="mobile-table-scroll" aria-label="Four model benchmark metrics">
+                <table class="benchmark-table">
+                  <thead id="mob-benchmark-head"></thead>
+                  <tbody id="mob-benchmark-body"></tbody>
+                </table>
+              </div>
+              <div class="table-swipe-hint">Swipe table horizontally to compare all models</div>
+            </section>
+
+            <section class="sop-card">
+              <div class="sop-card-heading">
+                <span class="sop-number">02</span>
+                <div><h3>Confusion Matrices</h3><p>Test set, matched detections (actual vs predicted class)</p></div>
+              </div>
+              <div id="mob-confusion-carousel" class="confusion-carousel" aria-label="Confusion matrices for Models A through D"></div>
+              <div id="mob-class-legend" class="matrix-legend"></div>
+            </section>
+
+            <section class="sop-card fairness-card">
+              <div class="sop-card-heading">
+                <span class="sop-number">03</span>
+                <div><h3>Skin-Tone Comparison</h3><p id="mob-fairness-subtitle">Selected model vs Model A</p></div>
+              </div>
+              <div id="mob-fairness-groups" class="fairness-groups"></div>
+              <div id="mob-fairness-finding" class="fairness-finding"></div>
+            </section>
+
+            <section class="sop-card">
+              <div class="sop-card-heading">
+                <span class="sop-number">04</span>
+                <div><h3>Visual Model Comparison</h3><p>Same photo through Models A, B, C, C′ and D</p></div>
+              </div>
+              <button class="upload-btn compare-run-btn" onclick="runModelComparison()">Compare models on the uploaded photo</button>
+              <div id="mob-compare-status" class="evaluation-note">Upload or take a photo first, then tap the button.</div>
+              <div id="mob-compare-grid" class="compare-grid"></div>
+            </section>
+
+            <section class="sop-card">
+              <div class="sop-card-heading">
+                <span class="sop-number">XAI</span>
+                <div><h3>Explainability Audit</h3><p>Grad-CAM intersection over union</p></div>
+              </div>
+              <div id="mob-xai-iou" class="xai-iou-grid"></div>
+            </section>
+
+            <p id="mob-evaluation-note" class="evaluation-note">Evaluation pending.</p>
           </div>
         </div>
 
@@ -1216,16 +1200,6 @@
               </a>
             </div>
 
-            <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Quick Philippine Presets</div>
-            <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
-              <button class="upload-btn" onclick="selectPreset('buni'); toggleMobileDrawer(false); switchMobileTab('patient');">Buni (Tinea Corporis)</button>
-              <button class="upload-btn" onclick="selectPreset('mamaso'); toggleMobileDrawer(false); switchMobileTab('patient');">Mamaso (Impetigo)</button>
-              <button class="upload-btn" onclick="selectPreset('kulugo'); toggleMobileDrawer(false); switchMobileTab('patient');">Kulugo (Warts)</button>
-              <button class="upload-btn" onclick="selectPreset('an_an'); toggleMobileDrawer(false); switchMobileTab('patient');">An-an (Tinea Versicolor)</button>
-              <button class="upload-btn" onclick="selectPreset('alipunga'); toggleMobileDrawer(false); switchMobileTab('patient');">Alipunga (Athlete's Foot)</button>
-              <button class="upload-btn" onclick="selectPreset('bulutong'); toggleMobileDrawer(false); switchMobileTab('patient');">Bulutong (Chickenpox)</button>
-            </div>
-
             <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Tools & Reports</div>
             <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openReportModal();">🖨️ Export Clinical PDF Report</button>
             <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openTriageModal();">📋 Symptoms Triage Quiz</button>
@@ -1265,6 +1239,7 @@
     </nav>
   </div>
 
+  <script src="ondevice.js"></script>
   <script src="app.js"></script>
 
     <!-- ====================================================================
@@ -1436,9 +1411,9 @@
             <div style="font-size:0.78rem; color:#846F65;" id="report-local-name">Common Philippine Term: Ringworm</div>
           </div>
 
-          <!-- Morphological Cues Table -->
+          <!-- Lesion Features Table -->
           <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:#2A1A14; margin-bottom:6px;">
-            Identified Fine-Grained Morphological Cues
+            Identified Fine-Grained Lesion Features
           </div>
           <table class="ablation-table" style="margin-bottom:14px;">
             <tbody>
@@ -1451,10 +1426,10 @@
 
           <!-- Model & Attribution Telemetry -->
           <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; background:#FBF0E9; padding:8px; border-radius:6px; font-size:0.7rem; text-align:center; margin-bottom:14px;">
-            <div><div style="font-size:0.6rem; color:#846F65;">YOLOv26 mAP50</div><strong style="color:#2A1A14;">92.2%</strong></div>
-            <div><div style="font-size:0.6rem; color:#846F65;">Inference Latency</div><strong style="color:#2A1A14;">12.4 ms</strong></div>
-            <div><div style="font-size:0.6rem; color:#846F65;">Grad-CAM IoU</div><strong style="color:#2A1A14;">78.2%</strong></div>
-            <div><div style="font-size:0.6rem; color:#846F65;">Attribution Ratio</div><strong style="color:#15803D;">73.1%</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Model D test mAP50</div><strong id="report-map50" style="color:#2A1A14;">Pending</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Inference Latency</div><strong style="color:#2A1A14;">—</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Grad-CAM IoU</div><strong style="color:#2A1A14;">Not measured</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Attribution Ratio</div><strong style="color:#15803D;">—</strong></div>
           </div>
 
           <!-- Medical Disclaimer & Signatures -->

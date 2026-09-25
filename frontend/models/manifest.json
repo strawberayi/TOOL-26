@@ -1,0 +1,94 @@
+{
+  "classes": [
+    "Warts",
+    "Molluscum",
+    "Varicella",
+    "HFMD",
+    "Tinea versicolor",
+    "Tinea corporis",
+    "Tinea pedis",
+    "Impetigo"
+  ],
+  "imgsz": 640,
+  "confidence": 0.25,
+  "fixed_beta": 2.0,
+  "tile_grid_size": [
+    8,
+    8
+  ],
+  "calibration": {
+    "beta_high": 4.0,
+    "beta_mid": 4.0,
+    "beta_low": 4.5,
+    "beta_global": 4.0,
+    "status": "PROVISIONAL"
+  },
+  "masking": {
+    "k_values": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "random_state": 42,
+    "n_init": 20,
+    "k_selection_max_side": 512,
+    "max_k_selection_pixels": 10000,
+    "max_silhouette_samples": 5000,
+    "l_min": 20.0,
+    "l_max": 90.0,
+    "a_min": -5.0,
+    "a_max": 35.0,
+    "b_min": 0.0,
+    "b_max": 50.0,
+    "shadow_l_threshold": 20.0,
+    "highlight_l_threshold": 95.0,
+    "maximum_shadow_fraction": 0.1,
+    "maximum_highlight_fraction": 0.1,
+    "minimum_pixel_plausibility_fraction": 0.85,
+    "mask_area_min_percent": 5.0,
+    "mask_area_max_percent": 85.0,
+    "minimum_valid_pixel_count": 1000,
+    "center_crop_width_ratio": 0.6,
+    "center_crop_height_ratio": 0.6,
+    "minimum_abs_b": 0.001,
+    "minimum_short_side": 256,
+    "minimum_laplacian_variance": 50.0,
+    "black_luma_max": 5,
+    "white_luma_min": 250,
+    "maximum_clipped_fraction": 0.3,
+    "minimum_luminance_span": 20.0
+  },
+  "models": [
+    {
+      "id": "A",
+      "file": "A.onnx",
+      "preprocessing": "raw",
+      "description": "Raw image"
+    },
+    {
+      "id": "B",
+      "file": "B.onnx",
+      "preprocessing": "rgb_clahe_fixed",
+      "description": "RGB CLAHE, β=2.0"
+    },
+    {
+      "id": "C",
+      "file": "C.onnx",
+      "preprocessing": "l_clahe_fixed",
+      "description": "L*-CLAHE, β=2.0"
+    },
+    {
+      "id": "C′",
+      "file": "C2.onnx",
+      "preprocessing": "l_clahe_global",
+      "description": "L*-CLAHE, β=4.0 (no ITA)"
+    },
+    {
+      "id": "D",
+      "file": "D.onnx",
+      "preprocessing": "l_clahe_ita",
+      "description": "K-means + ITA → L*-CLAHE"
+    }
+  ]
+}

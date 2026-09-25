@@ -13,6 +13,9 @@ Given an image, TOOL-26 isolates the most plausible skin region using dynamic K-
 | [backend/masking_ita.py](backend/masking_ita.py) | The full pipeline: colour conversion, clustering, mask validation, ITA, brackets. Importable, no server required. |
 | [backend/api.py](backend/api.py) | FastAPI wrapper exposing a single `POST /analyze` upload endpoint. |
 | [backend/run_member1_batch.py](backend/run_member1_batch.py) | Archive inventory, manifest cleaning/splitting, duplicate control, and Phase 0 batch export. |
+| [backend/clahe_calibration.py](backend/clahe_calibration.py) | Member 2 beta calibration: per-bracket β_high/β_mid/β_low plus the pooled `beta_global` used by the fixed-β ablation control. |
+| [backend/build_yolo_dataset.py](backend/build_yolo_dataset.py) | Builds `datasets/source_yolo` (YOLO layout) from the cleaned split manifest and the AnyLabeling JSON annotations. |
+| [notebooks/ablation_study_yolov26.ipynb](notebooks/ablation_study_yolov26.ipynb) | Five-model YOLOv26 ablation (A raw, B RGB-CLAHE, C fixed L\*-CLAHE, C′ fixed L\*-CLAHE at `beta_global`, D ITA-based L\*-CLAHE). |
 | [docs/member1_phase0_protocol.md](docs/member1_phase0_protocol.md) | Frozen-scope Member 1 methodology and pilot protocol. |
 | [frontend/](frontend/) | Web application interface (Clinical Workstation, Mobile Simulator, Landing & Auth). |
 | [phone-development/](phone-development/) | Android mobile app development workspace, build scripts, and compiled APK. |
@@ -158,6 +161,81 @@ Response — the serialized result object:
 ```
 
 Interactive docs are served at `http://127.0.0.1:8000/docs`.
+
+---
+
+## YOLOv26 ablation workflow
+
+The source is the team archive `Data Set-*.zip`, extracted to `phase0_work/team_dataset/`. It provides `1. Filtered` images and `2. Annotated` JSON. Its `3. Stratefied-Split` folder is **not** used, because it contains exact and near-duplicate images across train/val/test.
+
+Run from the project root, in order:
+
+```bash
+# 0. Verified image + JSON pairs (file name and image size must match)
+python backend/build_team_source_manifest.py \
+  --dataset-root "phase0_work/team_dataset/Data Set" \
+  --source-repository "TEAM_DATASET:Data Set-20260925T122828Z-1-001.zip" \
+  --manual-exclusions docs/team_dataset_manual_exclusions.csv \
+  --output phase0_work/team_inventory/team_source_manifest.csv
+
+# 1. Quality screening, duplicate removal, leakage-safe 70/20/10 split
+python backend/run_member1_batch.py prepare-split-manifest --quality-scope calibration \
+  --input-manifest phase0_work/team_inventory/team_source_manifest.csv \
+  --output-dir phase0_work/team_prepared
+
+# 2. Masking + ITA on the TRAIN split
+python backend/run_member1_batch.py run-phase0 \
+  --manifest phase0_work/team_prepared/cleaned_split_manifest.csv \
+  --output-dir phase0_outputs/member1_team_train --allow-provisional
+
+# 3. Beta calibration; copy the result into backend/
+python backend/clahe_calibration.py \
+  phase0_outputs/member1_team_train/image_ita_manifest.csv \
+  --output phase0_outputs/member2_calibration
+cp phase0_outputs/member2_calibration/phase0_calibration.json backend/phase0_calibration.json
+
+# 4. YOLO dataset from the same split
+python backend/build_yolo_dataset.py \
+  --manifest phase0_work/team_prepared/cleaned_split_manifest.csv \
+  --output datasets/source_yolo
+```
+
+With `--quality-scope calibration`, every readable image is deduplicated and split, and the quality gate (blur and resolution) only decides which **train** images are used for ITA/β calibration. The protocol default (`dataset`) removes quality-rejected images from every split.
+
+Then open `notebooks/ablation_study_yolov26.ipynb` with the **TOOL-26 (.venv)** kernel.
+
+Beta selection (`CLAHECalibrationConfig.selection_rule`):
+
+- `knee` (default) chooses the point of diminishing returns on the admissible contrast-gain curve. Because local contrast always rises with the clip limit, the older `max_gain` rule selected whatever β the noise ceiling allowed, which produced identical β for every bracket.
+- `max_gain` is the original rule and is kept for comparison.
+
+Annotations are matched to images by filename **and** image dimensions, because several archives reuse filenames for different photos. Classes with fewer than 30 matched training images are excluded and listed in `datasets/source_yolo/classes.json`.
+
+---
+
+## Mobile app: fully on-device inference
+
+The APK runs everything on the phone, with no server or network:
+
+- `frontend/ondevice.js` implements the Python pipeline in JavaScript: K-means skin mask + ITA, bracket β, L*-CLAHE, and YOLO26 (ONNX).
+- `frontend/vendor/` holds OpenCV.js 5.0 (the same OpenCV as Python) and ONNX Runtime Web 1.30.
+- `frontend/models/` holds the five ablation models plus `manifest.json` (classes, betas, masking config).
+- `frontend/benchmark_data.json` holds the real test-set results shown in the app's Ablation Benchmark.
+
+After retraining, regenerate the app assets and rebuild:
+
+```bash
+.venv/bin/python backend/export_app_models.py     # ONNX models + manifest
+.venv/bin/python backend/export_app_benchmark.py  # test-set results for the app
+phone-development/build-apk.sh
+```
+
+Parity with Python was checked on 40 test images (5 per class) in Chrome:
+- CLAHE pixels were identical (40/40).
+- YOLO detections were identical (same count and classes, boxes within 0.0002).
+- ITA brackets agreed (40/40).
+
+K-means is re-implemented in JavaScript, so ITA can differ by a few degrees on ambiguous images. `backend/api.py` (FastAPI) remains as an optional laptop server.
 
 ---
 
