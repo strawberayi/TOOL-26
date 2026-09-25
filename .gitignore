@@ -39,3 +39,6 @@ Thumbs.db
 datasets/
 runs/
 weights/
+
+# Executed notebook copies (training logs, ~35 MB)
+notebooks/run_stage*.ipynb
