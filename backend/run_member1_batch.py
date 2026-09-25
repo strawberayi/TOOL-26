@@ -305,6 +305,198 @@ def build_supplemental_manifest(
     return output_path
 
 
+def prepare_split_manifest(
+    input_path: Path, output_dir: Path, config_path: Path, quality_scope: str = "dataset"
+) -> Path:
+    """
+    Protocol preparation: quality screening, exact/near-duplicate removal,
+    then a seed-42, lineage-aware 70/20/10 split (train/validation/test_a)
+    within disease and proxy-tone strata. Duplicates are removed before
+    splitting, so no image or near-copy can appear in two splits.
+
+    Use this for a dataset that has not been split yet. prepare_manifest
+    (below) keeps an existing split and marks every record as train.
+
+    quality_scope:
+        "dataset"     (protocol default) quality-rejected images are removed
+                      from every split.
+        "calibration" every readable image is deduplicated and split; the
+                      quality gate only decides calibration_eligible for
+                      train images. Use this when the same split also feeds
+                      detector training, so the detector is not deprived of
+                      realistic low-resolution or softer images.
+    """
+    if quality_scope not in {"dataset", "calibration"}:
+        raise ValueError(f"Unknown quality_scope: {quality_scope}")
+    config, config_hash = load_config(config_path)
+    rows = read_csv(input_path)
+    required = {"image_path", "disease_label", "source_repository"}
+    if not rows or not required.issubset(rows[0]):
+        raise ValueError(f"Input CSV must contain: {sorted(required)}")
+    present_classes = {row["disease_label"].strip() for row in rows}
+    if config.get("require_all_eight_classes", True) and present_classes != DISEASE_LABELS:
+        raise ValueError(
+            f"Phase 0 requires all eight classes; missing={sorted(DISEASE_LABELS - present_classes)}, "
+            f"unexpected={sorted(present_classes - DISEASE_LABELS)}"
+        )
+    supplied_ids = [row.get("image_id", "").strip() for row in rows if row.get("image_id", "").strip()]
+    if len(supplied_ids) != len(set(supplied_ids)):
+        raise ValueError("Input manifest contains duplicate image_id values.")
+    ratios = config["split"]["ratios"]
+    if set(ratios) != {"train", "validation", "test_a"} or not np.isclose(sum(ratios.values()), 1.0):
+        raise ValueError("Split ratios must contain train/validation/test_a and sum to 1.0.")
+
+    standardized_dir = output_dir / "standardized"
+    standardized_dir.mkdir(parents=True, exist_ok=True)
+    records: list[dict[str, Any]] = []
+    hashes: list[str | None] = []
+    phashes: list[int | None] = []
+    signatures: list[np.ndarray | None] = []
+
+    for source_row in rows:
+        raw_path = Path(source_row["image_path"]).expanduser().resolve()
+        disease = source_row["disease_label"].strip()
+        repository = source_row["source_repository"].strip()
+        if disease not in DISEASE_LABELS:
+            raise ValueError(f"Unknown disease label: {disease}")
+        if not repository:
+            raise ValueError(f"Missing source_repository for {raw_path}")
+        image_id = source_row.get("image_id", "").strip() or stable_id(repository, str(raw_path))
+        record: dict[str, Any] = dict(source_row)
+        record.update({
+            "image_id": image_id, "unique_id": image_id, "raw_image_path": str(raw_path),
+            "data_origin": "public", "disease_label": disease,
+            "source_repository": repository, "processed_image_path": "",
+            "image_quality_status": "REJECTED", "quality_reason": "",
+            "duplicate_status": "NOT_EVALUATED", "canonical_image_id": "",
+            "lineage_group_id": "", "split": "", "calibration_eligible": False,
+        })
+        try:
+            with Image.open(raw_path) as probe:
+                source_format = (probe.format or "").upper()
+            if source_format not in ACCEPTED_FORMATS:
+                raise ValueError(f"UNSUPPORTED_FORMAT:{source_format or 'UNKNOWN'}")
+            rgb = MaskingITAProcessor.load_image(raw_path)
+            status, reason, metrics = quality_metrics(rgb, config["quality"])
+            manual_status = source_row.get("manual_quality_status", "PASS").strip().upper() or "PASS"
+            if manual_status != "PASS":
+                status, reason = "REJECTED", f"MANUAL_{manual_status}"
+            processed_path = standardized_dir / f"{image_id}.png"
+            Image.fromarray(rgb).save(processed_path, format="PNG", optimize=False)
+            normalized_hash = hashlib.sha256(
+                f"{rgb.shape}".encode("ascii") + rgb.tobytes()
+            ).hexdigest()
+            record.update(metrics)
+            record.update({
+                "source_format": source_format, "processed_image_path": str(processed_path.resolve()),
+                "image_quality_status": status, "quality_reason": reason,
+                "normalized_sha256": normalized_hash,
+            })
+            hashes.append(normalized_hash)
+            phashes.append(perceptual_hash(rgb))
+            signatures.append(visual_signature(rgb))
+        except Exception as exc:
+            record["quality_reason"] = str(exc)
+            hashes.append(None); phashes.append(None); signatures.append(None)
+        records.append(record)
+
+    def in_scope(row: dict[str, Any]) -> bool:
+        # Readable = standardized PNG was written.
+        # Manual rejections (e.g. label conflicts) are excluded in both scopes.
+        if quality_scope == "calibration":
+            return bool(row["processed_image_path"]) and not str(row["quality_reason"]).startswith("MANUAL_")
+        return row["image_quality_status"] == "PASS"
+
+    candidates = [index for index, row in enumerate(records) if in_scope(row)]
+    groups = DisjointSet(len(records))
+    exact_seen: dict[str, int] = {}
+    for index in candidates:
+        digest = hashes[index]
+        if digest in exact_seen:
+            groups.union(index, exact_seen[digest])
+        else:
+            exact_seen[digest] = index
+    for position, left in enumerate(candidates):
+        for right in candidates[position + 1:]:
+            if groups.find(left) == groups.find(right):
+                continue
+            if (phashes[left] ^ phashes[right]).bit_count() <= config["deduplication"]["phash_hamming_max"]:
+                if signature_correlation(signatures[left], signatures[right]) >= config["deduplication"]["minimum_correlation"]:
+                    groups.union(left, right)
+
+    components: dict[int, list[int]] = defaultdict(list)
+    for index in candidates:
+        components[groups.find(index)].append(index)
+    for component in components.values():
+        labels = {records[index]["disease_label"] for index in component}
+        if len(labels) != 1:
+            raise ValueError(f"Duplicate group has conflicting disease labels: {[records[i]['image_id'] for i in component]}")
+        representative = max(
+            component,
+            key=lambda index: (
+                float(records[index].get("laplacian_variance", 0)),
+                int(records[index].get("short_side", 0)),
+                records[index]["image_id"],
+            ),
+        )
+        for index in component:
+            records[index]["canonical_image_id"] = records[representative]["image_id"]
+            if index == representative:
+                records[index]["duplicate_status"] = "UNIQUE"
+            else:
+                records[index]["duplicate_status"] = (
+                    "EXACT_DUPLICATE_EXCLUDED" if hashes[index] == hashes[representative]
+                    else "NEAR_DUPLICATE_EXCLUDED"
+                )
+                records[index]["calibration_eligible"] = False
+    for index, record in enumerate(records):
+        if not in_scope(record):
+            record["duplicate_status"] = "NOT_EVALUATED"
+
+    eligible = [row for row in records if in_scope(row) and row["duplicate_status"] == "UNIQUE"]
+    for row in eligible:
+        supplied = row.get("source_item_id", "").strip() or row.get("lineage_id", "").strip()
+        row["lineage_group_id"] = supplied or stable_id("lineage", row["canonical_image_id"])
+    lineage_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in eligible:
+        lineage_rows[row["lineage_group_id"]].append(row)
+    for lineage, members in lineage_rows.items():
+        if len({member["disease_label"] for member in members}) != 1:
+            raise ValueError(f"Lineage {lineage} contains conflicting labels.")
+
+    strata: dict[tuple[str, str], list[tuple[str, list[dict[str, Any]]]]] = defaultdict(list)
+    for lineage, members in lineage_rows.items():
+        tones = {member.get("proxy_skin_tone_group", "").strip().upper() for member in members}
+        tones.discard("")
+        tone = next(iter(tones)) if len(tones) == 1 else "UNKNOWN"
+        if tone not in {"A", "B", "UNKNOWN"}:
+            raise ValueError(f"Invalid proxy_skin_tone_group in lineage {lineage}")
+        strata[(members[0]["disease_label"], tone)].append((lineage, members))
+    seed = int(config["random_seed"])
+    for groups_in_stratum in strata.values():
+        groups_in_stratum.sort(key=lambda item: hashlib.sha256(f"{seed}:{item[0]}".encode()).hexdigest())
+        total = sum(len(members) for _, members in groups_in_stratum)
+        targets = {name: total * float(ratio) for name, ratio in ratios.items()}
+        assigned = {name: 0 for name in ratios}
+        for _, members in groups_in_stratum:
+            split = max(ratios, key=lambda name: (targets[name] - assigned[name]) / max(targets[name], 1.0))
+            for member in members:
+                member["split"] = split
+                member["calibration_eligible"] = split == "train" and member["image_quality_status"] == "PASS"
+            assigned[split] += len(members)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "cleaned_split_manifest.csv"
+    write_csv(output_path, records)
+    metadata = {
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "scope": "global_public_dataset", "quality_scope": quality_scope, "config_sha256": config_hash,
+        "input_manifest_sha256": file_sha256(input_path), "counts": dict(Counter(row["split"] or "excluded" for row in records)),
+    }
+    (output_dir / "manifest_preparation_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    return output_path
+
+
 def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> Path:
     """
     Prepare the existing TRAIN dataset for Member 1 masking.
@@ -963,7 +1155,9 @@ def run_phase0(manifest_path: Path, output_dir: Path, config_path: Path, allow_p
     if config.get("require_all_eight_classes", True) and present_training_classes != DISEASE_LABELS:
         raise ValueError(f"Eligible training rows are missing classes: {sorted(DISEASE_LABELS - present_training_classes)}")
     output_rows: list[dict[str, Any]] = []
-    for row in input_rows:
+    for index, row in enumerate(input_rows, start=1):
+        if index % 50 == 0 or index == len(input_rows):
+            print(f"[run-phase0] {index}/{len(input_rows)}", flush=True)
         processed_path = Path(row["processed_image_path"])
         result = processor.process_file(processed_path)
         mask_path = ""
@@ -989,7 +1183,7 @@ def run_phase0(manifest_path: Path, output_dir: Path, config_path: Path, allow_p
             "mask_area_pixels": result.mask_area_pixels, "mask_area_percent": result.mask_area_percent,
             "mean_l": result.mean_l, "mean_a": result.mean_a, "mean_b": result.mean_b,
             "ita": result.ita, "ITA": result.ita, "bracket": result.bracket,
-            "ita_bracket": result.bracket, "skin_tone_group": result.bracket,
+            "ita_bracket": result.bracket,
             "calibration_eligible": result.calibration_eligible,
             "failure_reason": result.failure_reason or "", "audit_path": str(audit_path.resolve()),
         })
@@ -1037,6 +1231,12 @@ def main() -> None:
     prepare = subparsers.add_parser("prepare-manifest")
     prepare.add_argument("--input-manifest", type=Path, required=True)
     prepare.add_argument("--output-dir", type=Path, required=True)
+    split_prepare = subparsers.add_parser("prepare-split-manifest")
+    split_prepare.add_argument("--input-manifest", type=Path, required=True)
+    split_prepare.add_argument("--output-dir", type=Path, required=True)
+    split_prepare.add_argument("--quality-scope", choices=("dataset", "calibration"), default="dataset",
+                               help="dataset: quality gate removes images from all splits (protocol default). "
+                                    "calibration: split every readable image; the gate only limits calibration.")
     pilot = subparsers.add_parser("build-pilot-manifest")
     pilot.add_argument("--manifest", type=Path, required=True)
     pilot.add_argument("--output", type=Path, required=True)
@@ -1051,6 +1251,8 @@ def main() -> None:
         result = build_supplemental_manifest(args.archive, args.base_manifest, args.output_dir)
     elif args.command == "prepare-manifest":
         result = prepare_manifest(args.input_manifest, args.output_dir, args.config)
+    elif args.command == "prepare-split-manifest":
+        result = prepare_split_manifest(args.input_manifest, args.output_dir, args.config, args.quality_scope)
     elif args.command == "build-pilot-manifest":
         result = build_pilot_manifest(args.manifest, args.output, args.config)
     else:

@@ -128,6 +128,16 @@ class CLAHECalibrationConfig:
     minimum_acceptance_rate: float = 0.80
 
     # --------------------------------------------------------
+    # BETA SELECTION RULE
+    # --------------------------------------------------------
+    #
+    # "knee"     : point of diminishing contrast returns (default)
+    # "max_gain" : original rule, largest admissible contrast gain
+    #
+
+    selection_rule: str = "knee"
+
+    # --------------------------------------------------------
     # RANDOMNESS
     # --------------------------------------------------------
 
@@ -610,23 +620,32 @@ def evaluate_beta(
 
 def calibrate_bracket(
     dataframe: pd.DataFrame,
-    bracket: str,
+    bracket: Optional[str],
     config: CLAHECalibrationConfig,
 ):
     """
     Search beta values for one ITA bracket.
+
+    bracket=None pools every calibration-eligible image regardless of
+    ITA. That pooled result is the single "global" beta used by the
+    fixed-beta ablation control, so the control and the proposed model
+    are calibrated by exactly the same procedure.
+
+    Each image and mask is loaded once and evaluated for every beta.
     """
 
-    subset = dataframe[
-        (dataframe["bracket"] == bracket)
-        &
-        (dataframe["calibration_eligible"] == True)
-    ].copy()
+    eligible = dataframe["calibration_eligible"].astype(str).str.lower() == "true"
+    if bracket is None:
+        subset = dataframe[eligible].copy()
+        label = "ALL"
+    else:
+        subset = dataframe[(dataframe["bracket"] == bracket) & eligible].copy()
+        label = bracket
 
     if subset.empty:
         raise RuntimeError(
             f"No calibration-eligible images "
-            f"found for bracket '{bracket}'."
+            f"found for bracket '{label}'."
         )
 
     beta_values = generate_beta_grid(
@@ -635,150 +654,98 @@ def calibrate_bracket(
 
     all_results = []
 
-    for beta in beta_values:
+    for _, row in subset.iterrows():
 
-        beta_image_results = []
+        image_path = row["image_path"]
+        mask_path = row["mask_path"]
 
-        for _, row in subset.iterrows():
+        base = {
+            "image_id": row["image_id"],
+            "image_path": str(image_path),
+            "mask_path": str(mask_path),
+            "disease_label": row.get("disease_label", ""),
+            "ITA": float(row["ITA"]),
+            "bracket": label,
+            "mask_method": row.get("mask_method", ""),
+            "selected_k": row.get("selected_k", ""),
+        }
 
-            image_path = row["image_path"]
-            mask_path = row["mask_path"]
+        try:
+            image = load_rgb_image(image_path)
+            mask = load_mask(mask_path)
 
-            try:
-
-                image = load_rgb_image(
-                    image_path
+            if image.shape[:2] != mask.shape[:2]:
+                raise ValueError(
+                    "Image and mask dimensions "
+                    "do not match."
                 )
 
-                mask = load_mask(
-                    mask_path
-                )
-
-                # Ensure dimensions match
-                if (
-                    image.shape[:2]
-                    != mask.shape[:2]
-                ):
-                    raise ValueError(
-                        "Image and mask dimensions "
-                        "do not match."
-                    )
-
-                result = evaluate_beta(
-                    image_rgb=image,
-                    mask=mask,
-                    beta=beta,
-                    config=config,
-                )
-
-                result.update({
-                    "image_id":
-                        row["image_id"],
-
-                    "image_path":
-                        str(image_path),
-
-                    "mask_path":
-                        str(mask_path),
-
-                    "disease_label":
-                        row.get(
-                            "disease_label",
-                            ""
-                        ),
-
-                    "ITA":
-                        float(row["ITA"]),
-
-                    "bracket":
-                        bracket,
-
-                    "mask_method":
-                        row.get(
-                            "mask_method",
-                            ""
-                        ),
-
-                    "selected_k":
-                        row.get(
-                            "selected_k",
-                            ""
-                        ),
+        except Exception as exc:
+            for beta in beta_values:
+                all_results.append({
+                    **base,
+                    "beta": beta,
+                    "raw_local_contrast_variance": np.nan,
+                    "clahe_local_contrast_variance": np.nan,
+                    "contrast_gain": np.nan,
+                    "noise": np.nan,
+                    "accepted": False,
+                    "decision_reason": f"PROCESSING_ERROR: {exc}",
                 })
+            continue
 
-                beta_image_results.append(
-                    result
-                )
-
-            except Exception as exc:
-
-                beta_image_results.append({
-
-                    "image_id":
-                        row["image_id"],
-
-                    "image_path":
-                        str(image_path),
-
-                    "mask_path":
-                        str(mask_path),
-
-                    "disease_label":
-                        row.get(
-                            "disease_label",
-                            ""
-                        ),
-
-                    "ITA":
-                        row["ITA"],
-
-                    "bracket":
-                        bracket,
-
-                    "beta":
-                        beta,
-
-                    "raw_local_contrast_variance":
-                        np.nan,
-
-                    "clahe_local_contrast_variance":
-                        np.nan,
-
-                    "contrast_gain":
-                        np.nan,
-
-                    "noise":
-                        np.nan,
-
-                    "accepted":
-                        False,
-
-                    "decision_reason":
-                        f"PROCESSING_ERROR: {exc}",
-                })
-
-        all_results.extend(
-            beta_image_results
-        )
+        for beta in beta_values:
+            result = evaluate_beta(
+                image_rgb=image,
+                mask=mask,
+                beta=beta,
+                config=config,
+            )
+            all_results.append({**base, **result})
 
     results_df = pd.DataFrame(
         all_results
     )
 
-    # ========================================================
-    # SUMMARIZE EACH BETA
-    # ========================================================
+    summary_df = summarize_beta_search(
+        results_df,
+        label,
+        config
+    )
+
+    best_beta = select_beta(
+        summary_df,
+        config
+    )
+
+    summary_df["selected"] = summary_df["beta"] == best_beta
+
+    return (
+        best_beta,
+        results_df,
+        summary_df,
+    )
+
+
+# ============================================================
+# #10 SUMMARIZE EACH BETA
+# ============================================================
+
+def summarize_beta_search(
+    results_df: pd.DataFrame,
+    label: str,
+    config: CLAHECalibrationConfig,
+) -> pd.DataFrame:
+    """
+    Aggregate per-image beta results into one row per beta.
+    """
 
     summaries = []
 
-    for beta in beta_values:
+    for beta in generate_beta_grid(config):
 
         current = results_df[
             results_df["beta"] == beta
-        ]
-
-        valid = current[
-            current["accepted"].notna()
         ]
 
         accepted_count = int(
@@ -789,94 +756,92 @@ def calibrate_bracket(
 
         total_count = len(current)
 
-        acceptance_rate = (
-            accepted_count / total_count
-            if total_count > 0
-            else 0.0
-        )
-
-        mean_contrast_gain = float(
-            current[
-                "contrast_gain"
-            ].mean()
-        )
-
-        mean_noise = float(
-            current[
-                "noise"
-            ].mean()
-        )
-
         summaries.append({
-
-            "bracket":
-                bracket,
-
-            "beta":
-                float(beta),
-
-            "mean_contrast_gain":
-                mean_contrast_gain,
-
-            "mean_noise":
-                mean_noise,
-
-            "accepted_images":
-                accepted_count,
-
-            "total_images":
-                total_count,
-
-            "acceptance_rate":
-                acceptance_rate,
+            "bracket": label,
+            "beta": float(beta),
+            "mean_contrast_gain": float(current["contrast_gain"].mean()),
+            "mean_noise": float(current["noise"].mean()),
+            "accepted_images": accepted_count,
+            "total_images": total_count,
+            "acceptance_rate": (
+                accepted_count / total_count
+                if total_count > 0
+                else 0.0
+            ),
         })
 
-    summary_df = pd.DataFrame(
+    return pd.DataFrame(
         summaries
     )
 
-    # ========================================================
-    # SELECT BEST BETA
-    # ========================================================
+
+# ============================================================
+# #10 SELECT BETA FROM A BRACKET SUMMARY
+# ============================================================
+
+def select_beta(
+    summary_df: pd.DataFrame,
+    config: CLAHECalibrationConfig,
+) -> float:
+    """
+    Choose one beta from the admissible betas of a bracket.
+
+    Admissible: acceptance_rate >= minimum_acceptance_rate.
+
+    "knee" (default):
+        Local contrast rises monotonically with the clip limit, so
+        "highest contrast gain" always selects the largest admissible
+        beta, i.e. whatever beta the noise ceiling happens to allow.
+        That makes every bracket collapse to the same value.
+
+        Instead, locate the point of diminishing returns on the
+        admissible mean-contrast-gain curve (Kneedle: after scaling
+        beta and gain to [0, 1], maximise gain_norm - beta_norm).
+        Brackets whose contrast responds differently to CLAHE get
+        different betas. Ties prefer the smaller beta.
+
+    "max_gain":
+        The original rule: highest mean contrast gain, ties broken by
+        lower mean noise.
+    """
 
     candidates = summary_df[
-        (
-            summary_df["acceptance_rate"]
-            >= config.minimum_acceptance_rate
-        )
-    ].copy()
+        summary_df["acceptance_rate"]
+        >= config.minimum_acceptance_rate
+    ].sort_values("beta")
 
     if candidates.empty:
         raise RuntimeError(
-            f"No beta passed the acceptance "
-            f"criterion for {bracket}."
+            f"No beta passed the acceptance criterion for "
+            f"{summary_df['bracket'].iloc[0]}."
         )
 
-    # Highest contrast gain.
-    #
-    # If two beta values tie, lower noise is preferred.
-    candidates = candidates.sort_values(
-        by=[
-            "mean_contrast_gain",
-            "mean_noise"
-        ],
-        ascending=[
-            False,
-            True
-        ]
-    )
+    if config.selection_rule == "max_gain" or len(candidates) < 3:
+        best = candidates.sort_values(
+            by=["mean_contrast_gain", "mean_noise"],
+            ascending=[False, True],
+        ).iloc[0]
+        return float(best["beta"])
 
-    best = candidates.iloc[0]
+    if config.selection_rule != "knee":
+        raise ValueError(
+            f"Unknown selection_rule: {config.selection_rule}"
+        )
 
-    best_beta = float(
-        best["beta"]
-    )
+    beta = candidates["beta"].to_numpy(dtype=float)
+    gain = candidates["mean_contrast_gain"].to_numpy(dtype=float)
 
-    return (
-        best_beta,
-        results_df,
-        summary_df,
-    )
+    gain_span = gain.max() - gain.min()
+    if not np.isfinite(gain_span) or gain_span <= 0:
+        # Flat curve: extra clipping buys nothing, use the gentlest beta.
+        return float(beta[0])
+
+    beta_norm = (beta - beta[0]) / (beta[-1] - beta[0])
+    gain_norm = (gain - gain.min()) / gain_span
+
+    # argmax returns the first (smallest-beta) index on ties.
+    return float(beta[int(np.argmax(gain_norm - beta_norm))])
+
 
 
 # ============================================================
@@ -902,7 +867,7 @@ def create_validation_sample(
     )
 
     df = dataframe[
-        dataframe["calibration_eligible"] == True
+        dataframe["calibration_eligible"].astype(str).str.lower() == "true"
     ].copy()
 
     if df.empty:
@@ -1338,6 +1303,7 @@ def create_frozen_configuration(
     beta_mid: float,
     beta_low: float,
     config: CLAHECalibrationConfig,
+    beta_global: Optional[float] = None,
 ) -> dict:
     """
     Create the final phase0_calibration.json.
@@ -1350,6 +1316,9 @@ def create_frozen_configuration(
         # ----------------------------------------------------
 
         "phase": "phase0",
+        # Only the research team may change this to FROZEN after
+        # reviewing the QC sheet and beta_search_summary.csv.
+        "status": "PROVISIONAL",
 
         "configuration_version":
             "phase0_v1",
@@ -1398,6 +1367,11 @@ def create_frozen_configuration(
         "beta_low":
             beta_low,
 
+        # Same calibration procedure on all brackets pooled; used by the
+        # fixed-beta ablation control (no ITA).
+        "beta_global":
+            beta_global,
+
         # ----------------------------------------------------
         # #10 SEARCH
         # ----------------------------------------------------
@@ -1412,6 +1386,8 @@ def create_frozen_configuration(
 
             "step":
                 config.beta_step,
+            "selection_rule":
+                config.selection_rule,
         },
 
         # ----------------------------------------------------
@@ -1593,8 +1569,11 @@ def run_phase0_calibration(
     ] = dataframe[
         "ITA"
     ].apply(
-        assign_ita_bracket
+        lambda ita: assign_ita_bracket(ita) if pd.notna(ita) else ""
     )
+
+    # MASK_FAILED rows have no ITA and no bracket.
+    dataframe["bracket"] = dataframe["bracket"].fillna("")
 
     dataframe[
         "bracket_check"
@@ -1641,6 +1620,7 @@ def run_phase0_calibration(
     print("\n[2/6] Running beta calibration...")
 
     beta_search_records = []
+    beta_search_summaries = []
     best_betas = {}
 
     brackets = [
@@ -1666,6 +1646,10 @@ def run_phase0_calibration(
         best_betas[
             bracket
         ] = best_beta
+
+        beta_search_summaries.append(
+            summary
+        )
 
         beta_search_records.extend(
             image_results.to_dict(
@@ -1694,6 +1678,35 @@ def run_phase0_calibration(
         beta_search_records
     ).to_csv(
         beta_results_path,
+        index=False
+    )
+
+    # Pooled (ITA-agnostic) calibration for the fixed-beta control.
+    # The pool is the union of the three brackets, so the per-image
+    # results already computed are reused instead of re-evaluated.
+    print("\nCalibrating: ALL brackets pooled")
+    global_summary = summarize_beta_search(
+        pd.DataFrame(beta_search_records),
+        "ALL",
+        config
+    )
+    beta_global = select_beta(
+        global_summary,
+        config
+    )
+    global_summary["selected"] = global_summary["beta"] == beta_global
+    beta_search_summaries.append(global_summary)
+    print(f"Best beta = {beta_global:.2f}")
+
+    beta_summary_path = (
+        output_dir
+        / "beta_search_summary.csv"
+    )
+    pd.concat(
+        beta_search_summaries,
+        ignore_index=True
+    ).to_csv(
+        beta_summary_path,
         index=False
     )
 
@@ -1734,6 +1747,10 @@ def run_phase0_calibration(
     )
     print(
         f"  beta_low  = {beta_low}"
+    )
+
+    print(
+        f"  beta_global = {beta_global}  (pooled, fixed-beta control)"
     )
 
     # ========================================================
@@ -1797,6 +1814,7 @@ def run_phase0_calibration(
             beta_mid=beta_mid,
             beta_low=beta_low,
             config=config,
+            beta_global=beta_global,
         )
     )
 
@@ -1893,6 +1911,9 @@ def run_phase0_calibration(
         "beta_low":
             beta_low,
 
+        "beta_global":
+            beta_global,
+
         "phase0_calibration":
             str(config_path),
 
@@ -1956,4 +1977,4 @@ if __name__ == "__main__":
     run_phase0_calibration(
         manifest_path=args.manifest,
         output_dir=args.output,
-    )
+    )

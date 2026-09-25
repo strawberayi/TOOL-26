@@ -97,7 +97,7 @@ Important files:
 - `docs/member1_phase0_protocol.md`
   - Complete methodology and operating instructions
 - `tests/test_member1.py`
-  - Eleven passing tests
+  - Member 1 tests; `tests/test_calibration.py` covers beta selection
 - `backend/requirements.txt`
 - `README.md`
 
@@ -223,7 +223,7 @@ python -m py_compile backend/*.py tests/*.py
 git diff --check
 ```
 
-Current result: all 11 tests pass. A real Ringworm image was also processed
+Current result (2026-09-25): all 16 tests pass (11 Member 1 + 5 calibration). A real Ringworm image was also processed
 successfully with a complete mask/ITA audit.
 
 ## Required next work
@@ -287,3 +287,43 @@ Use this if a short continuation prompt is needed:
 > or organize the two-reviewer mask QC, proxy A/B labeling, provenance verification,
 > threshold review, configuration freeze, and final training-only Phase 0 run. Preserve
 > all raw images and unrelated worktree changes.
+
+## 2026-09-25 ablation fixes
+
+- Removed the "emergency center crop" from `masking_ita.py`. A double masking
+  failure is `MASK_FAILED` again, with no ITA and no epsilon substitution, as the
+  protocol requires. Transparent images are rejected again (`NON_OPAQUE_IMAGE`).
+- `run_phase0` no longer copies the ITA bracket into `skin_tone_group`.
+- The old `backend/image_ita_manifest.csv` / `summary.json` came from a different
+  Windows dataset (`LOCAL_TRAIN_DATASET`, 1,776 images) and included 13
+  emergency-crop ITAs. They are superseded by
+  `phase0_outputs/member1_train_provisional/`, which is based on the cleaned split.
+- Beta calibration now uses the `knee` selection rule and also writes `beta_global`
+  (pooled, ITA-agnostic) for the Model C′ control. The previous result was
+  β_high = β_mid = β_low = 5.5.
+- `backend/build_yolo_dataset.py` builds `datasets/source_yolo` from the cleaned
+  split. Warts (0), Impetigo (3) and Tinea pedis (11 train) have too few reliably
+  matched annotations. Their JSON files refer to renamed images that are not in
+  any local archive. Obtain the exact annotated image files to include them.
+
+## 2026-09-25 (later): switched to the team annotated archive
+
+- Source: `Data Set-20260925T122828Z-1-001.zip`, extracted to
+  `phase0_work/team_dataset/`. `backend/build_team_source_manifest.py` pairs
+  `1. Filtered` images with `2. Annotated` JSON (file name + image size) and
+  finds 2,469 verified pairs across all 8 classes. 68 Tinea versicolor
+  mismatches/AVIF files and 1 unannotated Varicella image are logged in
+  `phase0_work/team_inventory/team_source_manifest_excluded.csv`.
+- The team's `3. Stratefied-Split` is NOT used: 129 exact-duplicate groups
+  and 521 near-duplicate pairs span train/val/test (36 groups touch test).
+- `impetigo - 327.jpg` and `warts  - 85.jpg` are the same photo with
+  different labels. Both are excluded via `docs/team_dataset_manual_exclusions.csv`
+  until the clinical member decides the correct label.
+- New command `prepare-split-manifest` restores the protocol split. With
+  `--quality-scope calibration`, the blur/resolution gate only limits
+  calibration eligibility, and it is not used to drop detector data.
+  Result: 1,967 unique images, split 1,370 / 397 / 200. Calibration-eligible
+  train images: 819.
+- Tinea pedis has only 51 unique photos: most files are Roboflow augmentation
+  copies of the same photos. More original Tinea pedis photos are needed.
+- Phase 0 output: `phase0_outputs/member1_team_train/`.
