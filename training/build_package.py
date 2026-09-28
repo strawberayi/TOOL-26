@@ -62,17 +62,23 @@ Settings are the same for everyone: YOLO26n, seed 42, batch 8, image size 640, 3
 
 ## 1. Setup (once per laptop)
 
-This folder already contains the code and the data. Only Python packages are needed.
+This folder already contains the code and the data. The first cell of every
+notebook (**GPU setup**) checks the NVIDIA driver and PyTorch, and downloads the
+CUDA build of PyTorch 2.14.0 and the other pinned packages **only if they are
+missing**. If it installs anything, restart the kernel and click Run All again.
 
-- **Izzy:** nothing to install. Use the existing **TOOL-26 (.venv)** kernel.
-- **Daniel:** unzip `ablation_training.zip`, then inside the `ablation_training` folder:
+- **Izzy:** nothing to prepare. Use the existing **TOOL-26 (.venv)** kernel.
+- **Daniel:** needs an **NVIDIA driver** (Windows: nvidia.com/drivers or the NVIDIA App;
+  Ubuntu: `sudo ubuntu-drivers install`) and **Python 3.14** (the version Izzy used).
+  Unzip `ablation_training.zip`, then inside the `ablation_training` folder create the kernel once:
   ```bash
   python3 -m venv .venv
-  .venv/bin/pip install -r requirements.txt
+  .venv/bin/python -m pip install ipykernel
   .venv/bin/python -m ipykernel install --user --name tool26 --display-name "TOOL-26 (.venv)"
   ```
-  Izzy's run used **Python 3.14**. On Windows use `.venv\\Scripts\\pip` and `.venv\\Scripts\\python`.
-  If the GPU needs a specific CUDA build of torch, get it from pytorch.org but keep version **2.14.0**.
+  On Windows use `.venv\\Scripts\\python`. On Ubuntu, if `python3 -m venv` says ensurepip is
+  missing, run `sudo apt install python3.14-venv` first. The notebook installs everything else.
+  (`requirements.txt` lists the same packages for manual installation.)
 
 ## 2. Train
 

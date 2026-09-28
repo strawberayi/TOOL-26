@@ -49,6 +49,80 @@ def config(train_models=None) -> str:
     return src
 
 
+GPU_SETUP = r"""
+# GPU setup: checks the NVIDIA driver and the CUDA build of PyTorch, and installs
+# PyTorch (with CUDA) and the other pinned packages only if they are missing.
+# Nothing is downloaded when everything is already correct.
+import importlib.metadata as metadata
+import re
+import shutil
+import subprocess
+import sys
+
+PINNED = {'ultralytics': '8.4.163', 'opencv-python': '5.0.0.93', 'scikit-learn': '1.9.1',
+          'numpy': '2.5.3', 'pillow': '12.3.0'}
+EXTRA = ['pandas', 'pyyaml', 'matplotlib']
+TORCH, TORCHVISION = '2.14.0', '0.29.0'
+
+def installed(name):
+    try:
+        return metadata.version(name)
+    except metadata.PackageNotFoundError:
+        return None
+
+def install(*args):
+    # uv-made environments have no pip; use uv there, otherwise pip.
+    if shutil.which('uv'):
+        cmd = ['uv', 'pip', 'install', '--python', sys.executable, *args]
+    else:
+        if subprocess.run([sys.executable, '-m', 'pip', '--version'], capture_output=True).returncode != 0:
+            subprocess.check_call([sys.executable, '-m', 'ensurepip', '--upgrade'])
+        cmd = [sys.executable, '-m', 'pip', 'install', *args]
+    print('Installing:', ' '.join(args))
+    subprocess.check_call(cmd)
+
+# 1. NVIDIA driver (cannot be installed from a notebook).
+smi = shutil.which('nvidia-smi')
+out = subprocess.run([smi], capture_output=True, text=True).stdout if smi else ''
+match = re.search(r'CUDA Version:\s*(\d+)\.(\d+)', out)
+if not match:
+    raise RuntimeError(
+        'No NVIDIA driver found (nvidia-smi). Install it first, restart the computer, then Run All again:\n'
+        '  Windows: https://www.nvidia.com/Download/index.aspx (or the NVIDIA App)\n'
+        '  Ubuntu:  sudo ubuntu-drivers install\n'
+        'Training on the CPU would take days.')
+driver_cuda = (int(match.group(1)), int(match.group(2)))
+print(f'NVIDIA driver OK, supports CUDA {driver_cuda[0]}.{driver_cuda[1]}')
+
+# 2. PyTorch with CUDA. Checked in a subprocess so this kernel does not load the old build.
+check = subprocess.run([sys.executable, '-c', 'import torch; print(torch.__version__, torch.cuda.is_available())'],
+                       capture_output=True, text=True)
+torch_status = check.stdout.strip() if check.returncode == 0 else 'not installed'
+torch_ok = torch_status.startswith(TORCH) and torch_status.endswith('True')
+print(f'PyTorch: {torch_status}' + ('  -> GPU ready' if torch_ok else '  -> needs the CUDA build'))
+
+changed = False
+if not torch_ok:
+    # The PyTorch wheels include the CUDA runtime; only the driver is needed.
+    cuda_tag = 'cu130' if driver_cuda >= (13, 0) else 'cu126' if driver_cuda >= (12, 6) else None
+    if cuda_tag is None:
+        raise RuntimeError(f'The driver only supports CUDA {driver_cuda[0]}.{driver_cuda[1]}; update the NVIDIA driver (CUDA 12.6 or newer).')
+    install(f'torch=={TORCH}+{cuda_tag}', f'torchvision=={TORCHVISION}+{cuda_tag}',
+            '--index-url', f'https://download.pytorch.org/whl/{cuda_tag}')
+    changed = True
+
+# 3. The other packages, at the exact versions used for the first run.
+missing = [f'{name}=={version}' for name, version in PINNED.items() if installed(name) != version]
+missing += [name for name in EXTRA if installed(name) is None]
+if missing:
+    install(*missing)
+    changed = True
+
+if changed:
+    raise RuntimeError('Packages installed. Restart the kernel (Kernel > Restart), then Run All again.')
+print('All packages ready.')
+"""
+
 SETUP = r"""
 import sys
 from pathlib import Path
@@ -142,6 +216,8 @@ Then it zips the results into `results/results_{trainer.lower()}.zip`.
 Before you start, follow `README.md` in the `ablation_training` folder (install the exact versions).
 Each model takes about **45–75 minutes** on an RTX 3050 laptop. Keep the laptop plugged in and awake.
 """),
+        md("## Step 1: GPU setup (installs PyTorch with CUDA only if needed)"),
+        code(GPU_SETUP),
         code(SETUP),
         code(config(models)),
         code(main_cell("IMAGE_SUFFIXES = ")),
@@ -232,6 +308,8 @@ This notebook does **not train**. It:
 
 Results go to `ablation_training/runs/ablation_split/`. Nothing in `TOOL-26` changes unless you turn on `UPDATE_APP`.
 """),
+        md("## Step 1: GPU setup (installs PyTorch with CUDA only if needed)"),
+        code(GPU_SETUP),
         code(SETUP),
         code(config()),
         code(main_cell("IMAGE_SUFFIXES = ")),
