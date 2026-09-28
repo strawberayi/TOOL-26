@@ -49,64 +49,77 @@ ipykernel
 README = """\
 # Ablation training: Izzy (A, B, C) and Daniel (C′, D)
 
-Each person runs **one notebook, once**. Izzy then combines and evaluates everything.
-
-| Who | Open this notebook | Time |
-|---|---|---|
-| Izzy | `izzy/izzy_train_A_B_C.ipynb` | ~2.5–3.5 h |
-| Daniel | `daniel/daniel_train_C2_D.ipynb` | ~1.5–2.5 h |
-| Izzy, after both finish | `izzy/combine_and_evaluate.ipynb` | ~15 min |
-
-Both training notebooks can run at the same time on the two laptops.
+Izzy trains Models **A, B, C**; Daniel trains Models **C′, D**. Izzy then combines and evaluates all five.
 Settings are the same for everyone: YOLO26n, seed 42, batch 8, image size 640, 300 epochs, patience 50.
 
-## 1. Setup (once per laptop)
+## Who does what
 
-This folder already contains the code and the data. The first cell of every
-notebook (**GPU setup**) checks the NVIDIA driver and PyTorch, and downloads the
-CUDA build of PyTorch 2.14.0 and the other pinned packages **only if they are
-missing**. If it installs anything, restart the kernel and click Run All again.
+| Order | Izzy | Daniel |
+|---|---|---|
+| 1 | Send `ablation_training.zip` to Daniel | Download the zip |
+| 2 | — | Set up the laptop (driver, Python, kernel) |
+| 3 | **Run All** on `izzy/izzy_train_A_B_C.ipynb` (~2.5–3.5 h) | **Run All** on `daniel/daniel_train_C2_D.ipynb` (~1.5–2.5 h) |
+| 4 | Wait for Daniel's result | Send `results/results_daniel.zip` to Izzy |
+| 5 | Put it in `results/incoming/` | Done |
+| 6 | **Run All** on `izzy/combine_and_evaluate.ipynb` (~15 min) | — |
+| 7 | Collect the results (optional: update the app) | — |
 
-- **Izzy:** nothing to prepare. Use the existing **TOOL-26 (.venv)** kernel.
-- **Daniel:** needs an **NVIDIA driver** (Windows: nvidia.com/drivers or the NVIDIA App;
-  Ubuntu: `sudo ubuntu-drivers install`) and **Python 3.14** (the version Izzy used).
-  Unzip `ablation_training.zip`, then inside the `ablation_training` folder create the kernel once:
-  ```bash
-  python3 -m venv .venv
-  .venv/bin/python -m pip install ipykernel
-  .venv/bin/python -m ipykernel install --user --name tool26 --display-name "TOOL-26 (.venv)"
-  ```
-  On Windows use `.venv\\Scripts\\python`. On Ubuntu, if `python3 -m venv` says ensurepip is
-  missing, run `sudo apt install python3.14-venv` first. The notebook installs everything else.
-  (`requirements.txt` lists the same packages for manual installation.)
+Step 3 runs at the same time on both laptops.
 
-## 2. Train
+## Izzy's tasks
 
-Open your notebook in VS Code or Jupyter, select the **TOOL-26 (.venv)** kernel, and click **Run All**.
+1. **Send the zip to Daniel.** Upload `ablation_training.zip` (~600 MB, next to this folder) to Google Drive and share the link.
+2. **Train A, B, C.**
+   - In VS Code, open this `ablation_training` folder, then `izzy/izzy_train_A_B_C.ipynb`.
+   - Select the **TOOL-26 (.venv)** kernel (the existing one; nothing to install) and click **Run All**.
+   - When it finishes, `results/results_izzy.zip` appears. Leave it there.
+3. **Receive Daniel's `results_daniel.zip`** and put it in `results/incoming/`.
+4. **Combine and evaluate.** Open `izzy/combine_and_evaluate.ipynb`, select the same kernel, and click **Run All**.
+   It does not train; it imports all five models, checks Daniel's data matched, and tests everything on the test set.
+5. **Results** are in `runs/ablation_split/`:
+   - `ablation_test_metrics.csv`: mAP, precision, recall of A, B, C, C′, D
+   - `ablation_test_map50_95_by_bracket.csv`: per skin tone
+   - `trained_by.csv`: who trained each model, on which GPU
+   - `figures/` and `visual_proof/`: confusion matrices, curves, Model A vs D pictures
+6. **Optional, update the app.** Set `UPDATE_APP = True` in the last code cell and run it (needs `TOOL-26`
+   next to this folder), then rebuild the APK with `TOOL-26/phone-development/build-apk.sh`.
 
-- Keep the laptop plugged in and awake.
+## Daniel's tasks
+
+1. **Prepare the laptop (once).**
+   - **NVIDIA driver.** Windows: nvidia.com/drivers or the NVIDIA App. Ubuntu: `sudo ubuntu-drivers install`.
+   - **Python 3.14** (the version Izzy used).
+   - **VS Code** with the **Python** and **Jupyter** extensions.
+2. **Download and unzip** `ablation_training.zip`.
+3. **Create the kernel (once)** in a terminal inside the `ablation_training` folder:
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/python -m pip install ipykernel
+   .venv/bin/python -m ipykernel install --user --name tool26 --display-name "TOOL-26 (.venv)"
+   ```
+   - On Windows use `.venv\\Scripts\\python` instead of `.venv/bin/python`.
+   - On Ubuntu, if `python3 -m venv` says ensurepip is missing, run `sudo apt install python3.14-venv` first.
+4. **Train C′ and D.** Open `daniel/daniel_train_C2_D.ipynb`, select the **TOOL-26 (.venv)** kernel, and click **Run All**.
+   - The first time, the **GPU setup** cell downloads PyTorch with CUDA (~2–3 GB) and the other packages,
+     then stops with "Restart the kernel". Click **Restart**, then **Run All** again.
+5. **Send `results/results_daniel.zip`** (~20 MB) to Izzy.
+
+## Rules (both)
+
+- **Do not change anything in the notebooks or the data.**
+- Keep the laptop plugged in and awake, and do not close VS Code while training.
 - If it stops, **Run All** again: finished models are skipped and an interrupted one resumes.
-- The notebook stops with an error if the package versions, the data or the preprocessed images differ from Izzy's laptop. That keeps the comparison fair.
-
-When it finishes:
-- **Daniel:** send `results/results_daniel.zip` (~20 MB) to Izzy.
-- **Izzy:** keep `results/results_izzy.zip` where it is.
-
-## 3. Combine (Izzy)
-
-1. Put Daniel's `results_daniel.zip` in `results/incoming/`.
-2. Open `izzy/combine_and_evaluate.ipynb` and click **Run All**.
-3. Results: `runs/ablation_split/`, including `ablation_test_metrics.csv`, the per-skin-tone table, figures, and `trained_by.csv`.
-4. Optional: to put the new models in the app, set `UPDATE_APP = True` in the last code cell. This needs `TOOL-26` next to this folder. Then rebuild the APK.
+- The first cell (**GPU setup**) installs PyTorch with CUDA only if it is missing. After it installs anything, restart the kernel and Run All again.
+- The notebook stops with an error (**[BAD]**) if package versions, data or preprocessed images differ from Izzy's laptop. Send the message to Izzy.
+- `requirements.txt` lists the same packages for manual installation.
 
 ## Limitation to report
 
 Models A, B, C are trained on Izzy's laptop and C′, D on Daniel's. Different GPUs can shift results slightly even with the same seed, so state this in the manuscript. `runs/ablation_split/trained_by.csv` records who trained each model and on which GPU. All models are evaluated on the same machine.
 
-## Rules
+## About this folder
 
-- **Do not change anything in the notebooks or the data.**
-- This folder is generated from `TOOL-26/training/build_package.py`; regenerate it there instead of editing it here.
+This folder is generated from `TOOL-26/training/build_package.py`; regenerate it there instead of editing it here.
 """
 
 
