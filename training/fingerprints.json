@@ -1,0 +1,25 @@
+{
+  "created": "2026-09-28T15:24",
+  "versions": {
+    "ultralytics": "8.4.163",
+    "torch": "2.14.0+cu130",
+    "cv2": "5.0.0",
+    "sklearn": "1.9.1",
+    "numpy": "2.5.3",
+    "python": "3.14.4"
+  },
+  "inputs": {
+    "backend/phase0_calibration.json": "7117479c461e62e1092840c5522e4b12ab6d6ec010a93f9bdb6bc01e1c537764",
+    "backend/member1_phase0_config.json": "c89ac6e3d1d0b6511af73119c8c0176a5ce5c7abc3b609c9da4db569590275a9",
+    "datasets/ablation_yolov26/ita_table.csv": "6562927b461507ccef329e26de541813c7d754206e39cc07513b565bc098be1f",
+    "datasets/source_yolo/classes.json": "9355d9af99afee02ff02b50286f179813dafda2ccb5ae7ca1a6e836e3b00f502",
+    "datasets/source_yolo (images+labels)": "b1defe61b1517d57e5566ca3aa3153bbc94c9e6002d1dd44e868d41816c4cb85"
+  },
+  "datasets": {
+    "ModelA_raw": "bdd09f3eb36daa16603ae7c90e2ede5f31df57a3c273ae889fbdec5e4b4f3daf",
+    "ModelB_rgb_clahe": "642564fbfeba9eadcca5efa973312290855d44d62fd08c76a3287be453530a0e",
+    "ModelC_fixed_l_clahe": "2d3c44fc634aa24df48f881434fddd50d489f783271e2dd2185697df6c5441ae",
+    "ModelC2_fixed_l_clahe_global": "fc8dbec41aa4940ff690157dc0bd4c450cefbfd670571815e66837d11d855340",
+    "ModelD_proposed": "7d14d98f0bed0459553f48c1a7c801350632970bbf0c8da9dd6b79ec81d6b855"
+  }
+}

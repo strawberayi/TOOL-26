@@ -42,3 +42,6 @@ weights/
 
 # Executed notebook copies (training logs, ~35 MB)
 notebooks/run_stage*.ipynb
+
+# Split-training result zips (training/split_utils.py)
+/results/

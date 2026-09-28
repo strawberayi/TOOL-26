@@ -12,14 +12,16 @@ held-out test split (evaluation only; nothing is tuned).
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-RUNS = ROOT / "runs" / "ablation_yolov26"
-WEIGHTS = ROOT / "weights" / "ablation_yolov26"
+# ABLATION_RUNS / ABLATION_WEIGHTS select another training round (see training/).
+RUNS = Path(os.environ.get("ABLATION_RUNS", ROOT / "runs" / "ablation_yolov26"))
+WEIGHTS = Path(os.environ.get("ABLATION_WEIGHTS", ROOT / "weights" / "ablation_yolov26"))
 ABLATION = ROOT / "datasets" / "ablation_yolov26"
 OUTPUT = ROOT / "frontend" / "benchmark_data.json"
 

@@ -12,12 +12,14 @@ same parameters as the Python pipeline.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WEIGHTS = ROOT / "weights" / "ablation_yolov26"
+# ABLATION_WEIGHTS selects another training round (see training/).
+WEIGHTS = Path(os.environ.get("ABLATION_WEIGHTS", ROOT / "weights" / "ablation_yolov26"))
 OUTPUT = ROOT / "frontend" / "models"
 
 MODELS = [
