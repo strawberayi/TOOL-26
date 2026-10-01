@@ -1551,7 +1551,7 @@ function renderPatientTab(data) {
   }
 
   const explain = document.getElementById('mob-patient-explain');
-  if (explain) explain.innerHTML = renderComputation(data);
+  if (explain) explain.innerHTML = renderFeatureExtraction(data.lesionCrops || []) + renderComputation(data);
 
   const f = data.morphologicalFeatures;
   const detected = data.name !== 'No lesion detected';
@@ -1561,6 +1561,51 @@ function renderPatientTab(data) {
   set('mob-feat-crust', f.crust);
   set('mob-feat-boundary', f.boundary);
   set('mob-feat-key', f.differential);
+}
+
+// Feature extraction: each detected lesion cropped from the photo with its confidence
+// and the features measured from that crop.
+function renderFeatureExtraction(crops) {
+  if (!crops.length) return '';
+  const tag = (v, hi, lo, hiText, loText) => (v > hi ? hiText : v < lo ? loText : '');
+  const sgn = v => (v > 0 ? `+${v}` : `${v}`);
+  return `
+    <div class="patient-split-title">Feature extraction (each detected lesion)</div>
+    <div class="feature-crops">
+      ${crops.map((c, i) => {
+        const p = Math.min(Math.max(c.confidence, 1e-6), 1 - 1e-6);
+        const z = Math.log(p / (1 - p));
+        const [lL, la, lb] = c.lesion_lab || [0, 0, 0];
+        const [sL, sa, sb] = c.skin_lab || [0, 0, 0];
+        const dL = Math.round((lL - sL) * 10) / 10, da = Math.round((la - sa) * 10) / 10, db = Math.round((lb - sb) * 10) / 10;
+        return `
+        <article class="feature-crop">
+          <div class="feature-crop-top">
+            <img src="${c.image}" alt="Detected lesion ${i + 1}">
+            <div class="feature-crop-body">
+              <div class="feature-crop-head"><b>Lesion ${i + 1}</b><span>${(c.confidence * 100).toFixed(2)}%</span></div>
+              <div class="feature-crop-label">${PATIENT_NAMES[c.label] || c.label}</div>
+              <ul>
+                <li>Size: ${c.box_px[0]} × ${c.box_px[1]} px</li>
+                <li>Colour vs skin (ΔE): ${c.delta_e} ${c.delta_e >= 10 ? '(clearly visible)' : c.delta_e >= 5 ? '(visible)' : '(subtle)'}</li>
+                <li>Redness: ${sgn(c.redder)} ${tag(c.redder, 3, -3, '(redder)', '(less red)')}</li>
+                <li>Yellowness: ${sgn(c.yellower)} ${tag(c.yellower, 3, -3, '(yellower)', '')}</li>
+                <li>Roughness: ${c.roughness_ratio}× ${tag(c.roughness_ratio, 1.3, 0.8, '(rougher)', '(smoother)')}</li>
+              </ul>
+            </div>
+          </div>
+          <div class="feature-calc">
+            <div><b>Confidence:</b> <code>p = 1 / (1 + e^−z) = 1 / (1 + e^−(${z.toFixed(2)})) = ${p.toFixed(4)} = ${(p * 100).toFixed(2)}%</code></div>
+            <div><b>Colour (CIELAB):</b> lesion L*a*b* = (${lL}, ${la}, ${lb}), skin around it = (${sL}, ${sa}, ${sb})<br>
+              <code>ΔE = √(ΔL*² + Δa*² + Δb*²) = √(${dL}² + ${da}² + ${db}²) = ${c.delta_e}</code><br>
+              <code>Redness = Δa* = ${la} − ${sa} = ${sgn(da)}</code> · <code>Yellowness = Δb* = ${lb} − ${sb} = ${sgn(db)}</code></div>
+            <div><b>Roughness:</b> <code>σ(Laplacian) lesion ÷ σ(Laplacian) skin = ${c.lesion_rough} ÷ ${c.skin_rough} = ${c.roughness_ratio}×</code></div>
+          </div>
+        </article>`;
+      }).join('')}
+    </div>
+    <p class="patient-split-note">Each crop is a lesion box from Model D. z is the model's raw score for the predicted disease and p its confidence.
+      Colour and roughness are measured inside the box versus the skin ring around it (box enlarged by 50%).</p>`;
 }
 
 // Step-by-step justification of the result, with the numbers from this photo.
@@ -1858,6 +1903,7 @@ function buildDetectionData(result, dataUrl) {
     gradcamTargets: result.gradcam_targets || [],
     classScores: result.class_scores || [],
     lesionMeasures: result.lesion_measures,
+    lesionCrops: result.lesion_crops || [],
     itaInputs: result.ita_inputs,
     detections: result.detections || [],
     topLabel: result.top_label,

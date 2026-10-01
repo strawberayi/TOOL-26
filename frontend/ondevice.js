@@ -597,6 +597,51 @@ const OnDevice = (() => {
     };
   }
 
+  // Feature extraction: every detected lesion cropped from the photo, with its own
+  // confidence and colour/texture measurements versus the skin ring around it.
+  function lesionCrops(cv, rgb, detections, maxCrops = 6) {
+    const W = rgb.cols, H = rgb.rows;
+    const lab = new cv.Mat(), gray = new cv.Mat(), lap = new cv.Mat();
+    cv.cvtColor(rgb, lab, cv.COLOR_RGB2Lab);
+    cv.cvtColor(rgb, gray, cv.COLOR_RGB2GRAY);
+    cv.Laplacian(gray, lap, cv.CV_32F);
+    const L = lab.data, P = lap.data32F;
+    const r1 = v => Math.round(v * 10) / 10;
+    const crops = detections.slice(0, maxCrops).map(d => {
+      const [x1, y1, x2, y2] = [d.box[0] * W, d.box[1] * H, d.box[2] * W, d.box[3] * H].map(Math.round);
+      const bw = Math.max(1, x2 - x1), bh = Math.max(1, y2 - y1);
+      const ox1 = Math.max(0, Math.round(x1 - bw / 4)), oy1 = Math.max(0, Math.round(y1 - bh / 4));
+      const ox2 = Math.min(W, Math.round(x2 + bw / 4)), oy2 = Math.min(H, Math.round(y2 + bh / 4));
+      const acc = () => ({ n: 0, l: 0, a: 0, b: 0, t: 0, t2: 0 });
+      const inside = acc(), ring = acc();
+      for (let y = oy1; y < oy2; y++) {
+        for (let x = ox1; x < ox2; x++) {
+          const i = y * W + x, t = (x >= x1 && x < x2 && y >= y1 && y < y2) ? inside : ring;
+          t.n++; t.l += L[3 * i] * 100 / 255; t.a += L[3 * i + 1] - 128; t.b += L[3 * i + 2] - 128;
+          t.t += P[i]; t.t2 += P[i] * P[i];
+        }
+      }
+      const mean = r => r.n ? { L: r.l / r.n, a: r.a / r.n, b: r.b / r.n, rough: Math.sqrt(Math.max(0, r.t2 / r.n - (r.t / r.n) ** 2)) } : null;
+      const les = mean(inside), skin = mean(ring);
+      const roi = rgb.roi(new cv.Rect(ox1, oy1, Math.max(1, ox2 - ox1), Math.max(1, oy2 - oy1)));
+      const image = toDataUrl(cv, roi, null, 160);
+      roi.delete();
+      return {
+        label: d.label, confidence: d.confidence, image, box_px: [bw, bh],
+        lesion_lab: les && [r1(les.L), r1(les.a), r1(les.b)],
+        skin_lab: skin && [r1(skin.L), r1(skin.a), r1(skin.b)],
+        lesion_rough: les && r1(les.rough), skin_rough: skin && r1(skin.rough),
+        delta_e: les && skin ? r1(Math.hypot(les.L - skin.L, les.a - skin.a, les.b - skin.b)) : null,
+        redder: les && skin ? r1(les.a - skin.a) : null,
+        yellower: les && skin ? r1(les.b - skin.b) : null,
+        darker: les && skin ? r1(skin.L - les.L) : null,
+        roughness_ratio: les && skin && skin.rough > 0 ? Math.round(100 * les.rough / skin.rough) / 100 : null,
+      };
+    });
+    lab.delete(); gray.delete(); lap.delete();
+    return crops;
+  }
+
   // Heatmap alone (transparent where the model does not look), for the Workspace overlay.
   function camHeatmapUrl(cv, cam, maxSide = 640) {
     const f32 = cv.matFromArray(cam.rows, cam.cols, cv.CV_32F, cam.data);
@@ -727,6 +772,7 @@ const OnDevice = (() => {
           gradcam_targets: cam ? cam.targets : [],
           class_scores: cam ? cam.classScores : [],
           lesion_measures: detections.length ? measureLesion(cv, rgb, detections, cam) : null,
+          lesion_crops: detections.length ? lesionCrops(cv, rgb, detections) : [],
           ita_inputs: itaResult.ita === null ? null : { meanL: itaResult.meanL, meanB: itaResult.meanB, k: itaResult.k },
           top_label: top,
           top_confidence: topConfidence,
