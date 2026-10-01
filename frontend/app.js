@@ -1536,10 +1536,9 @@ function renderPatientTab(data) {
   }
   if (insights) insights.innerHTML = renderPipelineInsights(data.insights, true);
 
-  // Disease split for the main lesion: the model's 8 class scores, scaled to 100% and
-  // grouped by the study's two look-alike clusters.
+  // Disease split within the predicted disease's cluster.
   const split = document.getElementById('mob-patient-split');
-  if (split) split.innerHTML = renderClusterSplit(data.classScores || []);
+  if (split) split.innerHTML = renderClusterSplit(data.classScores || [], data.topLabel);
 
   // Grad-CAM of Model D on the photo (with the detected lesion boxes).
   const photo = document.getElementById('mob-patient-photo');
@@ -1585,21 +1584,25 @@ function renderComputation(data) {
         ${dets.slice(0, 6).map((d, i) => `<tr><td>${i + 1}</td><td>${PATIENT_NAMES[d.label] || d.label}</td><td>${(d.confidence * 100).toFixed(1)}%</td></tr>`).join('')}
         </table>` : ''}</li>`);
   const cs = data.classScores || [];
-  if (cs.length) {
-    const sum = cs.reduce((a, c) => a + c.score, 0);
-    const rows = [...cs].sort((a, b) => b.score - a.score);
+  const split = cs.length ? clusterSplit(cs, data.topLabel) : null;
+  if (split) {
+    const others = CLUSTERS.find(c => c !== split.cluster);
     steps.push(`
-      <li><b>Scores of the strongest lesion.</b> The model gives each disease a raw score z, turned into
-        <code>p = 1 / (1 + e^−z)</code>; the split is <code>p ÷ Σp</code> (Σp = ${sum.toFixed(3)}).
+      <li><b>Scores within the cluster.</b> ${PATIENT_NAMES[data.topLabel] || data.topLabel} belongs to the
+        <b>${split.cluster.name}</b> cluster. The model gives each disease a raw score z, turned into
+        <code>p = 1 / (1 + e^−z)</code>; the split is <code>p ÷ Σp</code> over the four diseases of this cluster
+        (Σp = ${split.total.toFixed(3)}).
         <table class="calc-table"><tr><th>Disease</th><th>z</th><th>p</th><th>Split</th></tr>
-        ${rows.map(c => `<tr><td>${PATIENT_NAMES[c.label] || c.label}</td><td>${c.logit.toFixed(2)}</td><td>${c.score.toFixed(3)}</td><td>${(100 * c.score / sum).toFixed(1)}%</td></tr>`).join('')}
+        ${split.rows.map(c => `<tr><td>${PATIENT_NAMES[c.label] || c.label}</td><td>${c.logit === null ? '—' : c.logit.toFixed(2)}</td><td>${c.score.toFixed(3)}</td><td>${c.value.toFixed(1)}%</td></tr>`).join('')}
         </table>
-        Cluster total = sum of its four diseases' splits.</li>`);
+        Example: ${PATIENT_NAMES[split.rows[0].label] || split.rows[0].label} = ${split.rows[0].score.toFixed(3)} ÷ ${split.total.toFixed(3)} = ${split.rows[0].value.toFixed(1)}%.
+        The ${others.name} diseases are not part of this split.</li>`);
   }
   steps.push(`
     <li><b>Decision.</b> "Most likely to be" = the disease with the highest total confidence over all boxes
       (${data.topLabel ? PATIENT_NAMES[data.topLabel] || data.topLabel : 'none'}); the percentage beside it is its strongest box
-      (${data.confidence}%). Detections below 25% are not shown.</li>`);
+      (${data.confidence}%), i.e. the model's own score p for that lesion, so it is not 100% even when it is the only disease.
+      Detections below 25% are not shown.</li>`);
   const m = data.lesionMeasures;
   const measured = m ? `
     <div class="patient-split-title" style="margin-top:10px;">Lesion features measured from your photo</div>
@@ -1635,34 +1638,38 @@ const PATIENT_NAMES = {
   'Warts': 'Kulugo (Warts)', 'Tinea pedis': "Alipunga (Athlete's foot)",
 };
 
-function renderClusterSplit(classScores) {
-  const total = classScores.reduce((sum, c) => sum + c.score, 0);
-  if (!total) return '';
-  const pct = v => Math.round((v / total) * 1000) / 10;
-  const byLabel = Object.fromEntries(classScores.map(c => [c.label, c.score]));
-  const ranked = [...classScores].sort((a, b) => b.score - a.score);
-  const clusterOf = label => CLUSTERS.find(c => c.classes.includes(label));
-  const sameCluster = ranked.length > 1 && clusterOf(ranked[0].label) === clusterOf(ranked[1].label)
-    && pct(ranked[1].score) >= 10;
-  const blocks = CLUSTERS.map(cluster => {
-    const rows = cluster.classes.map(label => ({ label, value: pct(byLabel[label] || 0) }))
-      .sort((a, b) => b.value - a.value);
-    const sum = Math.round(rows.reduce((s, r) => s + r.value, 0) * 10) / 10;
-    return { cluster, rows, sum };
-  }).sort((a, b) => b.sum - a.sum);
+// Split inside the cluster of the predicted disease only: the four diseases of that
+// cluster, their model scores scaled to 100%.
+function clusterSplit(classScores, topLabel) {
+  const byLabel = Object.fromEntries(classScores.map(c => [c.label, c]));
+  const best = topLabel || ([...classScores].sort((a, b) => b.score - a.score)[0] || {}).label;
+  const cluster = CLUSTERS.find(c => c.classes.includes(best));
+  if (!cluster) return null;
+  const members = cluster.classes.map(label => byLabel[label] || { label, score: 0, logit: null });
+  const total = members.reduce((sum, c) => sum + c.score, 0);
+  if (!total) return null;
+  const rows = members.map(c => ({ ...c, value: Math.round((c.score / total) * 1000) / 10 }))
+    .sort((a, b) => b.value - a.value);
+  return { cluster, rows, total };
+}
+
+function renderClusterSplit(classScores, topLabel) {
+  const split = clusterSplit(classScores, topLabel);
+  if (!split) return '';
+  const { cluster, rows } = split;
+  const lookAlike = rows.length > 1 && rows[1].value >= 10;
   return `
-    <div class="patient-split-title">Disease split for the main lesion</div>
-    ${blocks.map(({ cluster, rows, sum }) => `
-      <div class="cluster-block">
-        <div class="cluster-head"><span>${cluster.name}<small>${cluster.note}</small></span><strong>${sum.toFixed(1)}%</strong></div>
-        ${rows.map(r => `
-          <div class="profiler-item">
-            <div class="profiler-label-row"><span>${PATIENT_NAMES[r.label] || r.label}</span><span class="text-mono">${r.value.toFixed(1)}%</span></div>
-            <div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${r.value}%"></div></div>
-          </div>`).join('')}
-      </div>`).join('')}
-    ${sameCluster ? `<p class="cluster-warning">The top two diseases are look-alikes in the same cluster. Confirm with a dermatologist.</p>` : ''}
-    <p class="patient-split-note">Relative scores of the AI for the strongest lesion (scaled to 100%), not a medical probability.</p>`;
+    <div class="patient-split-title">Disease split within the cluster</div>
+    <div class="cluster-block">
+      <div class="cluster-head"><span>${cluster.name}<small>${cluster.note}</small></span></div>
+      ${rows.map(r => `
+        <div class="profiler-item">
+          <div class="profiler-label-row"><span>${PATIENT_NAMES[r.label] || r.label}</span><span class="text-mono">${r.value.toFixed(1)}%</span></div>
+          <div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${r.value}%"></div></div>
+        </div>`).join('')}
+    </div>
+    ${lookAlike ? `<p class="cluster-warning">${PATIENT_NAMES[rows[1].label] || rows[1].label} is a look-alike in the same cluster. Confirm with a dermatologist.</p>` : ''}
+    <p class="patient-split-note">The AI's scores for the four diseases of this cluster, scaled to 100%; not a medical probability.</p>`;
 }
 
 // Home "Recent Analysis": the latest photo analysed on this device.
