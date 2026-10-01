@@ -544,7 +544,7 @@ html, body {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -563,6 +563,7 @@ html, body {
   left: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
   z-index: 3;
   pointer-events: none;
   opacity: 0.7;
@@ -2698,3 +2699,78 @@ button.model-key-item {
   color: var(--text-body);
   font-size: 0.72rem;
 }
+
+/* Role separation: patients see Home and Patient only */
+body.role-patient .mob-nav-btn[data-mobtab="panel"],
+body.role-patient .mob-nav-btn[data-mobtab="xai"],
+body.role-patient .output-tab-btn[data-tab="clinician"],
+body.role-patient #tab-content-clinician,
+body.role-patient .view-btn[data-mode="simulator"],
+body.role-patient .view-btn[data-mode="poster"],
+body.role-patient .view-btn[data-mode="architecture"],
+body.role-patient .clinician-only {
+  display: none !important;
+}
+
+.capture-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #FFF7E6;
+  border: 1px solid #F5C26B;
+  color: #7A4B00;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: left;
+}
+
+/* Real Grad-CAM gallery (replaces the simulated tensor grid) */
+.tensor-grid-container.gradcam-gallery {
+  display: block;
+  aspect-ratio: auto;
+  max-width: 520px;
+  padding: 10px;
+  background: #FCFAF9;
+  border: 1px solid #E7DED9;
+}
+.gradcam-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.gradcam-chip {
+  padding: 4px 8px;
+  border: 1px solid #E7DED9;
+  border-radius: 999px;
+  background: #FFF;
+  color: var(--text-title);
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.gradcam-chip.active { background: var(--brand-primary); border-color: var(--brand-primary); color: #FFF; }
+.gradcam-tile { margin: 0; }
+.gradcam-tile img { display: block; width: 100%; height: auto; border-radius: 6px; }
+.gradcam-tile figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.6rem;
+}
+.gradcam-tile figcaption strong { color: var(--text-title); }
+.gradcam-tile.proposed figcaption, .gradcam-tile.proposed figcaption strong { color: var(--brand-primary); font-weight: 800; }
+.gradcam-original { max-width: 260px; margin: 0 auto 8px; }
+.gradcam-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+.gradcam-live { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #E7DED9; }
+.gradcam-live-title { margin: 2px 0 6px; color: var(--text-title); font-size: 0.68rem; font-weight: 800; }
+.gradcam-live .gradcam-tile { max-width: 320px; margin: 0 auto; }
+.compare-cam-label { margin-top: -2px; color: var(--text-muted); font-size: 0.55rem; font-weight: 700; text-align: center; }
+
+.patient-split { margin-bottom: 12px; }
+.patient-split-title { margin-bottom: 6px; color: var(--text-muted); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; }
+.patient-split .profiler-item { margin-bottom: 6px; }
+.patient-split .profiler-label-row { font-size: 0.7rem; }
+.patient-split-note { margin: 2px 0 0; color: var(--text-light); font-size: 0.58rem; }
+.patient-photo img { display: block; width: 100%; height: auto; margin-bottom: 12px; border-radius: 10px; }

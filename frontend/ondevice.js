@@ -39,6 +39,7 @@ const OnDevice = (() => {
     if (!scripts[src]) {
       scripts[src] = new Promise((resolve, reject) => {
         const el = document.createElement('script');
+        el.charset = 'utf-8';  // opencv.js embeds its WebAssembly as UTF-8 text
         el.src = src;
         el.onload = resolve;
         el.onerror = () => reject(new Error(`Failed to load ${src}`));
@@ -374,7 +375,10 @@ const OnDevice = (() => {
   }
 
   function betaForD(ita, calib) {
-    if (ita === null) return { beta: calib.beta_global, source: 'beta_global_fallback' };
+    if (ita === null) {
+      const beta = calib.beta_fallback ?? calib.beta_global;
+      return { beta, source: calib.beta_fallback !== undefined ? 'medium_bracket_fallback' : 'beta_global_fallback' };
+    }
     const bracket = bracketOf(ita);
     const beta = bracket === 'Darkest' ? calib.beta_high : bracket === 'Medium' ? calib.beta_mid : calib.beta_low;
     return { beta, source: 'ita_bracket' };
@@ -422,7 +426,20 @@ const OnDevice = (() => {
     return { tensor, r, left, top };
   }
 
-  async function detect(cv, rgb, modelFile, manifest) {
+  const camSpecs = {};
+  function loadCamSpec(file) {
+    if (!camSpecs[file]) {
+      camSpecs[file] = fetch(`models/${file}`).then(r => {
+        if (!r.ok) throw new Error(`models/${file} not found`);
+        return r.json();
+      });
+    }
+    return camSpecs[file];
+  }
+
+  // Returns { detections, cam }. cam (Float32Array, rgb.rows x rgb.cols, 0..1) is
+  // computed when camSpec is given.
+  async function detect(cv, rgb, modelFile, manifest, camSpec = null) {
     const session = await getSession(modelFile);
     const size = manifest.imgsz;
     const { tensor, r, left, top } = letterbox(cv, rgb, size);
@@ -442,7 +459,127 @@ const OnDevice = (() => {
       });
     }
     detections.sort((a, b) => b.confidence - a.confidence);
-    return detections;
+    const cam = camSpec && outputs[camSpec.layers[0].feature]
+      ? gradCam(cv, outputs, camSpec, manifest, { r, left, top, rows: rgb.rows, cols: rgb.cols })
+      : null;
+    return { detections, cam };
+  }
+
+  // ---------------------------------------------------------------- Grad-CAM
+
+  // Grad-CAM at the last feature layer of the one-to-one class head (64 channels
+  // per scale). That layer feeds a linear 1x1 convolution, so d(logit_c)/d(feature_k)
+  // is the weight W[c][k]: the gradient is exact, no backpropagation needed.
+  // Targets: detections with sigmoid(logit) >= confidence (up to max_targets), else
+  // the single strongest; per scale, alpha_k = mean gradient, cam = ReLU(sum alpha_k A_k),
+  // normalized, upsampled to 640, averaged over scales, then mapped to the photo.
+  function gradCam(cv, outputs, camSpec, manifest, geo) {
+    const settings = manifest.gradcam || { confidence: 0.25, max_targets: 10 };
+    const size = manifest.imgsz;
+    const layers = camSpec.layers.map(layer => {
+      const f = outputs[layer.feature], l = outputs[layer.logits];
+      return { spec: layer, feat: f.data, logits: l.data, C: f.dims[1], nc: l.dims[1], H: f.dims[2], W: f.dims[3] };
+    });
+    const candidates = [];
+    let best = null;
+    layers.forEach((L, j) => {
+      const HW = L.H * L.W;
+      for (let p = 0; p < HW; p++) {
+        let c = 0, v = L.logits[p];
+        for (let k = 1; k < L.nc; k++) {
+          const x = L.logits[k * HW + p];
+          if (x > v) { v = x; c = k; }
+        }
+        const prob = 1 / (1 + Math.exp(-v));
+        const cand = { j, p, c, prob };
+        if (prob >= settings.confidence) candidates.push(cand);
+        if (!best || prob > best.prob) best = cand;
+      }
+    });
+    candidates.sort((a, b) => b.prob - a.prob);
+    const targets = candidates.length ? candidates.slice(0, settings.max_targets) : [best];
+
+    const total = new cv.Mat(size, size, cv.CV_32F, new cv.Scalar(0));
+    layers.forEach((L, j) => {
+      const HW = L.H * L.W;
+      const alpha = new Float32Array(L.C);
+      targets.filter(t => t.j === j).forEach(t => {
+        const w = L.spec.weight[t.c];
+        for (let k = 0; k < L.C; k++) alpha[k] += w[k] / HW;
+      });
+      const cam = new Float32Array(HW);
+      let max = 0;
+      for (let p = 0; p < HW; p++) {
+        let v = 0;
+        for (let k = 0; k < L.C; k++) v += alpha[k] * L.feat[k * HW + p];
+        cam[p] = v > 0 ? v : 0;
+        if (cam[p] > max) max = cam[p];
+      }
+      if (max > 0) for (let p = 0; p < HW; p++) cam[p] /= max;
+      const small = cv.matFromArray(L.H, L.W, cv.CV_32F, cam);
+      const up = new cv.Mat();
+      cv.resize(small, up, new cv.Size(size, size), 0, 0, cv.INTER_LINEAR);
+      cv.add(total, up, total);
+      small.delete(); up.delete();
+    });
+    const newW = pyRound(geo.cols * geo.r), newH = pyRound(geo.rows * geo.r);
+    const crop = total.roi(new cv.Rect(geo.left, geo.top, newW, newH));
+    const full = new cv.Mat();
+    cv.resize(crop, full, new cv.Size(geo.cols, geo.rows), 0, 0, cv.INTER_LINEAR);
+    crop.delete(); total.delete();
+    const data = Float32Array.from(full.data32F);
+    full.delete();
+    let max = 0;
+    for (let i = 0; i < data.length; i++) if (data[i] > max) max = data[i];
+    if (max > 0) for (let i = 0; i < data.length; i++) data[i] /= max;
+    return { data, rows: geo.rows, cols: geo.cols,
+             targets: targets.map(t => ({ label: manifest.classes[t.c], score: Math.round(t.prob * 1000) / 1000 })) };
+  }
+
+  // Heatmap alone (transparent where the model does not look), for the Workspace overlay.
+  function camHeatmapUrl(cv, cam, maxSide = 640) {
+    const f32 = cv.matFromArray(cam.rows, cam.cols, cv.CV_32F, cam.data);
+    const u8 = new cv.Mat();
+    f32.convertTo(u8, cv.CV_8U, 255);
+    const heat = new cv.Mat();
+    cv.applyColorMap(u8, heat, cv.COLORMAP_JET);  // BGR
+    const n = cam.rows * cam.cols, rgba = new Uint8ClampedArray(4 * n), hp = heat.data;
+    for (let i = 0; i < n; i++) {
+      rgba[4 * i] = hp[3 * i + 2];
+      rgba[4 * i + 1] = hp[3 * i + 1];
+      rgba[4 * i + 2] = hp[3 * i];
+      rgba[4 * i + 3] = Math.round(255 * 0.65 * Math.min(Math.max(cam.data[i], 0), 1));
+    }
+    f32.delete(); u8.delete(); heat.delete();
+    const full = document.createElement('canvas');
+    full.width = cam.cols; full.height = cam.rows;
+    full.getContext('2d').putImageData(new ImageData(rgba, cam.cols, cam.rows), 0, 0);
+    const scale = Math.min(1, maxSide / Math.max(cam.rows, cam.cols));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(cam.cols * scale); canvas.height = Math.round(cam.rows * scale);
+    canvas.getContext('2d').drawImage(full, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+  }
+
+  // Heatmap over the photo: JET colours blended by heatmap strength (as in the paper figures).
+  function camToDataUrl(cv, rgb, cam, detections, maxSide = 640) {
+    const f32 = cv.matFromArray(cam.rows, cam.cols, cv.CV_32F, cam.data);
+    const u8 = new cv.Mat();
+    f32.convertTo(u8, cv.CV_8U, 255);
+    f32.delete();
+    const heat = new cv.Mat();
+    cv.applyColorMap(u8, heat, cv.COLORMAP_JET);  // BGR
+    const out = rgb.clone();
+    const px = out.data, hp = heat.data, n = cam.rows * cam.cols;
+    for (let i = 0; i < n; i++) {
+      const a = 0.65 * Math.min(Math.max(cam.data[i], 0), 1);
+      px[3 * i] = px[3 * i] * (1 - a) + hp[3 * i + 2] * a;
+      px[3 * i + 1] = px[3 * i + 1] * (1 - a) + hp[3 * i + 1] * a;
+      px[3 * i + 2] = px[3 * i + 2] * (1 - a) + hp[3 * i] * a;
+    }
+    const url = toDataUrl(cv, out, detections, maxSide);
+    u8.delete(); heat.delete(); out.delete();
+    return url;
   }
 
   // Image-level suggestion: class with the highest summed confidence.
@@ -518,10 +655,15 @@ const OnDevice = (() => {
       const { beta, source: betaSource } = betaForD(itaResult.ita, manifest.calibration);
       const enhanced = lClahe(cv, rgb, beta, manifest.tile_grid_size);
       try {
-        const detections = await detect(cv, enhanced, modelD.file, manifest);
+        const camSpec = modelD.cam ? await loadCamSpec(modelD.cam).catch(() => null) : null;
+        const { detections, cam } = await detect(cv, enhanced, modelD.file, manifest, camSpec);
         const { top, topConfidence } = summarize(detections);
         return {
           enhanced_image: toDataUrl(cv, enhanced),
+          boxed_image: toDataUrl(cv, rgb, detections, 800),
+          gradcam_image: cam ? camToDataUrl(cv, rgb, cam, detections) : null,
+          gradcam_heatmap: cam ? camHeatmapUrl(cv, cam) : null,
+          gradcam_targets: cam ? cam.targets : [],
           top_label: top,
           top_confidence: topConfidence,
           detections,
@@ -552,12 +694,14 @@ const OnDevice = (() => {
       for (const model of manifest.models) {
         const { image, beta } = preprocess(cv, rgb, model.preprocessing, manifest, itaResult);
         try {
-          const detections = await detect(cv, image, model.file, manifest);
+          const camSpec = model.cam ? await loadCamSpec(model.cam).catch(() => null) : null;
+          const { detections, cam } = await detect(cv, image, model.file, manifest, camSpec);
           const { top, topConfidence } = summarize(detections);
           models.push({
             id: model.id, description: model.description, available: true, beta,
             top_label: top, top_confidence: topConfidence, boxes: detections.length,
             image: toDataUrl(cv, image, detections, 640),
+            gradcam_image: cam ? camToDataUrl(cv, rgb, cam, null) : null,
           });
         } finally {
           image.delete();

@@ -11,17 +11,23 @@
   ],
   "imgsz": 640,
   "confidence": 0.25,
+  "gradcam": {
+    "confidence": 0.25,
+    "max_targets": 10,
+    "iou_threshold": 0.15
+  },
   "fixed_beta": 2.0,
   "tile_grid_size": [
     8,
     8
   ],
   "calibration": {
-    "beta_high": 4.0,
-    "beta_mid": 4.0,
-    "beta_low": 4.5,
+    "beta_high": 5.0,
+    "beta_mid": 3.5,
+    "beta_low": 1.0,
+    "beta_fallback": 3.5,
     "beta_global": 4.0,
-    "status": "PROVISIONAL"
+    "status": "D2 lesion-visibility calibration (train images)"
   },
   "masking": {
     "k_values": [
@@ -63,32 +69,30 @@
     {
       "id": "A",
       "file": "A.onnx",
+      "cam": "A_cam.json",
       "preprocessing": "raw",
-      "description": "Raw image"
+      "description": "Baseline (raw images)"
     },
     {
       "id": "B",
       "file": "B.onnx",
-      "preprocessing": "rgb_clahe_fixed",
-      "description": "RGB CLAHE, β=2.0"
+      "cam": "B_cam.json",
+      "preprocessing": "l_clahe_fixed",
+      "description": "Fixed L*-CLAHE, β=2.0"
     },
     {
       "id": "C",
       "file": "C.onnx",
-      "preprocessing": "l_clahe_fixed",
-      "description": "L*-CLAHE, β=2.0"
-    },
-    {
-      "id": "C′",
-      "file": "C2.onnx",
-      "preprocessing": "l_clahe_global",
-      "description": "L*-CLAHE, β=4.0 (no ITA)"
+      "cam": "C_cam.json",
+      "preprocessing": "raw",
+      "description": "Focal Loss (raw images)"
     },
     {
       "id": "D",
       "file": "D.onnx",
+      "cam": "D_cam.json",
       "preprocessing": "l_clahe_ita",
-      "description": "K-means + ITA → L*-CLAHE"
+      "description": "Proposed: ITA L*-CLAHE + two-stage + Focal Loss"
     }
   ]
 }

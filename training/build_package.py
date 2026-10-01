@@ -16,6 +16,7 @@ and ablation_training.zip to send to Daniel.
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 import zipfile
@@ -23,8 +24,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TOOL26 = HERE.parent
-DEST = TOOL26.parent / "ablation_training"
-ZIP = TOOL26.parent / "ablation_training.zip"
+# ABLATION_PACKAGE_DEST builds elsewhere (e.g. when the default folder already holds results).
+DEST = Path(os.environ.get("ABLATION_PACKAGE_DEST", TOOL26.parent / "ablation_training"))
+ZIP = DEST.parent / "ablation_training.zip"
 
 sys.path.insert(0, str(HERE))
 import build_notebooks as nb  # noqa: E402
@@ -128,6 +130,23 @@ def copy(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
+def add_d2_retraining(dest: Path) -> None:
+    """Daniel's D2 re-training: the script plus the Phase 0 inputs its calibration needs."""
+    import pandas as pd
+
+    phase0 = TOOL26 / "phase0_outputs"
+    manifest = pd.read_csv(phase0 / "member2_calibration" / "image_ita_manifest.csv")
+    eligible = manifest[manifest["calibration_eligible"].astype(str) == "True"]
+    cal = dest / "calibration_d2"
+    (cal / "masks").mkdir(parents=True, exist_ok=True)
+    for _, row in eligible.iterrows():
+        shutil.copy2(row["mask_path"], cal / "masks" / f"{row['image_id']}.png")
+    eligible[["image_id", "bracket", "ITA"]].to_csv(cal / "train_ita_masks.csv", index=False)
+    copy(phase0 / "member2_calibration" / "beta_search_summary.csv", cal / "beta_search_summary.csv")
+    copy(HERE / "retrain_c2_d_d2.py", dest / "daniel" / "retrain_c2_d_d2.py")
+    copy(HERE / "daniel_retrain_C2_D_D2.ipynb", dest / "daniel" / "daniel_retrain_C2_D_D2.ipynb")
+
+
 def main() -> None:
     if DEST.exists():
         existing = [p for p in (DEST / "runs", DEST / "weights") if p.exists()]
@@ -152,6 +171,8 @@ def main() -> None:
     # Same pretrained checkpoint for everyone (the notebooks load 'yolo26n.pt' from their folder).
     for trainer in ("izzy", "daniel"):
         copy(CHECKPOINT, DEST / trainer / "yolo26n.pt")
+
+    add_d2_retraining(DEST)
 
     nb.write(DEST / "izzy" / "izzy_train_A_B_C.ipynb", nb.trainer_notebook("Izzy"))
     nb.write(DEST / "izzy" / "combine_and_evaluate.ipynb", nb.combine_notebook())

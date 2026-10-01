@@ -70,18 +70,18 @@
             Triage Quiz
           </button>
           <a href="index.html" class="thesis-btn" style="text-decoration:none;" title="Return to Landing / Welcome Page">
-            🏠 Welcome
+             Welcome
           </a>
           <div id="user-header-badge" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; font-weight:700; padding:5px 10px; background:var(--brand-primary-light); color:var(--brand-primary); border:1px solid rgba(212,91,40,0.25); border-radius:8px;">
-            <span id="header-user-avatar">👨‍⚕️</span>
+            <span id="header-user-avatar"></span>
             <span id="header-user-name">Dr. Maria Santos</span>
             <span id="header-user-role" style="font-size:0.62rem; background:var(--brand-primary); color:#FFF; padding:2px 6px; border-radius:4px; font-weight:800;">CLINICIAN</span>
           </div>
           <a href="login.html" class="view-btn" style="padding:6px 10px; text-decoration:none;" title="Switch Account on Login Page">
-            🔐 Switch
+             Switch
           </a>
           <button onclick="logoutUser()" class="view-btn" style="padding:6px 10px; border-color:rgba(239,68,68,0.3); color:#DC2626; font-weight:700;" title="Sign out of account">
-            🚪 Exit
+             Exit
           </button>
         </div></div>
     </header>
@@ -117,6 +117,7 @@
               </div>
               <div class="upload-prompt">Tap to Upload or Take a Photo</div>
               <div class="upload-sub">Auto ITA-calibrated & processed locally<br>RA 10173 compliant</div>
+            <div class="capture-warning" role="note"><span>Capture images directly from real skin under natural light. Photos of monitors or laptop screens can distort pixels and lower AI accuracy.</span></div>
               <div class="upload-btn-group">
                 <button type="button" class="upload-btn" onclick="event.stopPropagation(); document.getElementById('main-file-input').click()">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
@@ -252,7 +253,7 @@
                   <div class="toggle-checkbox">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   </div>
-                  <span>Grad - CAM Heatmap</span>
+                  <span>Grad-CAM heatmap (Model D)</span>
                 </div>
               </div>
             </div>
@@ -646,7 +647,7 @@
 
               <div class="arch-step-item" style="border-left: 3px solid #E11D48;">
                 <div class="arch-step-title">
-                  <span>★ Clinical Hold-Out Set (Testing Set B)</span>
+                  <span>Clinical Hold-Out Set (Testing Set B)</span>
                   <span class="badge-tag" style="background:#FFE4E6; color:#BE123C; font-size:0.6rem;">5-10% Total</span>
                 </div>
                 <p class="arch-step-desc">
@@ -815,6 +816,7 @@
             </div>
             <div class="upload-prompt">Tap to Upload or Take a Photo</div>
             <div class="upload-sub">Auto ITA-calibrated & processed locally<br>RA 10173 compliant</div>
+            <div class="capture-warning" role="note"><span>Capture images directly from real skin under natural light. Photos of monitors or laptop screens can distort pixels and lower AI accuracy.</span></div>
             <div class="upload-btn-group" style="margin-top:10px;">
               <button type="button" class="upload-btn" onclick="event.stopPropagation(); document.getElementById('main-file-input').click()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
@@ -891,7 +893,7 @@
 
                 <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.heatmap = !AppState.toggles.heatmap; renderWorkspace('mobile-canvas-container', AppState.currentPreset);">
                   <div class="toggle-checkbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
-                  <span>Grad - CAM Heatmap Overlay</span>
+                  <span>Grad-CAM heatmap (Model D)</span>
                 </div>
               </div>
 
@@ -905,7 +907,7 @@
         <!-- 3. PATIENT VIEW TAB -->
         <div id="mob-tab-patient" class="mob-tab-pane">
           <div class="patient-card" style="padding:14px;">
-            <div class="telemetry-chip-bar" style="padding:6px 10px; margin-bottom:10px;">
+            <div class="telemetry-chip-bar clinician-only" style="padding:6px 10px; margin-bottom:10px;">
               <span class="chip-title">Skin-Tone:</span>
               <span id="mob-patient-ita" class="chip-value" style="font-size:0.7rem;">Fitzpatrick Type IV | ITA: 22.4° • Clip: 3.4</span>
             </div>
@@ -921,6 +923,10 @@
               <span id="mob-patient-score" class="score-num" style="font-size:1rem; text-align:right;">Buni (Tinea Corporis)</span>
             </div>
 
+            <div id="mob-patient-split" class="patient-split"></div>
+
+            <div id="mob-patient-photo" class="patient-photo"></div>
+
             <div id="mob-patient-features" class="patient-features">
               <div class="patient-features-title">Lesion Features</div>
               <div class="patient-features-sub" id="mob-feat-note"></div>
@@ -930,10 +936,10 @@
               <div class="patient-feature-row"><span>How to tell apart</span><p id="mob-feat-key">—</p></div>
             </div>
 
-            <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+            <div class="clinician-only" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
               Diagnostic & Computational Insights
             </div>
-            <ul id="mob-insights-list" style="padding-left: 16px; font-size: 0.72rem; color: var(--text-body); margin-bottom: 12px; line-height: 1.4;"></ul>
+            <ul id="mob-insights-list" class="clinician-only" style="padding-left: 16px; font-size: 0.72rem; color: var(--text-body); margin-bottom: 12px; line-height: 1.4;"></ul>
 
             <div class="compliance-box" style="margin-top:0;">
               <div class="compliance-box-title">
@@ -955,7 +961,7 @@
               <h2>Panel evidence</h2>
               <p>On-device evaluation for SOP 1, 2, and 3</p>
             </div>
-            <span class="panel-live-badge"><span></span> Ready</span>
+            <span class="panel-live-badge">Ready</span>
           </div>
 
           <div class="panel-view-switch" role="tablist" aria-label="Panel view">
@@ -1101,7 +1107,7 @@
             <section class="sop-card">
               <div class="sop-card-heading">
                 <span class="sop-number">04</span>
-                <div><h3>Visual Model Comparison</h3><p>Same photo through Models A, B, C, C′ and D</p></div>
+                <div><h3>Visual Model Comparison</h3><p>Same photo through Models A, B, C and D</p></div>
               </div>
               <button class="upload-btn compare-run-btn" onclick="runModelComparison()">Compare models on the uploaded photo</button>
               <div id="mob-compare-status" class="evaluation-note">Upload or take a photo first, then tap the button.</div>
@@ -1124,14 +1130,11 @@
         <div id="mob-tab-xai" class="mob-tab-pane">
           <div class="gradients-section" style="padding:14px;">
             <div class="tensor-header">
-              <div class="tensor-title">Raw XAI Gradients Array</div>
-              <div class="tensor-formula">A_k = 1/Z Σ_i Σ_j (∂y^c / ∂A^k_ij)</div>
+              <div class="tensor-title">Grad-CAM: where each model looks</div>
+              <div class="tensor-formula">α_k = 1/Z Σ_i Σ_j ∂y^c/∂A^k_ij, L = ReLU(Σ_k α_k A^k)</div>
             </div>
-            <div id="mob-tensor-grid" class="tensor-grid-container" style="max-width:280px;"></div>
+            <div id="mob-tensor-grid" class="tensor-grid-container"></div>
             <div id="mob-tensor-inspector" class="tensor-inspector-bar" style="font-size:0.65rem; padding:8px;"></div>
-            <p style="font-size:0.68rem; color:var(--text-muted); line-height:1.35; margin-top:10px;">
-              Tap any tensor grid cell to inspect spatial feature activations from the final YOLOv26 convolutional layer.
-            </p>
           </div>
         </div>
       </div>
@@ -1174,7 +1177,7 @@
             <!-- Active Logged In User Profile Card -->
             <div style="padding:12px; background:var(--bg-subtle); border-radius:14px; border:1px solid var(--brand-border); margin-bottom:16px;">
               <div style="display:flex; align-items:center; gap:10px;">
-                <div style="width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg, #FF6F3C, #D45B28); color:#FFF; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:800;" id="mob-user-avatar">👨‍⚕️</div>
+                <div style="width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg, #FF6F3C, #D45B28); color:#FFF; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:800;" id="mob-user-avatar"></div>
                 <div style="flex:1; min-width:0;">
                   <div style="font-size:0.85rem; font-weight:800; color:var(--text-title); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="mob-user-name">Dr. Maria Santos</div>
                   <div style="font-size:0.68rem; color:var(--brand-primary); font-weight:700;" id="mob-user-role">Clinician • CCIS Researcher</div>
@@ -1182,7 +1185,7 @@
               </div>
               <div style="display:flex; gap:8px; margin-top:10px;">
                 <a href="login.html" class="upload-btn" style="flex:1; padding:6px 8px; font-size:0.72rem; text-decoration:none; text-align:center; background:#FFF;">Switch Account</a>
-                <button onclick="logoutUser()" class="upload-btn" style="padding:6px 12px; font-size:0.72rem; color:#DC2626; border-color:rgba(220,38,38,0.3); background:#FFF;">Sign Out</button>
+                <button onclick="logoutUser()" class="upload-btn auth-toggle-btn" style="padding:6px 12px; font-size:0.72rem; color:#DC2626; border-color:rgba(220,38,38,0.3); background:#FFF;">Sign Out</button>
               </div>
             </div>
 
@@ -1190,21 +1193,21 @@
             <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Pages & Flows</div>
             <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
               <a href="index.html" class="upload-btn" style="text-decoration:none; display:flex; align-items:center; gap:8px;">
-                <span>🏠</span> <span>Welcome / Landing Page</span>
+                <span>Welcome / Landing Page</span>
               </a>
               <a href="login.html" class="upload-btn" style="text-decoration:none; display:flex; align-items:center; gap:8px; background:var(--brand-primary); color:#FFF; border-color:var(--brand-primary); font-weight:800;">
-                <span>🔐</span> <span>Dedicated Login Page</span>
+                <span>Dedicated Login Page</span>
               </a>
               <a href="register.html" class="upload-btn" style="text-decoration:none; display:flex; align-items:center; gap:8px;">
-                <span>📝</span> <span>Create New Account</span>
+                <span>Create New Account</span>
               </a>
             </div>
 
             <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Tools & Reports</div>
-            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openReportModal();">🖨️ Export Clinical PDF Report</button>
-            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openTriageModal();">📋 Symptoms Triage Quiz</button>
-            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openCameraCapture();">📷 Open Camera</button>
-            <button class="upload-btn" style="margin-bottom:12px; width:100%;" onclick="toggleMobileDrawer(false); document.getElementById('main-file-input').click();">📁 Browse Photo</button>
+            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openReportModal();">Export Clinical PDF Report</button>
+            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openTriageModal();">Symptoms Triage Quiz</button>
+            <button class="upload-btn" style="margin-bottom:6px; width:100%;" onclick="toggleMobileDrawer(false); openCameraCapture();">Open Camera</button>
+            <button class="upload-btn" style="margin-bottom:12px; width:100%;" onclick="toggleMobileDrawer(false); document.getElementById('main-file-input').click();">Browse Photo</button>
             <div style="font-size:0.65rem; color:var(--text-muted); line-height:1.35; padding:10px; background:var(--bg-subtle); border-radius:8px; border:1px solid var(--brand-border);">
               PUP CCIS BSCS Thesis 2026<br>
               Resolving Morphological Overlap in Infectious Skin Diseases<br>
@@ -1267,14 +1270,14 @@
         <!-- Quick 1-Tap Demo Accounts -->
         <div style="background:var(--bg-subtle); border:1px solid var(--brand-border); border-radius:10px; padding:10px 12px; margin-bottom:16px;">
           <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">
-            ⚡ Quick 1-Tap Demo Access:
+             Quick 1-Tap Demo Access:
           </div>
           <div style="display:flex; gap:8px;">
             <button type="button" class="upload-btn" style="flex:1; font-size:0.72rem; padding:6px;" onclick="demoLogin('clinician')">
-              👨‍⚕️ Clinician / Researcher
+               Clinician / Researcher
             </button>
             <button type="button" class="upload-btn" style="flex:1; font-size:0.72rem; padding:6px;" onclick="demoLogin('patient')">
-              👤 Patient User
+               Patient User
             </button>
           </div>
         </div>
@@ -1365,7 +1368,7 @@
           </div>
           <div style="display:flex; gap:8px;">
             <button class="thesis-btn" onclick="window.print()">
-              🖨️ Print / Save PDF
+               Print / Save PDF
             </button>
             <button class="modal-close-btn" onclick="closeReportModal()">×</button>
           </div>
@@ -1428,7 +1431,7 @@
           <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; background:#FBF0E9; padding:8px; border-radius:6px; font-size:0.7rem; text-align:center; margin-bottom:14px;">
             <div><div style="font-size:0.6rem; color:#846F65;">Model D test mAP50</div><strong id="report-map50" style="color:#2A1A14;">Pending</strong></div>
             <div><div style="font-size:0.6rem; color:#846F65;">Inference Latency</div><strong style="color:#2A1A14;">—</strong></div>
-            <div><div style="font-size:0.6rem; color:#846F65;">Grad-CAM IoU</div><strong style="color:#2A1A14;">Not measured</strong></div>
+            <div><div style="font-size:0.6rem; color:#846F65;">Model D Grad-CAM IoU (test)</div><strong id="report-gradcam" style="color:#2A1A14;">Pending</strong></div>
             <div><div style="font-size:0.6rem; color:#846F65;">Attribution Ratio</div><strong style="color:#15803D;">—</strong></div>
           </div>
 

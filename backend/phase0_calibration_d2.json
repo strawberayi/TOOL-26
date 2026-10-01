@@ -1,0 +1,24 @@
+{
+  "name": "D2 lesion-visibility equalization",
+  "status": "PROVISIONAL (needs adviser approval)",
+  "created": "2026-09-30T01:17",
+  "rule": "For each ITA bracket, the smallest CLAHE clip limit whose median lesion-vs-healthy-skin CIELAB delta-E reaches the lightest bracket's delta-E without CLAHE; if unreachable within the noise limit, the clip limit with the highest delta-E.",
+  "data": "calibration-eligible TRAIN images with lesion boxes only",
+  "images_per_bracket": {
+    "Darkest": 359,
+    "Lightest": 317,
+    "Medium": 129
+  },
+  "target_delta_e": 11.862605094909668,
+  "betas": {
+    "Darkest": 5.0,
+    "Medium": 3.5,
+    "Lightest": 1.0
+  },
+  "no_ita_fallback": "Medium bracket beta",
+  "reasons": {
+    "Darkest": "target not reachable; highest lesion visibility (10.70)",
+    "Medium": "smallest beta reaching the target (12.37 >= 11.86)",
+    "Lightest": "smallest beta reaching the target (12.75 >= 11.86)"
+  }
+}
