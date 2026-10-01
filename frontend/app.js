@@ -1536,30 +1536,23 @@ function renderPatientTab(data) {
   }
   if (insights) insights.innerHTML = renderPipelineInsights(data.insights, true);
 
-  // How the detected lesions split between diseases (share of summed detection confidence).
+  // Disease split for the main lesion: the model's 8 class scores, scaled to 100% and
+  // grouped by the study's two look-alike clusters.
   const split = document.getElementById('mob-patient-split');
-  if (split) {
-    const profile = data.overlapProfile || [];
-    split.innerHTML = profile.length ? `
-      <div class="patient-split-title">How the detections split between diseases</div>
-      ${profile.map(item => {
-        const info = CLASS_INFO[item.name];
-        const label = info && info.local !== item.name ? `${info.local} (${item.name})` : item.name;
-        return `
-        <div class="profiler-item">
-          <div class="profiler-label-row"><span>${label}</span><span class="text-mono">${item.value}%</span></div>
-          <div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${item.value}%"></div></div>
-        </div>`;
-      }).join('')}
-      <p class="patient-split-note">Share of the AI's detection confidence on this photo, not a medical probability.</p>` : '';
-  }
+  if (split) split.innerHTML = renderClusterSplit(data.classScores || []);
 
-  // The analysed photo with the detected lesion boxes.
+  // Grad-CAM of Model D on the photo (with the detected lesion boxes).
   const photo = document.getElementById('mob-patient-photo');
   if (photo) {
-    photo.innerHTML = data.boxedImage
-      ? `<img src="${data.boxedImage}" alt="Your photo with the detected lesions marked">` : '';
+    const img = data.gradcamImage || data.boxedImage;
+    photo.innerHTML = img ? `
+      <div class="patient-split-title">Where the AI looked (Grad-CAM)</div>
+      <img src="${img}" alt="Grad-CAM of Model D on your photo">
+      <p class="patient-split-note">Red/yellow = the areas that most influenced the result. Boxes = detected lesions.</p>` : '';
   }
+
+  const explain = document.getElementById('mob-patient-explain');
+  if (explain) explain.innerHTML = renderComputation(data);
 
   const f = data.morphologicalFeatures;
   const detected = data.name !== 'No lesion detected';
@@ -1569,6 +1562,107 @@ function renderPatientTab(data) {
   set('mob-feat-crust', f.crust);
   set('mob-feat-boundary', f.boundary);
   set('mob-feat-key', f.differential);
+}
+
+// Step-by-step justification of the result, with the numbers from this photo.
+function renderComputation(data) {
+  if (!data.detections) return '';
+  const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const steps = [];
+  const it = data.itaInputs;
+  steps.push(`
+    <li><b>Skin tone (ITA).</b> The skin pixels are found with K-means${it ? ` (k = ${it.k})` : ''} and their average CIELAB colour is used:
+      ${it ? `L* = ${n1(it.meanL)}, b* = ${n1(it.meanB)}.<br>
+      <code>ITA = arctan((L* − 50) / b*) × 180/π = arctan((${n1(it.meanL)} − 50) / ${n1(it.meanB)}) × 180/π = ${n1(data.ita)}°</code><br>
+      ${data.fitzpatrick}; ${data.bracket} bracket.` : 'skin could not be isolated, so no ITA was computed.'}</li>`);
+  steps.push(`
+    <li><b>Enhancement.</b> ${data.bracket ? `${data.bracket} skin → CLAHE clip limit β = ${data.beta}` : `No ITA → fallback β = ${data.beta}`}
+      (calibrated on the training images: Darkest 5.0, Medium 3.5, Lightest 1.0), applied to the L* (lightness) channel only.</li>`);
+  const dets = data.detections;
+  steps.push(`
+    <li><b>Detection.</b> Model D found ${dets.length} lesion(s) with confidence ≥ 25%${dets.length ? ':' : '.'}
+      ${dets.length ? `<table class="calc-table"><tr><th>#</th><th>Disease</th><th>Confidence</th></tr>
+        ${dets.slice(0, 6).map((d, i) => `<tr><td>${i + 1}</td><td>${PATIENT_NAMES[d.label] || d.label}</td><td>${(d.confidence * 100).toFixed(1)}%</td></tr>`).join('')}
+        </table>` : ''}</li>`);
+  const cs = data.classScores || [];
+  if (cs.length) {
+    const sum = cs.reduce((a, c) => a + c.score, 0);
+    const rows = [...cs].sort((a, b) => b.score - a.score);
+    steps.push(`
+      <li><b>Scores of the strongest lesion.</b> The model gives each disease a raw score z, turned into
+        <code>p = 1 / (1 + e^−z)</code>; the split is <code>p ÷ Σp</code> (Σp = ${sum.toFixed(3)}).
+        <table class="calc-table"><tr><th>Disease</th><th>z</th><th>p</th><th>Split</th></tr>
+        ${rows.map(c => `<tr><td>${PATIENT_NAMES[c.label] || c.label}</td><td>${c.logit.toFixed(2)}</td><td>${c.score.toFixed(3)}</td><td>${(100 * c.score / sum).toFixed(1)}%</td></tr>`).join('')}
+        </table>
+        Cluster total = sum of its four diseases' splits.</li>`);
+  }
+  steps.push(`
+    <li><b>Decision.</b> "Most likely to be" = the disease with the highest total confidence over all boxes
+      (${data.topLabel ? PATIENT_NAMES[data.topLabel] || data.topLabel : 'none'}); the percentage beside it is its strongest box
+      (${data.confidence}%). Detections below 25% are not shown.</li>`);
+  const m = data.lesionMeasures;
+  const measured = m ? `
+    <div class="patient-split-title" style="margin-top:10px;">Lesion features measured from your photo</div>
+    <table class="calc-table">
+      <tr><td>Lesions detected</td><td>${m.lesions}</td></tr>
+      <tr><td>Main lesion size</td><td>${m.box_px[0]} × ${m.box_px[1]} px (${m.area_percent}% of the photo)</td></tr>
+      <tr><td>Colour difference from nearby skin (ΔE)</td><td>${m.delta_e} ${m.delta_e >= 10 ? '(clearly visible)' : m.delta_e >= 5 ? '(visible)' : '(subtle)'}</td></tr>
+      <tr><td>Redness (Δa*)</td><td>${m.redder > 0 ? '+' : ''}${m.redder} ${m.redder > 3 ? '(redder than skin)' : ''}</td></tr>
+      <tr><td>Yellowness (Δb*)</td><td>${m.yellower > 0 ? '+' : ''}${m.yellower} ${m.yellower > 3 ? '(yellower, e.g. crust)' : ''}</td></tr>
+      <tr><td>Darkness (ΔL*)</td><td>${m.darker > 0 ? '+' : ''}${m.darker} ${m.darker > 3 ? '(darker than skin)' : m.darker < -3 ? '(lighter than skin)' : ''}</td></tr>
+      <tr><td>Surface roughness vs skin</td><td>${m.roughness_ratio}× ${m.roughness_ratio > 1.3 ? '(rougher / scaly or crusted)' : m.roughness_ratio < 0.8 ? '(smoother)' : '(similar)'}</td></tr>
+      <tr><td>Grad-CAM attention inside the detected boxes</td><td>${m.gradcam_in_box_percent}%</td></tr>
+    </table>
+    <p class="patient-split-note">Size, colour and roughness: main lesion box versus the skin around it (CIELAB colour, Laplacian texture).
+      These describe the lesion; the AI's decision comes from the model scores above, and Grad-CAM shows where it looked.</p>` : '';
+  return `
+    <details class="calc-details" open>
+      <summary>How the AI got this result</summary>
+      <ol class="calc-steps">${steps.join('')}</ol>
+      ${measured}
+    </details>`;
+}
+
+const CLUSTERS = [
+  { name: 'Vesiculopapular / Eruptive', note: 'bumps and blisters',
+    classes: ['Varicella', 'HFMD', 'Molluscum', 'Impetigo'] },
+  { name: 'Papulosquamous / Verrucous', note: 'scaly patches and rough growths',
+    classes: ['Tinea corporis', 'Tinea versicolor', 'Warts', 'Tinea pedis'] },
+];
+const PATIENT_NAMES = {
+  'Varicella': 'Bulutong (Chickenpox)', 'HFMD': 'Hand, Foot and Mouth Disease', 'Molluscum': 'Molluscum',
+  'Impetigo': 'Mamaso (Impetigo)', 'Tinea corporis': 'Buni (Ringworm)', 'Tinea versicolor': 'An-an (Tinea versicolor)',
+  'Warts': 'Kulugo (Warts)', 'Tinea pedis': "Alipunga (Athlete's foot)",
+};
+
+function renderClusterSplit(classScores) {
+  const total = classScores.reduce((sum, c) => sum + c.score, 0);
+  if (!total) return '';
+  const pct = v => Math.round((v / total) * 1000) / 10;
+  const byLabel = Object.fromEntries(classScores.map(c => [c.label, c.score]));
+  const ranked = [...classScores].sort((a, b) => b.score - a.score);
+  const clusterOf = label => CLUSTERS.find(c => c.classes.includes(label));
+  const sameCluster = ranked.length > 1 && clusterOf(ranked[0].label) === clusterOf(ranked[1].label)
+    && pct(ranked[1].score) >= 10;
+  const blocks = CLUSTERS.map(cluster => {
+    const rows = cluster.classes.map(label => ({ label, value: pct(byLabel[label] || 0) }))
+      .sort((a, b) => b.value - a.value);
+    const sum = Math.round(rows.reduce((s, r) => s + r.value, 0) * 10) / 10;
+    return { cluster, rows, sum };
+  }).sort((a, b) => b.sum - a.sum);
+  return `
+    <div class="patient-split-title">Disease split for the main lesion</div>
+    ${blocks.map(({ cluster, rows, sum }) => `
+      <div class="cluster-block">
+        <div class="cluster-head"><span>${cluster.name}<small>${cluster.note}</small></span><strong>${sum.toFixed(1)}%</strong></div>
+        ${rows.map(r => `
+          <div class="profiler-item">
+            <div class="profiler-label-row"><span>${PATIENT_NAMES[r.label] || r.label}</span><span class="text-mono">${r.value.toFixed(1)}%</span></div>
+            <div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${r.value}%"></div></div>
+          </div>`).join('')}
+      </div>`).join('')}
+    ${sameCluster ? `<p class="cluster-warning">The top two diseases are look-alikes in the same cluster. Confirm with a dermatologist.</p>` : ''}
+    <p class="patient-split-note">Relative scores of the AI for the strongest lesion (scaled to 100%), not a medical probability.</p>`;
 }
 
 // Home "Recent Analysis": the latest photo analysed on this device.
@@ -1755,6 +1849,13 @@ function buildDetectionData(result, dataUrl) {
     gradcamImage: result.gradcam_image,
     gradcamHeatmap: result.gradcam_heatmap,
     gradcamTargets: result.gradcam_targets || [],
+    classScores: result.class_scores || [],
+    lesionMeasures: result.lesion_measures,
+    itaInputs: result.ita_inputs,
+    detections: result.detections || [],
+    topLabel: result.top_label,
+    beta: result.beta,
+    bracket: result.bracket,
     boxes,
     bbox: top ? { xmin: top.xmin, ymin: top.ymin, xmax: top.xmax, ymax: top.ymax } : { xmin: 0, ymin: 0, xmax: 0, ymax: 0 },
     // Typical features of the detected disease (reference, not measured from the photo).

@@ -306,7 +306,7 @@ const OnDevice = (() => {
       const chosen = plausible.reduce((a, b) => (b.count > a.count || (b.count === a.count && b.label < a.label) ? b : a));
       const [meanL, , meanB] = chosen.mean;
       if (Math.abs(meanB) < cfg.minimum_abs_b) continue;
-      return { ita: Math.atan((meanL - 50) / meanB) * 180 / Math.PI, k };
+      return { ita: Math.atan((meanL - 50) / meanB) * 180 / Math.PI, k, meanL, meanB };
     }
     return null;
   }
@@ -332,7 +332,7 @@ const OnDevice = (() => {
         status = 'MASK_FALLBACK';
       }
       if (!result) return { ita: null, bracket: null, status: 'MASK_FAILED' };
-      return { ita: result.ita, bracket: bracketOf(result.ita), status };
+      return { ita: result.ita, bracket: bracketOf(result.ita), status, meanL: result.meanL, meanB: result.meanB, k: result.k };
     } finally {
       small.delete();
     }
@@ -532,8 +532,69 @@ const OnDevice = (() => {
     let max = 0;
     for (let i = 0; i < data.length; i++) if (data[i] > max) max = data[i];
     if (max > 0) for (let i = 0; i < data.length; i++) data[i] /= max;
-    return { data, rows: geo.rows, cols: geo.cols,
+    // All 8 class scores (sigmoid) of the strongest lesion candidate, for the disease split.
+    const main = targets[0], ML = layers[main.j], mHW = ML.H * ML.W;
+    const classScores = manifest.classes.map((label, k) => {
+      const z = ML.logits[k * mHW + main.p];
+      return { label, logit: Math.round(z * 1000) / 1000, score: Math.round(1000 / (1 + Math.exp(-z))) / 1000 };
+    });
+    return { data, rows: geo.rows, cols: geo.cols, classScores,
              targets: targets.map(t => ({ label: manifest.classes[t.c], score: Math.round(t.prob * 1000) / 1000 })) };
+  }
+
+  // Measured from the photo inside the strongest lesion box, compared with the skin ring
+  // around it (box enlarged by 50%). Descriptive only: the detector does not use these.
+  function measureLesion(cv, rgb, detections, cam) {
+    const detection = detections[0], count = detections.length;
+    const W = rgb.cols, H = rgb.rows;
+    const [x1, y1, x2, y2] = [detection.box[0] * W, detection.box[1] * H, detection.box[2] * W, detection.box[3] * H].map(Math.round);
+    const bw = Math.max(1, x2 - x1), bh = Math.max(1, y2 - y1);
+    const ox1 = Math.max(0, Math.round(x1 - bw / 4)), oy1 = Math.max(0, Math.round(y1 - bh / 4));
+    const ox2 = Math.min(W, Math.round(x2 + bw / 4)), oy2 = Math.min(H, Math.round(y2 + bh / 4));
+    const lab = new cv.Mat(), gray = new cv.Mat(), lap = new cv.Mat();
+    cv.cvtColor(rgb, lab, cv.COLOR_RGB2Lab);
+    cv.cvtColor(rgb, gray, cv.COLOR_RGB2GRAY);
+    cv.Laplacian(gray, lap, cv.CV_32F);
+    const L = lab.data, P = lap.data32F;
+    const acc = () => ({ n: 0, l: 0, a: 0, b: 0, t: 0, t2: 0 });
+    const inside = acc(), ring = acc();
+    let camIn = 0, camAll = 0;
+    for (let y = oy1; y < oy2; y++) {
+      for (let x = ox1; x < ox2; x++) {
+        const i = y * W + x, tgt = (x >= x1 && x < x2 && y >= y1 && y < y2) ? inside : ring;
+        tgt.n++; tgt.l += L[3 * i] * 100 / 255; tgt.a += L[3 * i + 1] - 128; tgt.b += L[3 * i + 2] - 128;
+        tgt.t += P[i]; tgt.t2 += P[i] * P[i];
+      }
+    }
+    if (cam) {
+      // Share of the Grad-CAM heatmap that falls inside any detected lesion box.
+      const inBox = new Uint8Array(W * H);
+      detections.forEach(d => {
+        const [bx1, by1, bx2, by2] = [d.box[0] * W, d.box[1] * H, d.box[2] * W, d.box[3] * H].map(Math.round);
+        for (let y = Math.max(0, by1); y < Math.min(H, by2); y++) inBox.fill(1, y * W + Math.max(0, bx1), y * W + Math.min(W, bx2));
+      });
+      for (let i = 0; i < cam.data.length; i++) {
+        camAll += cam.data[i];
+        if (inBox[i]) camIn += cam.data[i];
+      }
+    }
+    lab.delete(); gray.delete(); lap.delete();
+    const mean = r => r.n ? { L: r.l / r.n, a: r.a / r.n, b: r.b / r.n, rough: Math.sqrt(Math.max(0, r.t2 / r.n - (r.t / r.n) ** 2)) } : null;
+    const les = mean(inside), skin = mean(ring);
+    const r1 = v => Math.round(v * 10) / 10;
+    return {
+      lesions: count,
+      box_px: [bw, bh],
+      area_percent: r1(100 * bw * bh / (W * H)),
+      lesion_lab: les && [r1(les.L), r1(les.a), r1(les.b)],
+      skin_lab: skin && [r1(skin.L), r1(skin.a), r1(skin.b)],
+      delta_e: les && skin ? r1(Math.hypot(les.L - skin.L, les.a - skin.a, les.b - skin.b)) : null,
+      redder: les && skin ? r1(les.a - skin.a) : null,
+      yellower: les && skin ? r1(les.b - skin.b) : null,
+      darker: les && skin ? r1(skin.L - les.L) : null,
+      roughness_ratio: les && skin && skin.rough > 0 ? Math.round(100 * les.rough / skin.rough) / 100 : null,
+      gradcam_in_box_percent: camAll > 0 ? r1(100 * camIn / camAll) : null,
+    };
   }
 
   // Heatmap alone (transparent where the model does not look), for the Workspace overlay.
@@ -664,6 +725,9 @@ const OnDevice = (() => {
           gradcam_image: cam ? camToDataUrl(cv, rgb, cam, detections) : null,
           gradcam_heatmap: cam ? camHeatmapUrl(cv, cam) : null,
           gradcam_targets: cam ? cam.targets : [],
+          class_scores: cam ? cam.classScores : [],
+          lesion_measures: detections.length ? measureLesion(cv, rgb, detections, cam) : null,
+          ita_inputs: itaResult.ita === null ? null : { meanL: itaResult.meanL, meanB: itaResult.meanB, k: itaResult.k },
           top_label: top,
           top_confidence: topConfidence,
           detections,

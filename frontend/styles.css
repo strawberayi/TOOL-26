@@ -2774,3 +2774,18 @@ body.role-patient .clinician-only {
 .patient-split .profiler-label-row { font-size: 0.7rem; }
 .patient-split-note { margin: 2px 0 0; color: var(--text-light); font-size: 0.58rem; }
 .patient-photo img { display: block; width: 100%; height: auto; margin-bottom: 12px; border-radius: 10px; }
+
+.cluster-block { margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--brand-border); border-radius: 10px; background: #FFF; }
+.cluster-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; font-size: 0.72rem; font-weight: 800; color: var(--text-title); }
+.cluster-head small { display: block; color: var(--text-muted); font-size: 0.6rem; font-weight: 600; }
+.cluster-head strong { color: var(--brand-primary); font-family: var(--font-mono); }
+.cluster-warning { margin: 0 0 6px; padding: 6px 8px; border-radius: 8px; background: #FFF7E6; border: 1px solid #F5C26B; color: #7A4B00; font-size: 0.62rem; }
+
+.calc-details { margin-bottom: 12px; padding: 8px 10px; border: 1px solid var(--brand-border); border-radius: 10px; background: #FFF; }
+.calc-details summary { cursor: pointer; color: var(--text-title); font-size: 0.75rem; font-weight: 800; }
+.calc-steps { margin: 8px 0 0; padding-left: 18px; color: var(--text-body); font-size: 0.66rem; line-height: 1.45; }
+.calc-steps li { margin-bottom: 8px; }
+.calc-steps code { display: inline-block; margin: 2px 0; padding: 1px 4px; border-radius: 4px; background: #FBF0E9; font-size: 0.6rem; white-space: normal; }
+.calc-table { width: 100%; margin: 4px 0; border-collapse: collapse; font-size: 0.62rem; }
+.calc-table th, .calc-table td { padding: 3px 4px; border-bottom: 1px solid #F0E6E0; text-align: left; }
+.calc-table th { color: var(--text-muted); font-weight: 800; }
