@@ -2789,3 +2789,15 @@ body.role-patient .clinician-only {
 .calc-table { width: 100%; margin: 4px 0; border-collapse: collapse; font-size: 0.62rem; }
 .calc-table th, .calc-table td { padding: 3px 4px; border-bottom: 1px solid #F0E6E0; text-align: left; }
 .calc-table th { color: var(--text-muted); font-weight: 800; }
+
+.feature-crops { display: grid; gap: 8px; margin-bottom: 6px; }
+.feature-crop { padding: 8px; border: 1px solid var(--brand-border); border-radius: 10px; background: #FFF; }
+.feature-crop img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.feature-crop-body { min-width: 0; flex: 1; font-size: 0.64rem; color: var(--text-body); }
+.feature-crop-head { display: flex; justify-content: space-between; color: var(--text-title); font-size: 0.7rem; }
+.feature-crop-head span { color: var(--brand-primary); font-family: var(--font-mono); font-weight: 800; }
+.feature-crop-label { margin: 1px 0 3px; color: var(--text-muted); font-weight: 700; }
+.feature-crop ul { margin: 0; padding-left: 14px; line-height: 1.35; }
+.feature-crop-top { display: flex; gap: 10px; }
+.feature-calc { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #F0E6E0; font-size: 0.6rem; line-height: 1.5; color: var(--text-body); }
+.feature-calc code { display: inline-block; padding: 1px 4px; border-radius: 4px; background: #FBF0E9; font-size: 0.58rem; white-space: normal; }
