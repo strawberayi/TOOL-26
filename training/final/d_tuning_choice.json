@@ -1,0 +1,6 @@
+{
+  "winner": "ModelD_g1.0_f11",
+  "gamma": 1.0,
+  "freeze": 11,
+  "selection": "mean of val mAP50 and mAP50-95, seed 42"
+}

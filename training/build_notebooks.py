@@ -50,41 +50,95 @@ def config(train_models=None) -> str:
 
 
 GPU_SETUP = r"""
-# GPU setup: checks the NVIDIA driver and the CUDA build of PyTorch, and installs
-# PyTorch (with CUDA) and the other pinned packages only if they are missing.
-# Nothing is downloaded when everything is already correct.
-import importlib.metadata as metadata
+# Setup in one run: checks the NVIDIA driver, then installs PyTorch with CUDA and
+# the pinned packages into THIS kernel's Python if they are missing, and continues.
+# Nothing is downloaded when everything is already correct. If this Python does not
+# allow installs (e.g. Ubuntu's system Python), it builds ablation_training/.venv
+# and registers the "TOOL-26 (.venv)" kernel instead.
+import importlib
+import json
+import os
 import re
 import shutil
+import site
 import subprocess
 import sys
+from pathlib import Path
 
 PINNED = {'ultralytics': '8.4.163', 'opencv-python': '5.0.0.93', 'scikit-learn': '1.9.1',
           'numpy': '2.5.3', 'pillow': '12.3.0'}
-EXTRA = ['pandas', 'pyyaml', 'matplotlib']
+EXTRA = ['pandas', 'pyyaml', 'matplotlib', 'ipykernel']
 TORCH, TORCHVISION = '2.14.0', '0.29.0'
+MODULES = ['torch', 'torchvision', 'ultralytics', 'cv2', 'sklearn', 'numpy', 'PIL', 'pandas', 'yaml', 'matplotlib']
 
-def installed(name):
-    try:
-        return metadata.version(name)
-    except metadata.PackageNotFoundError:
-        return None
+PACKAGE_ROOT = next(d for d in (Path.cwd().resolve(), Path.cwd().resolve().parent)
+                    if (d / 'training' / 'split_utils.py').is_file())
+VENV = PACKAGE_ROOT / '.venv'
 
-def install(*args):
+if sys.version_info[:2] != (3, 14):
+    print(f'Note: Python {sys.version.split()[0]} in use; the other trainer used 3.14. Install Python 3.14 if packages fail.')
+
+def run(cmd, env=None):
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    return result.returncode, result.stdout + result.stderr
+
+def versions(python):
+    code, out = run([python, '-c', (
+        'import json, importlib.metadata as m\n'
+        'def v(n):\n'
+        '    try: return m.version(n)\n'
+        '    except Exception: return None\n'
+        f'print(json.dumps({{n: v(n) for n in {list(PINNED) + EXTRA + ["torch"]!r}}}))')])
+    return json.loads(out.strip().splitlines()[-1]) if code == 0 else {}
+
+def torch_status(python):
+    code, out = run([python, '-c', 'import torch; print(torch.__version__, torch.cuda.is_available())'])
+    return out.strip().splitlines()[-1] if code == 0 and out.strip() else 'not installed'
+
+def install(python, *args):
     # uv-made environments have no pip; use uv there, otherwise pip.
+    # Long timeouts and retries: the PyTorch CUDA files are large (~2-3 GB in total).
+    env = dict(os.environ, UV_HTTP_TIMEOUT='600', UV_HTTP_RETRIES='5')
     if shutil.which('uv'):
-        cmd = ['uv', 'pip', 'install', '--python', sys.executable, *args]
+        cmd = ['uv', 'pip', 'install', '--python', python, *args]
     else:
-        if subprocess.run([sys.executable, '-m', 'pip', '--version'], capture_output=True).returncode != 0:
-            subprocess.check_call([sys.executable, '-m', 'ensurepip', '--upgrade'])
-        cmd = [sys.executable, '-m', 'pip', 'install', *args]
-    print('Installing:', ' '.join(args))
-    subprocess.check_call(cmd)
+        if run([python, '-m', 'pip', '--version'])[0] != 0:
+            code, out = run([python, '-m', 'ensurepip', '--upgrade'])
+            if code != 0:
+                raise PermissionError(out)
+        cmd = [python, '-m', 'pip', 'install', '--timeout', '600', '--retries', '5', *args]
+    print('Installing:', ' '.join(a for a in args if not a.startswith('http')), '(this can take a while)')
+    for attempt in range(1, 4):
+        code, out = run(cmd, env)
+        if code == 0:
+            return
+        # PEP 668 "externally managed" system Pythons refuse installs.
+        if 'externally' in out.lower() or 'permission' in out.lower() or 'ensurepip' in out.lower():
+            raise PermissionError(out[-800:])
+        print(f'  attempt {attempt} failed; retrying...' if attempt < 3 else '  attempt 3 failed.')
+    raise RuntimeError('Installing failed (check the internet connection), then Run All again:\n' + out[-1500:])
+
+def ensure_packages(python, cuda_tag):
+    # Returns the set of distributions it installed.
+    changed = set()
+    status = torch_status(python)
+    torch_ok = status.startswith(TORCH) and status.endswith('True')
+    print(f'PyTorch: {status}' + ('  -> GPU ready' if torch_ok else '  -> installing the CUDA build'))
+    if not torch_ok:
+        install(python, f'torch=={TORCH}+{cuda_tag}', f'torchvision=={TORCHVISION}+{cuda_tag}',
+                '--index-url', f'https://download.pytorch.org/whl/{cuda_tag}')
+        changed |= {'torch', 'torchvision'}
+    have = versions(python)
+    missing = [f'{n}=={v}' for n, v in PINNED.items() if have.get(n) != v]
+    missing += [n for n in EXTRA if not have.get(n)]
+    if missing:
+        install(python, *missing)
+        changed |= {m.split('==')[0] for m in missing}
+    return changed
 
 # 1. NVIDIA driver (cannot be installed from a notebook).
 smi = shutil.which('nvidia-smi')
-out = subprocess.run([smi], capture_output=True, text=True).stdout if smi else ''
-match = re.search(r'CUDA Version:\s*(\d+)\.(\d+)', out)
+match = re.search(r'CUDA Version:\s*(\d+)\.(\d+)', run([smi])[1] if smi else '')
 if not match:
     raise RuntimeError(
         'No NVIDIA driver found (nvidia-smi). Install it first, restart the computer, then Run All again:\n'
@@ -92,34 +146,46 @@ if not match:
         '  Ubuntu:  sudo ubuntu-drivers install\n'
         'Training on the CPU would take days.')
 driver_cuda = (int(match.group(1)), int(match.group(2)))
-print(f'NVIDIA driver OK, supports CUDA {driver_cuda[0]}.{driver_cuda[1]}')
+cuda_tag = 'cu130' if driver_cuda >= (13, 0) else 'cu126' if driver_cuda >= (12, 6) else None
+if cuda_tag is None:
+    raise RuntimeError(f'The driver only supports CUDA {driver_cuda[0]}.{driver_cuda[1]}; update the NVIDIA driver (CUDA 12.6 or newer).')
+print(f'NVIDIA driver OK, supports CUDA {driver_cuda[0]}.{driver_cuda[1]} -> PyTorch build {cuda_tag}')
 
-# 2. PyTorch with CUDA. Checked in a subprocess so this kernel does not load the old build.
-check = subprocess.run([sys.executable, '-c', 'import torch; print(torch.__version__, torch.cuda.is_available())'],
-                       capture_output=True, text=True)
-torch_status = check.stdout.strip() if check.returncode == 0 else 'not installed'
-torch_ok = torch_status.startswith(TORCH) and torch_status.endswith('True')
-print(f'PyTorch: {torch_status}' + ('  -> GPU ready' if torch_ok else '  -> needs the CUDA build'))
-
-changed = False
-if not torch_ok:
-    # The PyTorch wheels include the CUDA runtime; only the driver is needed.
-    cuda_tag = 'cu130' if driver_cuda >= (13, 0) else 'cu126' if driver_cuda >= (12, 6) else None
-    if cuda_tag is None:
-        raise RuntimeError(f'The driver only supports CUDA {driver_cuda[0]}.{driver_cuda[1]}; update the NVIDIA driver (CUDA 12.6 or newer).')
-    install(f'torch=={TORCH}+{cuda_tag}', f'torchvision=={TORCHVISION}+{cuda_tag}',
-            '--index-url', f'https://download.pytorch.org/whl/{cuda_tag}')
-    changed = True
-
-# 3. The other packages, at the exact versions used for the first run.
-missing = [f'{name}=={version}' for name, version in PINNED.items() if installed(name) != version]
-missing += [name for name in EXTRA if installed(name) is None]
-if missing:
-    install(*missing)
-    changed = True
+# 2. Packages in this kernel's Python (the PyTorch wheels include the CUDA runtime).
+try:
+    changed = ensure_packages(sys.executable, cuda_tag)
+except PermissionError:
+    # 3. This Python refuses installs: build ablation_training/.venv and a kernel for it.
+    print(f'\nThis Python ({sys.executable}) does not allow installing packages.')
+    print(f'Creating {VENV} and a "TOOL-26 (.venv)" kernel instead...')
+    code, out = run([sys.executable, '-m', 'venv', str(VENV)])
+    if code != 0:
+        if not shutil.which('uv'):
+            raise RuntimeError('Could not create .venv (ensurepip is missing). On Ubuntu run:\n'
+                               '  sudo apt install python3.14-venv\nthen Run All again.\n' + out[-400:])
+        shutil.rmtree(VENV, ignore_errors=True)
+        code, out = run(['uv', 'venv', '--python', sys.executable, str(VENV)])
+        if code != 0:
+            raise RuntimeError(out[-800:])
+    venv_python = str(VENV / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python'))
+    ensure_packages(venv_python, cuda_tag)
+    code, out = run([venv_python, '-m', 'ipykernel', 'install', '--user', '--name', 'tool26',
+                     '--display-name', 'TOOL-26 (.venv)'])
+    if code != 0:
+        raise RuntimeError(out[-800:])
+    raise RuntimeError('Setup finished in .venv. Now select the kernel "TOOL-26 (.venv)" (top right; restart '
+                       'VS Code if it is not listed) and click Run All again. This is needed only once.')
 
 if changed:
-    raise RuntimeError('Packages installed. Restart the kernel (Kernel > Restart), then Run All again.')
+    # Make freshly installed packages importable in this same session.
+    importlib.invalidate_caches()
+    user_site = site.getusersitepackages()
+    if Path(user_site).is_dir() and user_site not in sys.path:
+        site.addsitedir(user_site)
+    loaded = [m for m in MODULES if m in sys.modules]
+    if loaded:
+        raise RuntimeError(f'Packages updated but {loaded} were already loaded. Restart the kernel, then Run All again.')
+    print('Packages installed; continuing in this run.')
 print('All packages ready.')
 """
 
@@ -216,7 +282,7 @@ Then it zips the results into `results/results_{trainer.lower()}.zip`.
 Before you start, follow `README.md` in the `ablation_training` folder (install the exact versions).
 Each model takes about **45–75 minutes** on an RTX 3050 laptop. Keep the laptop plugged in and awake.
 """),
-        md("## Step 1: GPU setup (installs PyTorch with CUDA only if needed)"),
+        md("## Step 1: Setup (driver check, installs PyTorch with CUDA and packages only if needed)"),
         code(GPU_SETUP),
         code(SETUP),
         code(config(models)),
@@ -308,7 +374,7 @@ This notebook does **not train**. It:
 
 Results go to `ablation_training/runs/ablation_split/`. Nothing in `TOOL-26` changes unless you turn on `UPDATE_APP`.
 """),
-        md("## Step 1: GPU setup (installs PyTorch with CUDA only if needed)"),
+        md("## Step 1: Setup (driver check, installs PyTorch with CUDA and packages only if needed)"),
         code(GPU_SETUP),
         code(SETUP),
         code(config()),

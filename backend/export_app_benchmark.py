@@ -1,12 +1,10 @@
 """
-Export the real ablation results to frontend/benchmark_data.json for the app's
-"Ablation Benchmark" views. Run after the notebook's test evaluation:
+Export the final SOP results to frontend/benchmark_data.json for the app's benchmark views.
+
+Reads the test-set analysis written by ablation_training/final/sop_analysis.py
+(manuscript Models A-D, seed 42), so the app shows exactly the numbers in the paper:
 
     .venv/bin/python backend/export_app_benchmark.py
-
-Metrics come from runs/ablation_yolov26/*.csv written by the notebook. The
-confusion matrices are recomputed from the primary-seed weights on the same
-held-out test split (evaluation only; nothing is tuned).
 """
 
 from __future__ import annotations
@@ -19,23 +17,16 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-# ABLATION_RUNS / ABLATION_WEIGHTS select another training round (see training/).
-RUNS = Path(os.environ.get("ABLATION_RUNS", ROOT / "runs" / "ablation_yolov26"))
-WEIGHTS = Path(os.environ.get("ABLATION_WEIGHTS", ROOT / "weights" / "ablation_yolov26"))
-ABLATION = ROOT / "datasets" / "ablation_yolov26"
+RESULTS = Path(os.environ.get("SOP_RESULTS", ROOT.parent / "ablation_training" / "final" / "sop_results_manuscript"))
 OUTPUT = ROOT / "frontend" / "benchmark_data.json"
 
-calibration = json.loads((ROOT / "backend" / "phase0_calibration.json").read_text(encoding="utf-8"))
-
 MODELS = [
-    ("ModelA_raw", "A", "Raw", "Raw images, no enhancement"),
-    ("ModelB_rgb_clahe", "B", "RGB CLAHE", "RGB CLAHE, fixed β=2.0"),
-    ("ModelC_fixed_l_clahe", "C", "L*-CLAHE β=2", "CIELAB L*-CLAHE, fixed β=2.0"),
-    ("ModelC2_fixed_l_clahe_global", "C′", "L*-CLAHE β global",
-     f"CIELAB L*-CLAHE, fixed β={calibration['beta_global']} (no ITA)"),
-    ("ModelD_proposed", "D", "Proposed",
-     f"K-means mask + ITA → β {calibration['beta_high']}/{calibration['beta_mid']}/{calibration['beta_low']}"),
+    ("A", "Baseline", "Baseline YOLOv26 (raw images)"),
+    ("B", "Fixed L*-CLAHE", "Fixed L*-CLAHE (β = 2.0)"),
+    ("C", "Focal Loss", "Focal Loss Optimization (raw images)"),
+    ("D", "Proposed", "ITA L*-CLAHE + two-stage + Focal Loss"),
 ]
+NAMES = ["Warts", "Molluscum", "Varicella", "HFMD", "Tinea versicolor", "Tinea corporis", "Tinea pedis", "Impetigo"]
 # App codes use the local disease names.
 CLASS_CODES = {
     "Warts": ("KU", "Kulugo (Warts)"),
@@ -47,7 +38,7 @@ CLASS_CODES = {
     "Tinea pedis": ("AL", "Alipunga (T. pedis)"),
     "Impetigo": ("MA", "Mamaso (Impetigo)"),
 }
-BRACKETS = [("Darkest", "ITA < 28°"), ("Medium", "28° ≤ ITA ≤ 41°"), ("Lightest", "ITA > 41°")]
+GROUPS = [("I-II", "Fitzpatrick I–II", "ITA > 41°"), ("III-V", "Fitzpatrick III–V", "−30° < ITA ≤ 41°")]
 
 
 def percent(value: float) -> float:
@@ -55,61 +46,50 @@ def percent(value: float) -> float:
 
 
 def main() -> None:
-    from ultralytics import YOLO
-
-    per_seed = pd.read_csv(RUNS / "ablation_test_metrics_per_seed.csv")
-    summary = per_seed.groupby("model")[["mAP@0.5", "mAP@0.5:0.95", "precision", "recall"]].mean()
-    seeds = sorted(per_seed["seed"].unique().tolist())
-
-    class_names = json.loads((ROOT / "datasets" / "source_yolo" / "classes.json").read_text())["classes"]
+    overall = pd.read_csv(RESULTS / "sop1_2_overall_per_seed.csv")
+    overall = overall[overall["seed"] == 42].set_index("model")
+    clusters = pd.read_csv(RESULTS / "sop2_within_cluster_per_seed.csv")
+    clusters = clusters[clusters["seed"] == 42]
+    groups = pd.read_csv(RESULTS / "sop3_group_map50_all_models.csv").set_index(["model", "group"])
+    h02 = pd.read_csv(RESULTS / "h02_mann_whitney.csv").iloc[0]
+    h01 = pd.read_csv(RESULTS / "h01_friedman_wilcoxon_per_image.csv").set_index("metric")
 
     models, confusion = [], {}
-    for folder, model_id, short, name in MODELS:
-        row = summary.loc[folder]
-        p, r = float(row["precision"]), float(row["recall"])
+    for model_id, short, name in MODELS:
+        row = overall.loc[model_id]
+        wc = clusters[clusters["model"] == model_id].set_index("cluster")["within_cluster_rate_of_detected"]
         models.append({
             "id": model_id, "short": short, "name": name,
-            "map50": percent(row["mAP@0.5"]), "map5095": percent(row["mAP@0.5:0.95"]),
-            "precision": percent(p), "recall": percent(r),
-            "f1": round(2 * p * r / (p + r), 3) if p + r else 0.0,
+            "map50": percent(row["mAP50"]), "map5095": percent(row["mAP50_95"]),
+            "precision": percent(row["precision"]), "recall": percent(row["recall"]), "f1": round(float(row["F1"]), 3),
+            "withinEruptive": percent(wc["Vesiculopapular/Eruptive"]),
+            "withinScaly": percent(wc["Papulosquamous/Verrucous"]),
         })
-        # Ultralytics stores matrix[predicted, actual] with background last.
-        # plots=True is required: the confusion matrix is only filled when plotting.
-        results = YOLO(str(WEIGHTS / f"best_{folder}.pt")).val(
-            data=str(ABLATION / folder / "data.yaml"), split="test", imgsz=640, batch=8,
-            plots=True, verbose=False, project=str(RUNS / "app_export"), name=folder, exist_ok=True,
-        )
-        matrix = results.confusion_matrix.matrix
-        n = len(class_names)
-        confusion[model_id] = [[int(matrix[pred][actual]) for pred in range(n)] for actual in range(n)]
+        # sop_analysis stores rows = predicted (+ background), columns = actual (+ background FP).
+        matrix = pd.read_csv(RESULTS / f"confusion_{model_id}_seed42.csv", index_col=0)
+        confusion[model_id] = [[int(matrix.iloc[pred, actual]) for pred in range(len(NAMES))]
+                               for actual in range(len(NAMES))]
 
-    bracket_rows = pd.read_csv(RUNS / "ablation_test_metrics_by_bracket_per_seed.csv")
-    bracket_means = bracket_rows.groupby(["model", "bracket"])["mAP@0.5:0.95"].mean()
-    ita = pd.read_csv(ABLATION / "ita_table.csv")
-    test_rows = ita[ita["split"] == "test"]
-    test_counts = test_rows["bracket"].value_counts()
-    fairness = []
-    for bracket, rule in BRACKETS:
-        scores = {
-            model_id: percent(bracket_means[(folder, bracket)])
-            for folder, model_id, _, _ in MODELS if (folder, bracket) in bracket_means.index
-        }
-        fairness.append({"group": bracket, "range": rule, "images": int(test_counts.get(bracket, 0)), "scores": scores})
+    fairness = [{"group": label, "range": rule, "images": int(groups.loc[("A", key), "n_images"]),
+                 "scores": {m: percent(groups.loc[(m, key), "mAP50"]) for m, _, _ in MODELS}}
+                for key, label, rule in GROUPS]
 
     payload = {
-        "status": "final" if calibration.get("status") == "FROZEN" else "provisional",
+        "status": "final",
         "generated": datetime.now().isoformat(timespec="minutes"),
-        "note": (f"Held-out test set ({len(test_rows)} images), YOLO26n, "
-                 f"{len(seeds)} seed(s): {', '.join(map(str, seeds))}. "
-                 f"Calibration {calibration.get('status', 'unknown')}."),
+        "note": ("Held-out test set (200 images), YOLO26n, seed 42. P/R at the F1-maximizing confidence; "
+                 "within-cluster rates at confidence 0.25, IoU 0.5. Friedman → Wilcoxon (D vs A, B, C, Bonferroni)."),
         "models": models,
-        "classes": [CLASS_CODES[c][0] for c in class_names],
-        "classLegend": [CLASS_CODES[c][1] for c in class_names],
+        "classes": [CLASS_CODES[c][0] for c in NAMES],
+        "classLegend": [CLASS_CODES[c][1] for c in NAMES],
         "confusion": confusion,
+        "fairnessMetric": "mAP@50",
         "fairness": fairness,
+        "fairnessTest": {"test": "Mann-Whitney U on per-image ΔAP50 (D − A), III–V vs I–II",
+                         "p": round(float(h02["p"]), 3), "r": round(float(h02["rank_biserial"]), 2),
+                         "excludedVI": int(h02["excluded_VI"])},
+        "friedman": {m: round(float(h01.loc[m, "friedman_p"]), 4) for m in h01.index},
     }
-    if not any(any(any(row) for row in matrix) for matrix in confusion.values()):
-        raise RuntimeError("All confusion matrices are empty")
     OUTPUT.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {OUTPUT}")
     print(json.dumps({m["id"]: (m["map50"], m["map5095"], m["f1"]) for m in models}, ensure_ascii=False))

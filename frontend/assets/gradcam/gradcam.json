@@ -1,0 +1,230 @@
+{
+ "method": "Grad-CAM at the last feature layer of the one-to-one class head (P3/P4/P5), targets = detections with confidence >= 0.25",
+ "iou_threshold": 0.15,
+ "seed": 42,
+ "d_weights": "ModelD_g1.0_f11",
+ "summary": {
+  "A": {
+   "iou_mean": 0.17,
+   "energy_mean": 0.572,
+   "iou_I_II": 0.183,
+   "iou_III_V": 0.161
+  },
+  "B": {
+   "iou_mean": 0.163,
+   "energy_mean": 0.564,
+   "iou_I_II": 0.174,
+   "iou_III_V": 0.161
+  },
+  "C": {
+   "iou_mean": 0.197,
+   "energy_mean": 0.238,
+   "iou_I_II": 0.173,
+   "iou_III_V": 0.22
+  },
+  "D": {
+   "iou_mean": 0.197,
+   "energy_mean": 0.35,
+   "iou_I_II": 0.189,
+   "iou_III_V": 0.209
+  }
+ },
+ "statistics": {
+  "gradcam_iou": {
+   "friedman_p": 0.0,
+   "D_vs_A_p_bonf": 0.8053,
+   "D_vs_B_p_bonf": 0.0853,
+   "D_vs_C_p_bonf": 0.0029,
+   "D_vs_A_r": 0.09,
+   "D_vs_B_r": 0.179,
+   "D_vs_C_r": 0.269
+  },
+  "energy_in_boxes": {
+   "friedman_p": 0.0,
+   "D_vs_A_p_bonf": 0.0,
+   "D_vs_B_p_bonf": 0.0,
+   "D_vs_C_p_bonf": 0.0,
+   "D_vs_A_r": -0.899,
+   "D_vs_B_r": -0.879,
+   "D_vs_C_r": 0.896
+  }
+ },
+ "examples": [
+  {
+   "image_id": "07e37e164ae929c6003bd97e",
+   "disease": "Warts",
+   "models": {
+    "A": {
+     "iou": 0.32,
+     "energy": 0.697
+    },
+    "B": {
+     "iou": 0.339,
+     "energy": 0.637
+    },
+    "C": {
+     "iou": 0.011,
+     "energy": 0.024
+    },
+    "D": {
+     "iou": 0.136,
+     "energy": 0.16
+    }
+   }
+  },
+  {
+   "image_id": "00cf569cf91b5a7855547f9a",
+   "disease": "Molluscum",
+   "models": {
+    "A": {
+     "iou": 0.383,
+     "energy": 0.805
+    },
+    "B": {
+     "iou": 0.458,
+     "energy": 0.798
+    },
+    "C": {
+     "iou": 0.1,
+     "energy": 0.17
+    },
+    "D": {
+     "iou": 0.349,
+     "energy": 0.371
+    }
+   }
+  },
+  {
+   "image_id": "063238ff3be92358dc57015c",
+   "disease": "Varicella",
+   "models": {
+    "A": {
+     "iou": 0.182,
+     "energy": 0.272
+    },
+    "B": {
+     "iou": 0.186,
+     "energy": 0.263
+    },
+    "C": {
+     "iou": 0.093,
+     "energy": 0.116
+    },
+    "D": {
+     "iou": 0.149,
+     "energy": 0.179
+    }
+   }
+  },
+  {
+   "image_id": "00722c0022ce074f26265087",
+   "disease": "HFMD",
+   "models": {
+    "A": {
+     "iou": 0.412,
+     "energy": 0.608
+    },
+    "B": {
+     "iou": 0.395,
+     "energy": 0.629
+    },
+    "C": {
+     "iou": 0.292,
+     "energy": 0.351
+    },
+    "D": {
+     "iou": 0.386,
+     "energy": 0.435
+    }
+   }
+  },
+  {
+   "image_id": "0e13c8b58bb44e84cce913d3",
+   "disease": "Tinea versicolor",
+   "models": {
+    "A": {
+     "iou": 0.237,
+     "energy": 0.289
+    },
+    "B": {
+     "iou": 0.051,
+     "energy": 0.284
+    },
+    "C": {
+     "iou": 0.098,
+     "energy": 0.129
+    },
+    "D": {
+     "iou": 0.117,
+     "energy": 0.142
+    }
+   }
+  },
+  {
+   "image_id": "1d5824b665f7cff297928581",
+   "disease": "Tinea corporis",
+   "models": {
+    "A": {
+     "iou": 0.051,
+     "energy": 0.361
+    },
+    "B": {
+     "iou": 0.017,
+     "energy": 0.24
+    },
+    "C": {
+     "iou": 0.141,
+     "energy": 0.166
+    },
+    "D": {
+     "iou": 0.178,
+     "energy": 0.213
+    }
+   }
+  },
+  {
+   "image_id": "65eec236caa37d2c2c072949",
+   "disease": "Tinea pedis",
+   "models": {
+    "A": {
+     "iou": 0.041,
+     "energy": 1.0
+    },
+    "B": {
+     "iou": 0.014,
+     "energy": 1.0
+    },
+    "C": {
+     "iou": 0.86,
+     "energy": 0.932
+    },
+    "D": {
+     "iou": 0.117,
+     "energy": 0.973
+    }
+   }
+  },
+  {
+   "image_id": "00bd76536271905681e4462c",
+   "disease": "Impetigo",
+   "models": {
+    "A": {
+     "iou": 0.072,
+     "energy": 0.82
+    },
+    "B": {
+     "iou": 0.073,
+     "energy": 1.0
+    },
+    "C": {
+     "iou": 0.043,
+     "energy": 0.096
+    },
+    "D": {
+     "iou": 0.115,
+     "energy": 0.314
+    }
+   }
+  }
+ ]
+}

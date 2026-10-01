@@ -1,0 +1,2 @@
+n_I_II,n_III_V,median_dAP50_I_II,median_dAP50_III_V,mann_whitney_U,p,rank_biserial,diff_dmAP50_III_V_minus_I_II,bootstrap_ci_low,bootstrap_ci_high,excluded_VI,excluded_no_ITA
+85,102,0.0,0.0,5025.5,0.05692324919493809,0.15928489042675897,0.04847998653063079,-0.02593125381394651,0.13473737927652957,11,2
