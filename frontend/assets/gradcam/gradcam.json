@@ -1,52 +1,52 @@
 {
- "method": "Grad-CAM at the last feature layer of the one-to-one class head (P3/P4/P5), targets = detections with confidence >= 0.25",
+ "method": "Grad-CAM at the last feature layer of the class head (cv3, one-to-many; P3/P4/P5), targets = detections with confidence >= 0.25",
  "iou_threshold": 0.15,
  "seed": 42,
  "d_weights": "ModelD_g1.0_f11",
  "summary": {
   "A": {
-   "iou_mean": 0.17,
-   "energy_mean": 0.572,
-   "iou_I_II": 0.183,
-   "iou_III_V": 0.161
+   "iou_mean": 0.299,
+   "energy_mean": 0.557,
+   "iou_I_II": 0.297,
+   "iou_III_V": 0.296
   },
   "B": {
-   "iou_mean": 0.163,
-   "energy_mean": 0.564,
-   "iou_I_II": 0.174,
-   "iou_III_V": 0.161
+   "iou_mean": 0.294,
+   "energy_mean": 0.54,
+   "iou_I_II": 0.286,
+   "iou_III_V": 0.302
   },
   "C": {
-   "iou_mean": 0.197,
-   "energy_mean": 0.238,
-   "iou_I_II": 0.173,
-   "iou_III_V": 0.22
+   "iou_mean": 0.191,
+   "energy_mean": 0.236,
+   "iou_I_II": 0.168,
+   "iou_III_V": 0.215
   },
   "D": {
-   "iou_mean": 0.197,
-   "energy_mean": 0.35,
-   "iou_I_II": 0.189,
-   "iou_III_V": 0.209
+   "iou_mean": 0.247,
+   "energy_mean": 0.377,
+   "iou_I_II": 0.232,
+   "iou_III_V": 0.258
   }
  },
  "statistics": {
   "gradcam_iou": {
    "friedman_p": 0.0,
-   "D_vs_A_p_bonf": 0.8053,
-   "D_vs_B_p_bonf": 0.0853,
-   "D_vs_C_p_bonf": 0.0029,
-   "D_vs_A_r": 0.09,
-   "D_vs_B_r": 0.179,
-   "D_vs_C_r": 0.269
+   "D_vs_A_p_bonf": 0.0001,
+   "D_vs_B_p_bonf": 0.0041,
+   "D_vs_C_p_bonf": 0.0,
+   "D_vs_A_r": -0.347,
+   "D_vs_B_r": -0.261,
+   "D_vs_C_r": 0.635
   },
   "energy_in_boxes": {
    "friedman_p": 0.0,
    "D_vs_A_p_bonf": 0.0,
    "D_vs_B_p_bonf": 0.0,
    "D_vs_C_p_bonf": 0.0,
-   "D_vs_A_r": -0.899,
-   "D_vs_B_r": -0.879,
-   "D_vs_C_r": 0.896
+   "D_vs_A_r": -0.937,
+   "D_vs_B_r": -0.853,
+   "D_vs_C_r": 0.966
   }
  },
  "examples": [
@@ -55,20 +55,20 @@
    "disease": "Warts",
    "models": {
     "A": {
-     "iou": 0.32,
-     "energy": 0.697
+     "iou": 0.399,
+     "energy": 0.521
     },
     "B": {
-     "iou": 0.339,
-     "energy": 0.637
+     "iou": 0.463,
+     "energy": 0.531
     },
     "C": {
      "iou": 0.011,
-     "energy": 0.024
+     "energy": 0.026
     },
     "D": {
-     "iou": 0.136,
-     "energy": 0.16
+     "iou": 0.159,
+     "energy": 0.181
     }
    }
   },
@@ -77,20 +77,20 @@
    "disease": "Molluscum",
    "models": {
     "A": {
-     "iou": 0.383,
-     "energy": 0.805
+     "iou": 0.529,
+     "energy": 0.646
     },
     "B": {
-     "iou": 0.458,
-     "energy": 0.798
+     "iou": 0.546,
+     "energy": 0.668
     },
     "C": {
-     "iou": 0.1,
-     "energy": 0.17
+     "iou": 0.078,
+     "energy": 0.14
     },
     "D": {
-     "iou": 0.349,
-     "energy": 0.371
+     "iou": 0.267,
+     "energy": 0.393
     }
    }
   },
@@ -99,20 +99,20 @@
    "disease": "Varicella",
    "models": {
     "A": {
-     "iou": 0.182,
-     "energy": 0.272
+     "iou": 0.288,
+     "energy": 0.337
     },
     "B": {
-     "iou": 0.186,
-     "energy": 0.263
+     "iou": 0.213,
+     "energy": 0.258
     },
     "C": {
-     "iou": 0.093,
-     "energy": 0.116
+     "iou": 0.096,
+     "energy": 0.114
     },
     "D": {
-     "iou": 0.149,
-     "energy": 0.179
+     "iou": 0.213,
+     "energy": 0.259
     }
    }
   },
@@ -121,20 +121,20 @@
    "disease": "HFMD",
    "models": {
     "A": {
-     "iou": 0.412,
-     "energy": 0.608
+     "iou": 0.52,
+     "energy": 0.603
     },
     "B": {
-     "iou": 0.395,
-     "energy": 0.629
+     "iou": 0.488,
+     "energy": 0.591
     },
     "C": {
-     "iou": 0.292,
-     "energy": 0.351
+     "iou": 0.286,
+     "energy": 0.346
     },
     "D": {
-     "iou": 0.386,
-     "energy": 0.435
+     "iou": 0.428,
+     "energy": 0.517
     }
    }
   },
@@ -143,20 +143,20 @@
    "disease": "Tinea versicolor",
    "models": {
     "A": {
-     "iou": 0.237,
-     "energy": 0.289
+     "iou": 0.176,
+     "energy": 0.212
     },
     "B": {
-     "iou": 0.051,
-     "energy": 0.284
+     "iou": 0.284,
+     "energy": 0.448
     },
     "C": {
-     "iou": 0.098,
-     "energy": 0.129
+     "iou": 0.081,
+     "energy": 0.108
     },
     "D": {
-     "iou": 0.117,
-     "energy": 0.142
+     "iou": 0.107,
+     "energy": 0.143
     }
    }
   },
@@ -165,20 +165,20 @@
    "disease": "Tinea corporis",
    "models": {
     "A": {
-     "iou": 0.051,
-     "energy": 0.361
+     "iou": 0.154,
+     "energy": 0.277
     },
     "B": {
-     "iou": 0.017,
-     "energy": 0.24
+     "iou": 0.204,
+     "energy": 0.435
     },
     "C": {
      "iou": 0.141,
-     "energy": 0.166
+     "energy": 0.162
     },
     "D": {
-     "iou": 0.178,
-     "energy": 0.213
+     "iou": 0.173,
+     "energy": 0.226
     }
    }
   },
@@ -187,20 +187,20 @@
    "disease": "Tinea pedis",
    "models": {
     "A": {
-     "iou": 0.041,
+     "iou": 0.099,
      "energy": 1.0
     },
     "B": {
-     "iou": 0.014,
-     "energy": 1.0
+     "iou": 0.1,
+     "energy": 0.998
     },
     "C": {
-     "iou": 0.86,
-     "energy": 0.932
+     "iou": 0.853,
+     "energy": 0.931
     },
     "D": {
-     "iou": 0.117,
-     "energy": 0.973
+     "iou": 0.243,
+     "energy": 0.983
     }
    }
   },
@@ -209,20 +209,20 @@
    "disease": "Impetigo",
    "models": {
     "A": {
-     "iou": 0.072,
-     "energy": 0.82
+     "iou": 0.471,
+     "energy": 0.962
     },
     "B": {
-     "iou": 0.073,
-     "energy": 1.0
+     "iou": 0.486,
+     "energy": 0.987
     },
     "C": {
-     "iou": 0.043,
-     "energy": 0.096
+     "iou": 0.045,
+     "energy": 0.106
     },
     "D": {
-     "iou": 0.115,
-     "energy": 0.314
+     "iou": 0.447,
+     "energy": 0.508
     }
    }
   }

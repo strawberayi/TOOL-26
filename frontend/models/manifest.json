@@ -11,6 +11,7 @@
   ],
   "imgsz": 640,
   "confidence": 0.25,
+  "nms_iou": 0.7,
   "gradcam": {
     "confidence": 0.25,
     "max_targets": 10,
