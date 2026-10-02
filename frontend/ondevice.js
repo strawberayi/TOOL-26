@@ -403,10 +403,12 @@ const OnDevice = (() => {
   // ---------------------------------------------------------------- YOLO
 
   // Ultralytics LetterBox (auto=False, center=True, pad 114, INTER_LINEAR).
-  function letterbox(cv, rgb, size) {
+  // Ultralytics LetterBox(auto=True, stride=32), as in model.predict and the test-set
+  // evaluation (rectangular input): scale to fit 640, pad only to a multiple of 32.
+  function letterbox(cv, rgb, size, stride = 32) {
     const r = Math.min(size / rgb.rows, size / rgb.cols);
     const newW = pyRound(rgb.cols * r), newH = pyRound(rgb.rows * r);
-    const dw = (size - newW) / 2, dh = (size - newH) / 2;
+    const dw = ((size - newW) % stride) / 2, dh = ((size - newH) % stride) / 2;
     const resized = new cv.Mat();
     if (newW !== rgb.cols || newH !== rgb.rows) cv.resize(rgb, resized, new cv.Size(newW, newH), 0, 0, cv.INTER_LINEAR);
     else rgb.copyTo(resized);
@@ -415,7 +417,8 @@ const OnDevice = (() => {
     const padded = new cv.Mat();
     cv.copyMakeBorder(resized, padded, top, bottom, left, right, cv.BORDER_CONSTANT, new cv.Scalar(114, 114, 114, 255));
     resized.delete();
-    const data = padded.data, plane = size * size;
+    const ph = padded.rows, pw = padded.cols;
+    const data = padded.data, plane = ph * pw;
     const tensor = new Float32Array(3 * plane);
     for (let i = 0; i < plane; i++) {
       tensor[i] = data[3 * i] / 255;
@@ -423,7 +426,7 @@ const OnDevice = (() => {
       tensor[2 * plane + i] = data[3 * i + 2] / 255;
     }
     padded.delete();
-    return { tensor, r, left, top };
+    return { tensor, r, left, top, ph, pw };
   }
 
   const camSpecs = {};
@@ -442,37 +445,66 @@ const OnDevice = (() => {
   async function detect(cv, rgb, modelFile, manifest, camSpec = null) {
     const session = await getSession(modelFile);
     const size = manifest.imgsz;
-    const { tensor, r, left, top } = letterbox(cv, rgb, size);
-    const outputs = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, size, size]) });
-    const out = outputs[session.outputNames[0]].data;  // [1, 300, 6]: x1 y1 x2 y2 score class
-    const detections = [];
-    for (let i = 0; i < out.length; i += 6) {
-      const score = out[i + 4];
+    const { tensor, r, left, top, ph, pw } = letterbox(cv, rgb, size);
+    const outputs = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, ph, pw]) });
+    // [1, 4 + nc, N]: cx cy w h (input pixels) and sigmoid class scores, one-to-many head.
+    const out0 = outputs[session.outputNames[0]];
+    const raw = out0.data, nc = out0.dims[1] - 4, N = out0.dims[2];
+    const cand = [];
+    for (let j = 0; j < N; j++) {
+      let c = 0, score = raw[4 * N + j];
+      for (let k = 1; k < nc; k++) {
+        const v = raw[(4 + k) * N + j];
+        if (v > score) { score = v; c = k; }
+      }
       if (score < manifest.confidence) continue;
-      const clamp = (v, max) => Math.min(Math.max(v, 0), max);
-      const x1 = clamp((out[i] - left) / r, rgb.cols), y1 = clamp((out[i + 1] - top) / r, rgb.rows);
-      const x2 = clamp((out[i + 2] - left) / r, rgb.cols), y2 = clamp((out[i + 3] - top) / r, rgb.rows);
+      const cx = raw[j], cy = raw[N + j], w = raw[2 * N + j], h = raw[3 * N + j];
+      cand.push({ x1: cx - w / 2, y1: cy - h / 2, x2: cx + w / 2, y2: cy + h / 2, score, c });
+    }
+    const kept = nms(cand, manifest.nms_iou || 0.7, 300);
+    const detections = [];
+    const clamp = (v, max) => Math.min(Math.max(v, 0), max);
+    for (const k of kept) {
+      const x1 = clamp((k.x1 - left) / r, rgb.cols), y1 = clamp((k.y1 - top) / r, rgb.rows);
+      const x2 = clamp((k.x2 - left) / r, rgb.cols), y2 = clamp((k.y2 - top) / r, rgb.rows);
       detections.push({
-        label: manifest.classes[Math.round(out[i + 5])],
-        confidence: Math.round(score * 10000) / 10000,
+        label: manifest.classes[k.c],
+        confidence: Math.round(k.score * 10000) / 10000,
         box: [x1 / rgb.cols, y1 / rgb.rows, x2 / rgb.cols, y2 / rgb.rows].map(v => Math.round(v * 10000) / 10000),
       });
     }
     detections.sort((a, b) => b.confidence - a.confidence);
     const cam = camSpec && outputs[camSpec.layers[0].feature]
-      ? gradCam(cv, outputs, camSpec, manifest, { r, left, top, rows: rgb.rows, cols: rgb.cols })
+      ? gradCam(cv, outputs, camSpec, manifest, { r, left, top, ph, pw, rows: rgb.rows, cols: rgb.cols })
       : null;
     return { detections, cam };
   }
 
+  // Per-class non-maximum suppression, as in Ultralytics (agnostic=False, iou 0.7, max_det 300).
+  function nms(boxes, iouThr, maxDet) {
+    boxes.sort((a, b) => b.score - a.score);
+    const kept = [];
+    const iou = (a, b) => {
+      const w = Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1));
+      const h = Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1));
+      const inter = w * h;
+      return inter / ((a.x2 - a.x1) * (a.y2 - a.y1) + (b.x2 - b.x1) * (b.y2 - b.y1) - inter + 1e-9);
+    };
+    for (const b of boxes) {
+      if (kept.every(k => k.c !== b.c || iou(k, b) <= iouThr)) kept.push(b);
+      if (kept.length >= maxDet) break;
+    }
+    return kept;
+  }
+
   // ---------------------------------------------------------------- Grad-CAM
 
-  // Grad-CAM at the last feature layer of the one-to-one class head (64 channels
+  // Grad-CAM at the last feature layer of the class head (cv3, one-to-many; 64 channels
   // per scale). That layer feeds a linear 1x1 convolution, so d(logit_c)/d(feature_k)
   // is the weight W[c][k]: the gradient is exact, no backpropagation needed.
   // Targets: detections with sigmoid(logit) >= confidence (up to max_targets), else
   // the single strongest; per scale, alpha_k = mean gradient, cam = ReLU(sum alpha_k A_k),
-  // normalized, upsampled to 640, averaged over scales, then mapped to the photo.
+  // normalized, upsampled to the padded input size, averaged over scales, then mapped to the photo.
   function gradCam(cv, outputs, camSpec, manifest, geo) {
     const settings = manifest.gradcam || { confidence: 0.25, max_targets: 10 };
     const size = manifest.imgsz;
@@ -499,7 +531,7 @@ const OnDevice = (() => {
     candidates.sort((a, b) => b.prob - a.prob);
     const targets = candidates.length ? candidates.slice(0, settings.max_targets) : [best];
 
-    const total = new cv.Mat(size, size, cv.CV_32F, new cv.Scalar(0));
+    const total = new cv.Mat(geo.ph, geo.pw, cv.CV_32F, new cv.Scalar(0));
     layers.forEach((L, j) => {
       const HW = L.H * L.W;
       const alpha = new Float32Array(L.C);
@@ -518,7 +550,7 @@ const OnDevice = (() => {
       if (max > 0) for (let p = 0; p < HW; p++) cam[p] /= max;
       const small = cv.matFromArray(L.H, L.W, cv.CV_32F, cam);
       const up = new cv.Mat();
-      cv.resize(small, up, new cv.Size(size, size), 0, 0, cv.INTER_LINEAR);
+      cv.resize(small, up, new cv.Size(geo.pw, geo.ph), 0, 0, cv.INTER_LINEAR);
       cv.add(total, up, total);
       small.delete(); up.delete();
     });

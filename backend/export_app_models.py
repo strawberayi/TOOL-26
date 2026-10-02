@@ -37,7 +37,7 @@ MODELS = [
 def add_cam_outputs(onnx_path: Path, cam_path: Path) -> None:
     """Expose what on-device Grad-CAM needs, without changing output0.
 
-    The last layer of each one-to-one class head is a linear 1x1 convolution
+    The last layer of each class head (cv3, the one-to-many head used for evaluation) is a linear 1x1 convolution
     (64 features -> class logits). The gradient of a class logit with respect to
     those 64 features is therefore that layer's weight row, so Grad-CAM at this
     layer is exact without backpropagation: the app needs the features, the
@@ -51,8 +51,8 @@ def add_cam_outputs(onnx_path: Path, cam_path: Path) -> None:
     nodes = {n.name: n for n in model.graph.node}
     layers = []
     for i in range(3):
-        head = f"/model.23/one2one_cv3.{i}/one2one_cv3.{i}"
-        feature = f"{head}.1/one2one_cv3.{i}.1.1/act/Mul_output_0"
+        head = f"/model.23/cv3.{i}/cv3.{i}"
+        feature = f"{head}.1/cv3.{i}.1.1/act/Mul_output_0"
         final = nodes[f"{head}.2/Conv"]
         weight, bias = inits[final.input[1]], inits[final.input[2]]
         for name in (feature, final.output[0]):
@@ -83,7 +83,11 @@ def main() -> None:
             local = Path(tmp) / f"{model_id}.pt"
             shutil.copy2(weights, local)
             # nms=False keeps the end-to-end (one-to-one) head, matching PyTorch predict.
-            onnx_path = YOLO(str(local)).export(format="onnx", imgsz=640, opset=17, simplify=True, nms=False)
+            # Same inference as the test-set evaluation (Ultralytics val/predict):
+            # - one-to-many head with NMS (nms left at None; the app runs NMS, iou 0.7),
+            #   not the NMS-free one-to-one head;
+            # - dynamic=True: rectangular input padded to a multiple of 32, not a 640x640 square.
+            onnx_path = YOLO(str(local)).export(format="onnx", imgsz=640, opset=17, simplify=True, dynamic=True)
             shutil.copy2(onnx_path, OUTPUT / f"{model_id}.onnx")
         add_cam_outputs(OUTPUT / f"{model_id}.onnx", OUTPUT / f"{model_id}_cam.json")
         exported.append({"id": model_id, "file": f"{model_id}.onnx", "cam": f"{model_id}_cam.json",
@@ -94,6 +98,7 @@ def main() -> None:
         "classes": classes,
         "imgsz": 640,
         "confidence": 0.25,
+        "nms_iou": 0.7,  # Ultralytics default (val and predict)
         # Grad-CAM: detections to explain (same rule as ablation_training/final/gradcam_analysis.py).
         "gradcam": {"confidence": 0.25, "max_targets": 10, "iou_threshold": 0.15},
         "fixed_beta": 2.0,

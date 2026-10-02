@@ -1,9 +1,10 @@
 """
 Real Grad-CAM for Models A-D on the 200 test images, plus Grad-CAM IoU (the paper's XAI measure).
 
-Target: the class logits of the model's own detections (one-to-one head, confidence >= 0.25, up to 10;
-the single top detection if none pass). Grad-CAM is taken at the last feature layer of the one-to-one
-classification head at each scale (P3, P4, P5; 64 channels, the input of the final 1x1 class
+Target: the class logits of the model's own detections (one-to-many head, the one Ultralytics val/predict
+use for the reported results; confidence >= 0.25, up to 10;
+the single top detection if none pass). Grad-CAM is taken at the last feature layer of the
+classification head (cv3) at each scale (P3, P4, P5; 64 channels, the input of the final 1x1 class
 convolution), each normalized, upsampled and averaged. The app computes the same map on the phone
 (frontend/ondevice.js), where the gradient is exact because the final class layer is linear.
 
@@ -55,13 +56,15 @@ MAX_TARGETS = 10
 CAM_THRESHOLD = 0.15  # 15% of the maximum, the localization threshold of Selvaraju et al. (2017)
 
 
-def letterbox(img: np.ndarray) -> tuple[np.ndarray, float, tuple[int, int]]:
+def letterbox(img: np.ndarray, stride: int = 32) -> tuple[np.ndarray, float, tuple[int, int]]:
+    """Ultralytics LetterBox(auto=True): fit 640, pad only to a multiple of 32 (as predict and the app)."""
     h, w = img.shape[:2]
     r = min(IMGSZ / h, IMGSZ / w)
     nw, nh = round(w * r), round(h * r)
-    top, left = (IMGSZ - nh) // 2, (IMGSZ - nw) // 2
-    canvas = np.full((IMGSZ, IMGSZ, 3), 114, np.uint8)
-    canvas[top:top + nh, left:left + nw] = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
+    dw, dh = ((IMGSZ - nw) % stride) / 2, ((IMGSZ - nh) % stride) / 2
+    top, bottom, left, right = round(dh - 0.1), round(dh + 0.1), round(dw - 0.1), round(dw + 0.1)
+    resized = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR) if (nw, nh) != (w, h) else img
+    canvas = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))
     return canvas, r, (top, left)
 
 
@@ -70,7 +73,7 @@ class GradCAM:
         from ultralytics import YOLO
         self.model = YOLO(str(weights)).model.float().eval()
         self.acts, self.grads = {}, {}
-        head = self.model.model[-1].one2one_cv3
+        head = self.model.model[-1].cv3
         for i in range(N_SCALES):
             head[i][1].register_forward_hook(self._hook(i))
 
@@ -87,7 +90,7 @@ class GradCAM:
         x.requires_grad_(True)
         self.model.zero_grad()
         _, preds = self.model(x)
-        scores = preds["one2one"]["scores"][0]            # (nc, anchors) logits
+        scores = preds["one2many"]["scores"][0]            # (nc, anchors) logits
         probs = scores.sigmoid()
         best_p, best_c = probs.max(0)
         idx = torch.nonzero(best_p >= CONF).flatten()
@@ -97,14 +100,15 @@ class GradCAM:
         target = scores[best_c[idx], idx].sum()
         target.backward()
 
-        cam_total = np.zeros((IMGSZ, IMGSZ), np.float32)
+        ph, pw = lb.shape[:2]
+        cam_total = np.zeros((ph, pw), np.float32)
         for i in range(N_SCALES):
             a, g = self.acts[i][0], self.grads[i][0]
             weights = g.mean(dim=(1, 2), keepdim=True)
             cam = torch.relu((weights * a).sum(0)).detach().numpy()
             if cam.max() > 0:
                 cam = cam / cam.max()
-            cam_total += cv2.resize(cam, (IMGSZ, IMGSZ), interpolation=cv2.INTER_LINEAR)
+            cam_total += cv2.resize(cam, (pw, ph), interpolation=cv2.INTER_LINEAR)
         cam_total /= N_SCALES
         nh, nw = round(h * r), round(w * r)
         cam_img = cv2.resize(cam_total[top:top + nh, left:left + nw], (w, h), interpolation=cv2.INTER_LINEAR)
@@ -248,7 +252,7 @@ def main() -> None:
         cv2.putText(header, text, (i * col_w + 8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 1, cv2.LINE_AA)
     cv2.imwrite(str(OUT / "figures" / "gradcam_examples_A_B_C_D.png"), np.vstack([header, grid]))
 
-    app = {"method": "Grad-CAM at the last feature layer of the one-to-one class head (P3/P4/P5), "
+    app = {"method": "Grad-CAM at the last feature layer of the class head (cv3, one-to-many; P3/P4/P5), "
                      "targets = detections with confidence >= 0.25",
            "iou_threshold": CAM_THRESHOLD, "seed": SEED, "d_weights": D_WEIGHTS,
            "summary": {r.model: {"iou_mean": round(r.gradcam_iou_mean, 3), "energy_mean": round(r.energy_in_boxes_mean, 3),
