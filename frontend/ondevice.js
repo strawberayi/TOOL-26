@@ -76,6 +76,14 @@ const OnDevice = (() => {
 
   // ---------------------------------------------------------------- helpers
 
+  // Deep copy. In this OpenCV.js build Mat.clone() shares the pixel buffer, so
+  // writing into a "clone" changed the original photo.
+  function copyMat(cv, mat) {
+    const out = new cv.Mat();
+    mat.copyTo(out);
+    return out;
+  }
+
   // Python's round(): half to even (used by the Ultralytics letterbox).
   function pyRound(x) {
     const r = Math.round(x);
@@ -106,7 +114,7 @@ const OnDevice = (() => {
 
   function resizeMax(cv, mat, maxSide) {
     const scale = Math.min(1, maxSide / Math.max(mat.rows, mat.cols));
-    if (scale >= 1) return mat.clone();
+    if (scale >= 1) return copyMat(cv, mat);
     const out = new cv.Mat();
     cv.resize(mat, out, new cv.Size(Math.max(1, pyRound(mat.cols * scale)), Math.max(1, pyRound(mat.rows * scale))), 0, 0, cv.INTER_AREA);
     return out;
@@ -326,7 +334,7 @@ const OnDevice = (() => {
       if (!result) {
         const w = Math.max(1, pyRound(small.cols * cfg.center_crop_width_ratio));
         const h = Math.max(1, pyRound(small.rows * cfg.center_crop_height_ratio));
-        const crop = small.roi(new cv.Rect(Math.floor((small.cols - w) / 2), Math.floor((small.rows - h) / 2), w, h)).clone();
+        const crop = copyMat(cv, small.roi(new cv.Rect(Math.floor((small.cols - w) / 2), Math.floor((small.rows - h) / 2), w, h)));
         result = attempt(cv, crop, cfg);
         crop.delete();
         status = 'MASK_FALLBACK';
@@ -388,7 +396,7 @@ const OnDevice = (() => {
     const grid = manifest.tile_grid_size;
     const calib = manifest.calibration;
     switch (kind) {
-      case 'raw': return { image: rgb.clone(), beta: null };
+      case 'raw': return { image: copyMat(cv, rgb), beta: null };
       case 'rgb_clahe_fixed': return { image: rgbClahe(cv, rgb, manifest.fixed_beta, grid), beta: manifest.fixed_beta };
       case 'l_clahe_fixed': return { image: lClahe(cv, rgb, manifest.fixed_beta, grid), beta: manifest.fixed_beta };
       case 'l_clahe_global': return { image: lClahe(cv, rgb, calib.beta_global, grid), beta: calib.beta_global };
@@ -707,7 +715,7 @@ const OnDevice = (() => {
     f32.delete();
     const heat = new cv.Mat();
     cv.applyColorMap(u8, heat, cv.COLORMAP_JET);  // BGR
-    const out = rgb.clone();
+    const out = copyMat(cv, rgb);
     const px = out.data, hp = heat.data, n = cam.rows * cam.cols;
     for (let i = 0; i < n; i++) {
       const a = 0.65 * Math.min(Math.max(cam.data[i], 0), 1);
