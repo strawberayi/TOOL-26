@@ -1,2689 +1,1007 @@
 /**
- * IDENTI-SKIN - Core Application Logic
- * PUP Bachelor of Science in Computer Science Thesis Implementation
- * Resolving Morphological Overlap in Infectious Skin Diseases
- * ITA-Guided Adaptive L*-CLAHE & Fine-Grained YOLOv26 Framework
+ * IDENTI-SKIN app: Home, Image workspace, Analysis results (patients and clinicians),
+ * Benchmark and Research views (clinicians).
+ *
+ * Every number shown comes from the on-device pipeline (ondevice.js), from
+ * benchmark_data.json (backend/export_app_benchmark.py: the paper's test-set results) or
+ * from assets/gradcam/gradcam.json (ablation_training/final/gradcam_analysis.py).
  */
 
-const PRESETS = {
-  buni: {
-    id: 'buni',
-    name: 'Buni (Tinea Corporis)',
-    localName: 'Ringworm',
-    category: 'Fungal Infection',
-    tag: 'fungal',
-    badgeClass: 'fungal',
-    confidence: 94.2,
-    ita: 22.4,
-    clipLimit: 3.4,
-    fitzpatrick: 'Fitzpatrick Type IV (Melanin-Rich)',
-    contrastGain: '+35.5%',
-    image: 'assets/sample_buni.jpg',
-    thumb: 'assets/sample_buni.jpg',
-    bbox: { xmin: 142, ymin: 215, xmax: 388, ymax: 420 },
-    morphologicalFeatures: {
-      texture: 'Active peripheral scaling with central clearing',
-      crust: 'Absent / Dry Erythema / Non-exudative',
-      boundary: 'Sharply defined annular elevated ring',
-      differential: 'Distinguished from Impetigo by ring border & absence of honey crust'
-    },
-    insights: [
-      'ITA estimated at 22.4° (Type IV skin), prompting an adaptive CLAHE clip limit 3.4 to boost lesion-to-margin contrast.',
-      'Stage 1 Localization regressed annular boundary (IoU 78.2%) before backbone freezing.',
-      'Stage 2 Fine-Grained Lesion Feature Learning prioritized elevated peripheral ring features, resolving overlap with bacterial mimics.'
-    ],
-    overlapProfile: [
-      { name: 'Annular Ring / Ridge', value: 91.2 },
-      { name: 'Honey Crust / Exudate', value: 5.6 },
-      { name: 'Verrucous Keratosis', value: 4.1 }
-    ],
-    metrics: {
-      precision: '92.4%',
-      recall: '89.1%',
-      f1: '0.907',
-      map50: '92.2%',
-      map50_95: '71.5%',
-      latency: '12.4 ms',
-      gflops: '16.5',
-      attribution: '73.1%'
-    },
-    differential: [
-      { name: 'Tinea Corporis (Buni)', prob: '91.2%' },
-      { name: 'Impetigo M. (Mamaso)', prob: '5.4%' },
-      { name: 'Tinea Versicolor (An-an)', prob: '4.1%' }
-    ]
-  },
-  mamaso: {
-    id: 'mamaso',
-    name: 'Mamaso (Impetigo)',
-    localName: 'Impetigo Contagiosa',
-    category: 'Bacterial Infection',
-    tag: 'bacterial',
-    badgeClass: 'bacterial',
-    confidence: 92.1,
-    ita: 20.8,
-    clipLimit: 3.5,
-    fitzpatrick: 'Fitzpatrick Type IV (Melanin-Rich)',
-    contrastGain: '+37.8%',
-    image: 'assets/sample_mamaso.jpg',
-    thumb: 'assets/sample_mamaso.jpg',
-    bbox: { xmin: 155, ymin: 195, xmax: 415, ymax: 425 },
-    morphologicalFeatures: {
-      texture: 'Superficial erosions with adherent golden-yellow crusting',
-      crust: 'Characteristic "honey-colored" exudative dried seropurulent crust',
-      boundary: 'Irregular erythematous margin without central clearing',
-      differential: 'Distinguished from Ringworm by presence of honey crust & non-annular spread'
-    },
-    insights: [
-      'Melanin-rich background compensated by CLAHE clip limit 3.5 to accentuate superficial crust textures.',
-      'Stage 1 bounding box isolated inflamed perioral/facial zones (IoU 76.8%).',
-      'Stage 2 Focal Loss counteracted class imbalance against dominant fungal ring presentations.'
-    ],
-    overlapProfile: [
-      { name: 'Honey Crust / Exudate', value: 89.5 },
-      { name: 'Annular Ring / Ridge', value: 6.8 },
-      { name: 'Macerated Keratin', value: 3.7 }
-    ],
-    metrics: {
-      precision: '91.8%',
-      recall: '88.5%',
-      f1: '0.901',
-      map50: '91.4%',
-      map50_95: '70.2%',
-      latency: '12.1 ms',
-      gflops: '16.5',
-      attribution: '71.8%'
-    },
-    differential: [
-      { name: 'Impetigo (Mamaso)', prob: '89.5%' },
-      { name: 'Ecthyma', prob: '6.2%' },
-      { name: 'Tinea Corporis', prob: '4.3%' }
-    ]
-  },
-  kulugo: {
-    id: 'kulugo',
-    name: 'Kulugo (Warts)',
-    localName: 'Verruca Vulgaris',
-    category: 'Viral Infection',
-    tag: 'viral',
-    badgeClass: 'viral',
-    confidence: 88.7,
-    ita: 24.0,
-    clipLimit: 3.3,
-    fitzpatrick: 'Fitzpatrick Type IV (Melanin-Rich)',
-    contrastGain: '+33.2%',
-    image: 'assets/sample_kulugo.jpg',
-    thumb: 'assets/sample_kulugo.jpg',
-    bbox: { xmin: 185, ymin: 185, xmax: 415, ymax: 415 },
-    morphologicalFeatures: {
-      texture: 'Hyperkeratotic, papillomatous rough exophytic surface',
-      crust: 'Dry, non-exudative keratinous growth with pinpoint thrombosed capillaries',
-      boundary: 'Circumscribed, elevated firm papule with clear demarcation',
-      differential: 'Distinguished from seborrheic keratosis via capillary loops & border topography'
-    },
-    insights: [
-      'ITA-guided adaptive normalization prevented over-saturation of hyperkeratotic crests.',
-      'Stage 1 YOLOv26 regression captured elevated dome geometry (IoU 81.4%).',
-      'Stage 2 lesion features separated verrucous roughness from scaly fungal borders.'
-    ],
-    overlapProfile: [
-      { name: 'Verrucous Keratosis', value: 88.2 },
-      { name: 'Annular Ring / Ridge', value: 7.1 },
-      { name: 'Honey Crust / Exudate', value: 4.7 }
-    ],
-    metrics: {
-      precision: '90.6%',
-      recall: '87.2%',
-      f1: '0.889',
-      map50: '90.1%',
-      map50_95: '69.8%',
-      latency: '12.6 ms',
-      gflops: '16.5',
-      attribution: '74.5%'
-    },
-    differential: [
-      { name: 'Verruca (Kulugo)', prob: '88.2%' },
-      { name: 'Molluscum Contagiosum', prob: '7.5%' },
-      { name: 'Seborrheic Keratosis', prob: '4.3%' }
-    ]
-  },
-  an_an: {
-    id: 'an_an',
-    name: 'An-an (Tinea Versicolor)',
-    localName: 'Pityriasis Versicolor',
-    category: 'Fungal Infection',
-    tag: 'fungal',
-    badgeClass: 'fungal',
-    confidence: 91.0,
-    ita: 25.5,
-    clipLimit: 3.2,
-    fitzpatrick: 'Fitzpatrick Type IV (Melanin-Rich)',
-    contrastGain: '+32.0%',
-    image: 'assets/sample_an_an.jpg',
-    thumb: 'assets/sample_an_an.jpg',
-    bbox: { xmin: 170, ymin: 160, xmax: 430, ymax: 430 },
-    morphologicalFeatures: {
-      texture: 'Hypopigmented macules with delicate branny scale (furfuraceous)',
-      crust: 'Absent / Smooth dry non-exudative macules',
-      boundary: 'Sharply marginated coalescing confluent patches',
-      differential: 'Distinguished from vitiligo by positive scaling and subtle border contrast'
-    },
-    insights: [
-      'Adaptive L*-CLAHE enhanced contrast on low-gradient hypopigmented areas.',
-      'Stage 1 localized macular distribution pattern across chest/back regions.',
-      'Stage 2 isolated Malassezia furfur scaling characteristics.'
-    ],
-    overlapProfile: [
-      { name: 'Hypopigmented Macule', value: 89.0 },
-      { name: 'Annular Ring / Ridge', value: 6.5 },
-      { name: 'Verrucous Keratosis', value: 4.5 }
-    ],
-    metrics: {
-      precision: '91.2%',
-      recall: '87.9%',
-      f1: '0.895',
-      map50: '90.8%',
-      map50_95: '69.9%',
-      latency: '12.3 ms',
-      gflops: '16.5',
-      attribution: '72.0%'
-    },
-    differential: [
-      { name: 'Tinea Versicolor (An-an)', prob: '89.0%' },
-      { name: 'Vitiligo', prob: '6.5%' },
-      { name: 'Pityriasis Alba', prob: '4.5%' }
-    ]
-  },
-  alipunga: {
-    id: 'alipunga',
-    name: "Alipunga (Athlete's Foot)",
-    localName: 'Tinea Pedis',
-    category: 'Fungal Infection',
-    tag: 'fungal',
-    badgeClass: 'fungal',
-    confidence: 89.4,
-    ita: 26.2,
-    clipLimit: 3.2,
-    fitzpatrick: 'Fitzpatrick Type III-IV',
-    contrastGain: '+31.4%',
-    image: 'assets/sample_alipunga.jpg',
-    thumb: 'assets/sample_alipunga.jpg',
-    bbox: { xmin: 160, ymin: 190, xmax: 420, ymax: 410 },
-    morphologicalFeatures: {
-      texture: 'Macerated, soggy white stratum corneum with erythema',
-      crust: 'Moist peeling scale and painful fissures',
-      boundary: 'Irregular interdigital web margin',
-      differential: 'Distinguished from contact dermatitis by interdigital predilection & scale'
-    },
-    insights: [
-      'CLAHE clipping adjusted for variable shadow and crevice occlusion in web spaces.',
-      'Stage 1 isolated interdigital boundary zones.',
-      'Stage 2 identified characteristic Trichophyton maceration patterns.'
-    ],
-    overlapProfile: [
-      { name: 'Macerated Keratin', value: 87.4 },
-      { name: 'Annular Ring / Ridge', value: 7.2 },
-      { name: 'Honey Crust / Exudate', value: 5.4 }
-    ],
-    metrics: {
-      precision: '90.2%',
-      recall: '86.5%',
-      f1: '0.883',
-      map50: '89.7%',
-      map50_95: '68.5%',
-      latency: '12.5 ms',
-      gflops: '16.5',
-      attribution: '71.2%'
-    },
-    differential: [
-      { name: 'Tinea Pedis (Alipunga)', prob: '87.4%' },
-      { name: 'Candida Intertrigo', prob: '7.8%' },
-      { name: 'Contact Dermatitis', prob: '4.8%' }
-    ]
-  },
-  bulutong: {
-    id: 'bulutong',
-    name: 'Bulutong-tubig (Chickenpox)',
-    localName: 'Varicella Zoster',
-    category: 'Viral Infection',
-    tag: 'viral',
-    badgeClass: 'viral',
-    confidence: 93.5,
-    ita: 23.1,
-    clipLimit: 3.4,
-    fitzpatrick: 'Fitzpatrick Type IV',
-    contrastGain: '+34.8%',
-    image: 'assets/sample_bulutong.jpg',
-    thumb: 'assets/sample_bulutong.jpg',
-    bbox: { xmin: 170, ymin: 170, xmax: 430, ymax: 430 },
-    morphologicalFeatures: {
-      texture: 'Clear fluid vesicles on an erythematous base ("dewdrop on rose petal")',
-      crust: 'Central umbilication progressing to rapid crusting',
-      boundary: 'Polymorphic pleomorphic lesions across multiple stages',
-      differential: 'Distinguished from monkeypox/HFMD by asynchronous lesion development'
-    },
-    insights: [
-      'Adaptive L*-CLAHE maintained halo visibility around small papulovesicles.',
-      'Stage 1 multiscale detection captured multiple small scattered lesions.',
-      'Stage 2 differentiated umbilication from bacterial folliculitis pustules.'
-    ],
-    overlapProfile: [
-      { name: 'Umbilicated Vesicle', value: 92.5 },
-      { name: 'Honey Crust / Exudate', value: 4.3 },
-      { name: 'Annular Ring / Ridge', value: 3.2 }
-    ],
-    metrics: {
-      precision: '92.9%',
-      recall: '89.4%',
-      f1: '0.911',
-      map50: '92.5%',
-      map50_95: '72.1%',
-      latency: '12.2 ms',
-      gflops: '16.5',
-      attribution: '75.4%'
-    },
-    differential: [
-      { name: 'Varicella (Bulutong)', prob: '92.5%' },
-      { name: 'HFMD', prob: '4.8%' },
-      { name: 'Herpes Simplex', prob: '2.7%' }
-    ]
-  }
-};
+// ------------------------------------------------------------------ study definitions
 
-// Ablation results from the real held-out test evaluation. Generated by
-// backend/export_app_benchmark.py into benchmark_data.json; until then the
-// views show a pending state instead of numbers.
-let BENCHMARK_DATA = { status: 'pending', models: [] };
+// Eight diseases in model output order (models/manifest.json).
+const CLASSES = ['Warts', 'Molluscum', 'Varicella', 'HFMD', 'Tinea versicolor', 'Tinea corporis', 'Tinea pedis', 'Impetigo'];
 
-// Real Grad-CAM computed offline on the test set (ablation_training/final/gradcam_analysis.py).
-// On-device ONNX inference has no gradients, so live photos cannot get a true Grad-CAM.
-let GRADCAM_DATA = null;
-let gradcamExample = 0;
-
-async function loadBenchmarkData() {
-  try {
-    const response = await fetch('benchmark_data.json', { cache: 'no-store' });
-    if (response.ok) BENCHMARK_DATA = await response.json();
-  } catch (err) {
-    // Keep the pending state.
-  }
-  try {
-    const response = await fetch('assets/gradcam/gradcam.json', { cache: 'no-store' });
-    if (response.ok) GRADCAM_DATA = await response.json();
-  } catch (err) {
-    GRADCAM_DATA = null;
-  }
-  renderGradientsGrid('mob-tensor-grid', 'mob-tensor-inspector');
-  renderGradientsGrid('desktop-tensor-grid', 'desktop-tensor-inspector');
-  renderSopBenchmark();
-  renderDesktopAblationTable();
-  renderReportTelemetry();
-}
-
-function benchmarkReady() {
-  return BENCHMARK_DATA.status !== 'pending' && BENCHMARK_DATA.models.length > 0;
-}
-
-function pendingNote(text) {
-  return `<p class="evaluation-note">${text || 'Results pending: models are still training. Real test-set results appear here after evaluation.'}</p>`;
-}
-
-const AppState = {
-  currentPreset: 'buni',
-  activeViewMode: 'workstation',
-  simulatorPage: 1,
-  comparisonSplit: 50,
-  heatmapOpacity: 70,
-  toggles: {
-    clahe: true,
-    yolo: true,
-    heatmap: true
-  },
-  outputTab: 'patient',
-  customImage: null,
-  customImageData: null,
-  isAnalyzing: false
-};
-
-const PIPELINE_PHASE_LABELS = [
-  'Phase 0 / Preprocessing',
-  'Stage 1 / Localization Learning',
-  'Stage 2 / Fine-Grained Discrimination'
-];
-
-function cleanInsightStagePrefix(text) {
-  return text
-    .replace(/^Stage 1(?: YOLOv26)?(?: Localization)?\s*/i, '')
-    .replace(/^Stage 2(?: Fine-Grained(?: Lesion Feature Learning)?)?\s*/i, '')
-    .replace(/^Adaptive L\*-CLAHE\s*/i, 'Adaptive L*-CLAHE ');
-}
-
-function renderPipelineInsights(items, compact = false) {
-  return items.map((text, index) => `
-    <li class="pipeline-insight-item">
-      <strong class="pipeline-phase-label">${PIPELINE_PHASE_LABELS[index] || `Stage ${index}`}</strong>
-      <span>${cleanInsightStagePrefix(text)}</span>
-    </li>
-  `).join('');
-}
-
-function rgbToCielab(r, g, b) {
-  let rn = r / 255, gn = g / 255, bn = b / 255;
-  rn = rn > 0.04045 ? Math.pow((rn + 0.055) / 1.055, 2.4) : rn / 12.92;
-  gn = gn > 0.04045 ? Math.pow((gn + 0.055) / 1.055, 2.4) : gn / 12.92;
-  bn = bn > 0.04045 ? Math.pow((bn + 0.055) / 1.055, 2.4) : bn / 12.92;
-
-  let x = (rn * 0.4124564 + gn * 0.3575761 + bn * 0.1804375) / 0.95047;
-  let y = (rn * 0.2126729 + gn * 0.7151522 + bn * 0.0721750) / 1.00000;
-  let z = (rn * 0.0193339 + gn * 0.1191920 + bn * 0.9503041) / 1.08883;
-
-  function f(t) {
-    return t > 0.008856 ? Math.pow(t, 1/3) : (7.787 * t) + (16 / 116);
-  }
-
-  let fx = f(x), fy = f(y), fz = f(z);
-  return {
-    L: (116 * fy) - 16,
-    a: 500 * (fx - fy),
-    b: 200 * (fy - fz)
-  };
-}
-
-function calculateITA(L, b) {
-  if (Math.abs(b) < 0.0001) b = 0.0001;
-  return (Math.atan((L - 50) / b) * 180) / Math.PI;
-}
-
-function itaToFitzpatrick(ita) {
-  if (ita > 55) return { type: 'Type I', desc: 'Very Light' };
-  if (ita > 41) return { type: 'Type II', desc: 'Light' };
-  if (ita > 28) return { type: 'Type III', desc: 'Intermediate' };
-  if (ita > 10) return { type: 'Type IV', desc: 'Tan / Melanin-Rich' };
-  if (ita > -30) return { type: 'Type V', desc: 'Brown / Melanin-Rich' };
-  return { type: 'Type VI', desc: 'Dark / Melanin-Rich' };
-}
-
-function calculateClipLimit(ita) {
-  const clip = 4.4 - (0.045 * ita);
-  return Math.min(4.0, Math.max(2.0, Math.round(clip * 10) / 10));
-}
-
-// Every Workspace layer is drawn into a 600x600 space with the photo letterboxed
-// ("contain"), so the photo, enhanced image, Grad-CAM and lesion boxes line up
-// for photos of any shape.
-function containFit(width, height) {
-  const scale = Math.min(600 / width, 600 / height);
-  const w = width * scale, h = height * scale;
-  return { x: (600 - w) / 2, y: (600 - h) / 2, w, h };
-}
-
-function workspaceFit() {
-  return AppState.workspaceFit || { x: 0, y: 0, w: 600, h: 600 };
-}
-
-// Box coordinates are stored on a 0-600 scale of the full photo.
-function fitBox(b) {
-  const f = workspaceFit();
-  return {
-    xmin: f.x + (b.xmin / 600) * f.w, xmax: f.x + (b.xmax / 600) * f.w,
-    ymin: f.y + (b.ymin / 600) * f.h, ymax: f.y + (b.ymax / 600) * f.h,
-  };
-}
-
-function renderWorkspace(containerId, presetId, splitPercent, heatmapOpacityVal) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const data = AppState.customImageData || PRESETS[presetId] || PRESETS.buni;
-  const imgSrc = AppState.customImage || data.image;
-
-  container.innerHTML = `
-    <div class="comparison-canvas-wrapper">
-      <img id="${containerId}-img-before" class="canvas-layer canvas-before" src="${imgSrc}" alt="Original">
-      <canvas id="${containerId}-canvas-after" class="canvas-layer canvas-after"></canvas>
-      <canvas id="${containerId}-canvas-heatmap" class="canvas-layer canvas-heatmap"></canvas>
-      <svg id="${containerId}-svg-overlay" class="canvas-overlay-svg" viewBox="0 0 600 600"></svg>
-      <span class="canvas-tag tag-before">Original RGB</span>
-      <span class="canvas-tag tag-after">Adaptive L*-CLAHE</span>
-      <div id="${containerId}-split-line" class="split-slider-line">
-        <div class="split-slider-handle">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        </div>
-      </div>
-    </div>
-  `;
-
-  updateSplitPosition(containerId, splitPercent !== undefined ? splitPercent : AppState.comparisonSplit);
-
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.src = imgSrc;
-  img.onload = () => {
-    AppState.workspaceFit = containFit(img.naturalWidth, img.naturalHeight);
-    if (data.enhancedImage) {
-      drawServerEnhancedLayer(`${containerId}-canvas-after`, data.enhancedImage);
-    } else {
-      drawClaheEnhancedLayer(`${containerId}-canvas-after`, img, data.clipLimit);
-    }
-    drawHeatmapLayer(`${containerId}-canvas-heatmap`, img, data.bbox, heatmapOpacityVal !== undefined ? heatmapOpacityVal : AppState.heatmapOpacity);
-    drawBBoxSvg(`${containerId}-svg-overlay`, data);
-  };
-
-  attachSplitSliderEvents(containerId);
-}
-
-function updateSplitPosition(containerId, percent) {
-  const line = document.getElementById(`${containerId}-split-line`);
-  const afterCanvas = document.getElementById(`${containerId}-canvas-after`);
-  if (!line || !afterCanvas) return;
-
-  const p = Math.max(0, Math.min(100, percent));
-  line.style.left = `${p}%`;
-  afterCanvas.style.clipPath = `polygon(0 0, ${p}% 0, ${p}% 100%, 0 100%)`;
-}
-
-function drawServerEnhancedLayer(canvasId, enhancedSrc) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.width = 600;
-  canvas.height = 600;
-  canvas.style.filter = 'none';
-  const enhanced = new Image();
-  enhanced.onload = () => {
-    const f = workspaceFit();
-    canvas.getContext('2d').drawImage(enhanced, f.x, f.y, f.w, f.h);
-  };
-  enhanced.src = AppState.toggles.clahe ? enhancedSrc : (AppState.customImage || enhancedSrc);
-}
-
-function drawClaheEnhancedLayer(canvasId, img, clipLimit) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.width = 600;
-  canvas.height = 600;
-  const ctx = canvas.getContext('2d');
-  const fit = workspaceFit();
-  ctx.drawImage(img, fit.x, fit.y, fit.w, fit.h);
-
-  if (!AppState.toggles.clahe) {
-    canvas.style.filter = 'none';
-    return;
-  }
-
-  try {
-    const imgData = ctx.getImageData(0, 0, 600, 600);
-    const d = imgData.data;
-    const factor = 1.0 + ((clipLimit - 2.0) * 0.28);
-
-    for (let i = 0; i < d.length; i += 4) {
-      let r = d[i], g = d[i+1], b = d[i+2];
-      d[i] = Math.min(255, Math.max(0, 128 + (r - 128) * factor + 6));
-      d[i+1] = Math.min(255, Math.max(0, 128 + (g - 128) * factor + 3));
-      d[i+2] = Math.min(255, Math.max(0, 128 + (b - 128) * factor - 2));
-    }
-    ctx.putImageData(imgData, 0, 0);
-  } catch (err) {
-    // Graceful fallback for file:// origin restrictions
-    const factor = 1.0 + ((clipLimit - 2.0) * 0.28);
-    canvas.style.filter = 'contrast(' + Math.round(factor * 100) + '%) brightness(105%) saturate(110%)';
-  }
-}
-
-// Real Grad-CAM of Model D for the analysed photo (computed on the device); nothing
-// is drawn for the sample image, which has no Grad-CAM.
-function drawHeatmapLayer(canvasId, img, bbox, opacityVal) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.width = 600;
-  canvas.height = 600;
-  canvas.style.opacity = (opacityVal / 100).toString();
-  const heatmap = AppState.customImageData && AppState.customImageData.gradcamHeatmap;
-  if (!AppState.toggles.heatmap || !heatmap) {
-    canvas.style.display = 'none';
-    return;
-  }
-  canvas.style.display = 'block';
-  const layer = new Image();
-  layer.onload = () => {
-    const f = workspaceFit();
-    canvas.getContext('2d').drawImage(layer, f.x, f.y, f.w, f.h);
-  };
-  layer.src = heatmap;
-}
-
-function drawBBoxSvg(svgId, data) {
-  const svg = document.getElementById(svgId);
-  if (!svg) return;
-  svg.innerHTML = '';
-
-  if (!AppState.toggles.yolo) return;
-
-  if (data.boxes) {
-    drawDetectionBoxes(svg, data.boxes);
-    return;
-  }
-
-  const b = fitBox(data.bbox);
-  const w = b.xmax - b.xmin;
-  const h = b.ymax - b.ymin;
-
-  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  rect.setAttribute('x', b.xmin);
-  rect.setAttribute('y', b.ymin);
-  rect.setAttribute('width', w);
-  rect.setAttribute('height', h);
-  rect.setAttribute('fill', 'rgba(212, 91, 40, 0.08)');
-  rect.setAttribute('stroke', '#E11D48');
-  rect.setAttribute('stroke-width', '2.5');
-  rect.setAttribute('rx', '6');
-  svg.appendChild(rect);
-
-  const tagG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  tagG.setAttribute('transform', `translate(${b.xmin}, ${Math.max(24, b.ymin - 28)})`);
-
-  const tagBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  tagBg.setAttribute('x', '0');
-  tagBg.setAttribute('y', '0');
-  tagBg.setAttribute('width', '190');
-  tagBg.setAttribute('height', '24');
-  tagBg.setAttribute('rx', '4');
-  tagBg.setAttribute('fill', '#E11D48');
-  tagG.appendChild(tagBg);
-
-  const tagText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-  tagText.setAttribute('x', '8');
-  tagText.setAttribute('y', '16');
-  tagText.setAttribute('fill', '#FFFFFF');
-  tagText.setAttribute('font-size', '11');
-  tagText.setAttribute('font-weight', 'bold');
-  tagText.setAttribute('font-family', 'sans-serif');
-  tagText.textContent = `${data.name.split(' ')[0].toUpperCase()} ${data.confidence}%`;
-  tagG.appendChild(tagText);
-
-  svg.appendChild(tagG);
-}
-
-// Real model output: boxes are in the 600x600 overlay space.
-function drawDetectionBoxes(svg, boxes) {
-  const ns = 'http://www.w3.org/2000/svg';
-  boxes.forEach((raw, index) => {
-    const d = { ...raw, ...fitBox(raw) };
-    const rect = document.createElementNS(ns, 'rect');
-    rect.setAttribute('x', d.xmin);
-    rect.setAttribute('y', d.ymin);
-    rect.setAttribute('width', d.xmax - d.xmin);
-    rect.setAttribute('height', d.ymax - d.ymin);
-    rect.setAttribute('fill', 'rgba(212, 91, 40, 0.08)');
-    rect.setAttribute('stroke', '#E11D48');
-    rect.setAttribute('stroke-width', index === 0 ? '2.5' : '1.5');
-    rect.setAttribute('rx', '4');
-    svg.appendChild(rect);
-
-    const label = `${d.label.toUpperCase()} ${d.confidence}%`;
-    const tag = document.createElementNS(ns, 'g');
-    tag.setAttribute('transform', `translate(${d.xmin}, ${Math.max(0, d.ymin - 18)})`);
-    const bg = document.createElementNS(ns, 'rect');
-    bg.setAttribute('width', String(label.length * 6.4 + 10));
-    bg.setAttribute('height', '16');
-    bg.setAttribute('rx', '3');
-    bg.setAttribute('fill', '#E11D48');
-    tag.appendChild(bg);
-    const text = document.createElementNS(ns, 'text');
-    text.setAttribute('x', '5');
-    text.setAttribute('y', '12');
-    text.setAttribute('fill', '#FFFFFF');
-    text.setAttribute('font-size', '10');
-    text.setAttribute('font-weight', 'bold');
-    text.setAttribute('font-family', 'sans-serif');
-    text.textContent = label;
-    tag.appendChild(text);
-    svg.appendChild(tag);
-  });
-}
-
-function attachSplitSliderEvents(containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  let isDragging = false;
-
-  function onMove(clientX) {
-    const rect = container.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    AppState.comparisonSplit = Math.round(pct);
-    updateSplitPosition(containerId, pct);
-  }
-
-  container.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    onMove(e.clientX);
-  });
-
-  window.addEventListener('mousemove', (e) => {
-    if (isDragging) onMove(e.clientX);
-  });
-
-  window.addEventListener('mouseup', () => {
-    isDragging = false;
-  });
-
-  container.addEventListener('touchstart', (e) => {
-    isDragging = true;
-    if (e.touches.length > 0) onMove(e.touches[0].clientX);
-  }, { passive: true });
-
-  window.addEventListener('touchmove', (e) => {
-    if (isDragging && e.touches.length > 0) onMove(e.touches[0].clientX);
-  }, { passive: true });
-
-  window.addEventListener('touchend', () => {
-    isDragging = false;
-  });
-}
-
-const GRADCAM_MODEL_LABELS = { A: 'Baseline', B: 'Fixed L*-CLAHE', C: 'Focal Loss', D: 'Proposed' };
-
-function renderXaiAudit(container) {
-  if (!GRADCAM_DATA) {
-    container.innerHTML = pendingNote('Grad-CAM results not loaded.');
-    return;
-  }
-  const s = GRADCAM_DATA.summary;
-  const iou = GRADCAM_DATA.statistics.gradcam_iou;
-  const pText = value => (value < 0.001 ? 'p < 0.001' : `p = ${value.toFixed(3)}`);
-  container.innerHTML = Object.keys(GRADCAM_MODEL_LABELS).map(k => `
-    <div class="xai-iou-card${k === 'D' ? ' proposed' : ''}">
-      <span>MODEL ${k}</span>
-      <strong>${s[k].iou_mean.toFixed(3)}</strong>
-      <small>III–V: ${s[k].iou_III_V.toFixed(3)}</small>
-    </div>`).join('') + `
-    <p class="evaluation-note" style="grid-column:1/-1;">
-      Mean Grad-CAM IoU with the lesion boxes on the 200 test images (heatmap ≥ 15% of max). Higher = attention on the lesion.
-      Friedman ${pText(iou.friedman_p)}; D vs A ${pText(iou.D_vs_A_p_bonf)}, D vs B ${pText(iou.D_vs_B_p_bonf)},
-      D vs C ${pText(iou.D_vs_C_p_bonf)} (Bonferroni).
-    </p>`;
-}
-
-function renderGradientsGrid(gridId, inspectorBarId) {
-  const grid = document.getElementById(gridId);
-  if (!grid) return;
-  const bar = document.getElementById(inspectorBarId);
-  if (bar) bar.style.display = 'none';
-  grid.classList.add('gradcam-gallery');
-  if (!GRADCAM_DATA || !GRADCAM_DATA.examples.length) {
-    grid.innerHTML = pendingNote('Grad-CAM results not loaded.');
-    return;
-  }
-  const live = AppState.customImageData && AppState.customImageData.gradcamImage;
-  const targets = live ? (AppState.customImageData.gradcamTargets || []) : [];
-  const liveHtml = live ? `
-    <div class="gradcam-live">
-      <div class="gradcam-live-title">Your photo: Grad-CAM of Model D (computed on this phone)</div>
-      <figure class="gradcam-tile proposed"><img src="${live}" alt="Grad-CAM of Model D on your photo"></figure>
-      <p class="evaluation-note">Explains: ${targets.length ? targets.map(t => `${t.label} ${(t.score * 100).toFixed(0)}%`).join(', ') : 'strongest candidate (no detection above 25%)'}.
-        Red/yellow = regions that drove the prediction. Use "Compare models" in the Panel tab for A–D.</p>
-    </div>` : `
-    <p class="evaluation-note gradcam-live-empty">Take or upload a photo to see Model D's Grad-CAM for it here.</p>`;
-  const examples = GRADCAM_DATA.examples;
-  const ex = examples[Math.min(gradcamExample, examples.length - 1)];
-  const chips = examples.map((e, i) => `
-    <button type="button" class="gradcam-chip${e === ex ? ' active' : ''}"
-      onclick="gradcamExample=${i}; renderGradientsGrid('${gridId}', '${inspectorBarId}')">${e.disease}</button>`).join('');
-  const tiles = Object.keys(GRADCAM_MODEL_LABELS).map(k => `
-    <figure class="gradcam-tile${k === 'D' ? ' proposed' : ''}">
-      <img src="assets/gradcam/${ex.image_id}_${k}.jpg" alt="Grad-CAM of Model ${k} on a ${ex.disease} test image" loading="lazy">
-      <figcaption><strong>${k}</strong> ${GRADCAM_MODEL_LABELS[k]}<span>IoU ${ex.models[k].iou.toFixed(2)}</span></figcaption>
-    </figure>`).join('');
-  grid.innerHTML = `
-    ${liveHtml}
-    <div class="gradcam-live-title">Test-set examples (A–D, with dermatology labels)</div>
-    <div class="gradcam-chips">${chips}</div>
-    <figure class="gradcam-tile gradcam-original">
-      <img src="assets/gradcam/${ex.image_id}_original.jpg" alt="Original ${ex.disease} test image">
-      <figcaption>Original test image: ${ex.disease}</figcaption>
-    </figure>
-    <div class="gradcam-tiles">${tiles}</div>
-    <p class="evaluation-note">Real Grad-CAM (YOLOv26 neck layers P3–P5) computed on held-out test images. White boxes = dermatology labels.
-      Red/yellow = regions that drove the detection. Same Grad-CAM method as on the phone.</p>`;
-}
-
-function updateTensorInspector(barId, r, c, val) {
-  const bar = document.getElementById(barId);
-  if (!bar) return;
-
-  let attribution = 'Background Normal Skin';
-  if (val > 0.8) attribution = 'Primary Lesion Center (Max Focus)';
-  else if (val > 0.5) attribution = 'Annular Elevated Margin';
-  else if (val > 0.25) attribution = 'Perilesional Area';
-
-  bar.innerHTML = `
-    <div><span class="inspector-tag">Cell:</span> <span class="inspector-value">[ch512, ${r}, ${c}]</span></div>
-    <div><span class="inspector-tag">A^k Value:</span> <span class="inspector-value">${(val * 1.0).toFixed(3)}</span></div>
-    <div><span class="inspector-tag">Attribution:</span> <span class="inspector-value" style="color:#15803D;">${attribution}</span></div>
-  `;
-}
-
-function selectPreset(presetKey) {
-  AppState.currentPreset = presetKey;
-  AppState.customImage = null;
-  AppState.customImageData = null;
-
-  document.querySelectorAll('.preset-card').forEach(el => {
-    if (el.dataset.preset === presetKey) {
-      el.classList.add('active');
-    } else {
-      el.classList.remove('active');
-    }
-  });
-
-  const data = PRESETS[presetKey];
-  if (!data) return;
-
-  renderWorkspace('main-workspace', presetKey);
-  renderWorkspace('sim-workspace', presetKey);
-  renderGradientsGrid('desktop-tensor-grid', 'desktop-tensor-inspector', presetKey);
-  renderGradientsGrid('sim-tensor-grid', 'sim-tensor-inspector', presetKey);
-  updateTelemetryUI(data);
-  if (typeof updateMobileView === "function") updateMobileView();
-
-  if (AppState.activeViewMode === 'simulator') {
-    renderSimulatorPage(AppState.simulatorPage);
-  }
-}
-
-function updateTelemetryUI(data) {
-  const elCondTitle = document.getElementById('patient-condition-title');
-  if (elCondTitle) elCondTitle.textContent = data.name;
-
-  const elLocalName = document.getElementById('patient-local-name');
-  if (elLocalName) elLocalName.textContent = `Common Local Name: ${data.localName}`;
-
-  const elCategoryBadge = document.getElementById('patient-category-badge');
-  if (elCategoryBadge) {
-    elCategoryBadge.textContent = data.category.toUpperCase();
-    elCategoryBadge.className = `category-pill ${data.badgeClass}`;
-  }
-
-  const elScore = document.getElementById('patient-confidence-score');
-  if (elScore) elScore.textContent = `${data.confidence}%`;
-
-  const elItaChip = document.getElementById('patient-ita-chip');
-  if (elItaChip) elItaChip.textContent = `${data.fitzpatrick} | ITA: ${data.ita}° | Clip Limit: ${data.clipLimit}`;
-
-  const elTexture = document.getElementById('feat-texture');
-  if (elTexture) elTexture.textContent = data.morphologicalFeatures.texture;
-
-  const elCrust = document.getElementById('feat-crust');
-  if (elCrust) elCrust.textContent = data.morphologicalFeatures.crust;
-
-  const elBoundary = document.getElementById('feat-boundary');
-  if (elBoundary) elBoundary.textContent = data.morphologicalFeatures.boundary;
-
-  const elDiff = document.getElementById('feat-diff');
-  if (elDiff) elDiff.textContent = data.morphologicalFeatures.differential;
-
-  const elInsights = document.getElementById('diagnostic-insights-list');
-  if (elInsights) {
-    elInsights.innerHTML = renderPipelineInsights(data.insights);
-  }
-
-  const elItaVal = document.getElementById('clinician-ita-val');
-  if (elItaVal) elItaVal.textContent = `${data.ita}°`;
-
-  const elClipVal = document.getElementById('clinician-clip-val');
-  if (elClipVal) elClipVal.textContent = `${data.clipLimit}`;
-
-  const elFitzVal = document.getElementById('clinician-fitz-val');
-  if (elFitzVal) elFitzVal.textContent = data.fitzpatrick.split(' ')[1] || 'TYPE IV';
-
-  const elGainVal = document.getElementById('clinician-gain-val');
-  if (elGainVal) elGainVal.textContent = data.contrastGain;
-
-  const elProfiler = document.getElementById('overlap-profiler-bars');
-  if (elProfiler) {
-    elProfiler.innerHTML = data.overlapProfile.map(item => `
-      <div class="profiler-item">
-        <div class="profiler-label-row">
-          <span>${item.name}</span>
-          <span class="text-mono">${item.value}%</span>
-        </div>
-        <div class="profiler-bar-bg">
-          <div class="profiler-bar-fill" style="width: ${item.value}%"></div>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  const m = data.metrics;
-  if (document.getElementById('metric-precision')) document.getElementById('metric-precision').textContent = m.precision;
-  if (document.getElementById('metric-recall')) document.getElementById('metric-recall').textContent = m.recall;
-  if (document.getElementById('metric-f1')) document.getElementById('metric-f1').textContent = m.f1;
-  if (document.getElementById('metric-map50')) document.getElementById('metric-map50').textContent = m.map50;
-  if (document.getElementById('metric-map5095')) document.getElementById('metric-map5095').textContent = m.map50_95;
-  if (document.getElementById('metric-latency')) document.getElementById('metric-latency').textContent = m.latency;
-  if (document.getElementById('metric-gflops')) document.getElementById('metric-gflops').textContent = m.gflops;
-  if (document.getElementById('metric-attribution')) document.getElementById('metric-attribution').textContent = m.attribution;
-
-  const b = data.bbox;
-  if (document.getElementById('coord-xmin')) document.getElementById('coord-xmin').textContent = b.xmin;
-  if (document.getElementById('coord-ymin')) document.getElementById('coord-ymin').textContent = b.ymin;
-  if (document.getElementById('coord-xmax')) document.getElementById('coord-xmax').textContent = b.xmax;
-  if (document.getElementById('coord-ymax')) document.getElementById('coord-ymax').textContent = b.ymax;
-
-  const elDiffList = document.getElementById('differential-diag-list');
-  if (elDiffList) {
-    elDiffList.innerHTML = data.differential.map(d => `
-      <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px;">
-        <span>${d.name}</span>
-        <strong class="text-mono" style="color:var(--brand-primary);">${d.prob}</strong>
-      </div>
-    `).join('');
-  }
-}
-
-function setSimulatorPage(pageNum) {
-  AppState.simulatorPage = pageNum;
-  document.querySelectorAll('.page-pill-btn').forEach(btn => {
-    btn.classList.toggle('active', parseInt(btn.dataset.page, 10) === pageNum);
-  });
-  renderSimulatorPage(pageNum);
-}
-
-function renderSimulatorPage(pageNum) {
-  const container = document.getElementById('simulator-screen-content');
-  if (!container) return;
-
-  const data = PRESETS[AppState.currentPreset] || PRESETS.buni;
-
-  switch (pageNum) {
-    case 1:
-      container.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:540px; text-align:center; padding:20px 10px;">
-          <div style="width:76px; height:76px; background:linear-gradient(135deg, #FF6F3C, #D45B28); border-radius:24px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 20px rgba(212,91,40,0.3); margin-bottom:20px;">
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              <line x1="12" y1="8" x2="12" y2="16"></line>
-              <line x1="8" y1="12" x2="16" y2="12"></line>
-            </svg>
-          </div>
-          <h1 style="font-size:1.6rem; font-weight:900; color:var(--text-title); letter-spacing:1px; margin-bottom:8px;">IDENTI - SKIN</h1>
-          <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.4; max-width:240px; margin-bottom:34px;">
-            AI-Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision
-          </p>
-          <div style="width:100%; display:flex; flex-direction:column; gap:10px; margin-bottom:30px;">
-            <button onclick="setSimulatorPage(2)" style="width:100%; padding:14px; background:var(--brand-primary); color:#FFF; border:none; border-radius:14px; font-weight:700; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 4px 12px rgba(212,91,40,0.35);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-              Get Started
-            </button>
-            <button onclick="setSimulatorPage(2)" style="width:100%; padding:14px; background:#FFF; color:var(--text-title); border:1px solid var(--brand-border); border-radius:14px; font-weight:700; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              I Have an Account
-            </button>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px; font-size:0.65rem; color:var(--text-muted);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
-            <span>Your data is protected & safe • <strong>RA 10173 Compliant</strong></span>
-          </div>
-        </div>
-      `;
-      break;
-
-    case 2:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <h2 style="font-size:1.35rem; font-weight:900; color:var(--text-title); margin-bottom:2px;">Welcome Back!</h2>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">Analyze skin images and get AI-assisted insights in seconds.</p>
-          <div onclick="setSimulatorPage(3)" class="upload-dropzone" style="margin-bottom:18px; padding:20px 14px;">
-            <div class="upload-icon-circle" style="width:42px; height:42px;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            </div>
-            <div class="upload-prompt" style="font-size:0.85rem;">Tap to Upload or Take a Photo</div>
-            <div class="upload-sub" style="font-size:0.68rem;">Auto ITA-calibrated & processed locally<br>RA 10173 compliant</div>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-title);">Recent Analysis</span>
-            <span style="font-size:0.72rem; font-weight:700; color:var(--brand-primary); cursor:pointer;">See All</span>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <div onclick="selectPreset('buni'); setSimulatorPage(4);" class="preset-card">
-              <img src="assets/sample_buni.jpg" class="preset-thumb" alt="Buni">
-              <div class="preset-info">
-                <div class="preset-name">Buni (Tinea Corporis)</div>
-                <div class="preset-sub">Analyzed just now</div>
-              </div>
-              <span class="preset-score">94.2%</span>
-            </div>
-            <div onclick="selectPreset('mamaso'); setSimulatorPage(4);" class="preset-card">
-              <img src="assets/sample_mamaso.jpg" class="preset-thumb" alt="Mamaso">
-              <div class="preset-info">
-                <div class="preset-name">Mamaso (Impetigo)</div>
-                <div class="preset-sub">Analyzed 2 days ago</div>
-              </div>
-              <span class="preset-score">92.1%</span>
-            </div>
-            <div onclick="selectPreset('kulugo'); setSimulatorPage(4);" class="preset-card">
-              <img src="assets/sample_kulugo.jpg" class="preset-thumb" alt="Kulugo">
-              <div class="preset-info">
-                <div class="preset-name">Kulugo (Warts)</div>
-                <div class="preset-sub">Analyzed 5 days ago</div>
-              </div>
-              <span class="preset-score" style="background:var(--status-gold-bg); color:var(--status-gold); border-color:#FDE68A;">88.7%</span>
-            </div>
-          </div>
-        </div>
-      `;
-      break;
-
-    case 3:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <h2 style="font-size:1.15rem; font-weight:800; color:var(--text-title); margin-bottom:12px;">Image Workspace</h2>
-          <div id="sim-workspace" class="workspace-canvas-container" style="aspect-ratio: 1 / 1; margin-bottom:14px;"></div>
-          <div class="control-row" style="margin-bottom:12px;">
-            <span class="slider-label" style="font-size:0.75rem;">Comparison Split</span>
-            <div class="slider-container">
-              <input type="range" min="0" max="100" value="${AppState.comparisonSplit}" class="range-slider" oninput="AppState.comparisonSplit = this.value; updateSplitPosition('sim-workspace', this.value);">
-            </div>
-          </div>
-          <div class="control-row" style="margin-bottom:14px;">
-            <span class="slider-label" style="font-size:0.75rem;">Heatmap Opacity</span>
-            <div class="slider-container">
-              <input type="range" min="0" max="100" value="${AppState.heatmapOpacity}" class="range-slider" oninput="AppState.heatmapOpacity = this.value; const h=document.getElementById('sim-workspace-canvas-heatmap'); if(h) h.style.opacity = (this.value/100).toString();">
-            </div>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.clahe = !AppState.toggles.clahe; renderWorkspace('sim-workspace', AppState.currentPreset);">
-              <div class="toggle-checkbox">✓</div><span>Adaptive L* - CLAHE</span>
-            </div>
-            <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.yolo = !AppState.toggles.yolo; renderWorkspace('sim-workspace', AppState.currentPreset);">
-              <div class="toggle-checkbox">✓</div><span>Decoupled YOLOv26</span>
-            </div>
-            <div class="toggle-pill active" onclick="this.classList.toggle('active'); AppState.toggles.heatmap = !AppState.toggles.heatmap; renderWorkspace('sim-workspace', AppState.currentPreset);">
-              <div class="toggle-checkbox">✓</div><span>Grad-CAM heatmap (Model D)</span>
-            </div>
-          </div>
-          <button onclick="setSimulatorPage(4)" style="width:100%; margin-top:14px; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:10px; font-weight:700; font-size:0.78rem; cursor:pointer;">
-            View Patient Report →
-          </button>
-        </div>
-      `;
-      setTimeout(() => renderWorkspace('sim-workspace', AppState.currentPreset), 50);
-      break;
-
-    case 4:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">
-            VERIFIED CASE PRESETS (PHILIPPINE CONTEXT)
-          </div>
-          <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:12px;">
-            <div onclick="selectPreset('buni'); setSimulatorPage(4);" style="flex-shrink:0; width:110px; padding:6px; background:#FFF; border:1px solid ${AppState.currentPreset==='buni'?'var(--brand-primary)':'var(--brand-border)'}; border-radius:8px; cursor:pointer;">
-              <img src="assets/sample_buni.jpg" style="width:100%; height:55px; object-fit:cover; border-radius:6px; margin-bottom:4px;">
-              <div style="font-size:0.68rem; font-weight:700; color:var(--text-title);">Buni</div>
-              <div style="font-size:0.58rem; color:var(--text-muted);">Tinea Corporis</div>
-            </div>
-            <div onclick="selectPreset('mamaso'); setSimulatorPage(4);" style="flex-shrink:0; width:110px; padding:6px; background:#FFF; border:1px solid ${AppState.currentPreset==='mamaso'?'var(--brand-primary)':'var(--brand-border)'}; border-radius:8px; cursor:pointer;">
-              <img src="assets/sample_mamaso.jpg" style="width:100%; height:55px; object-fit:cover; border-radius:6px; margin-bottom:4px;">
-              <div style="font-size:0.68rem; font-weight:700; color:var(--text-title);">Mamaso</div>
-              <div style="font-size:0.58rem; color:var(--text-muted);">Impetigo</div>
-            </div>
-            <div onclick="selectPreset('kulugo'); setSimulatorPage(4);" style="flex-shrink:0; width:110px; padding:6px; background:#FFF; border:1px solid ${AppState.currentPreset==='kulugo'?'var(--brand-primary)':'var(--brand-border)'}; border-radius:8px; cursor:pointer;">
-              <img src="assets/sample_kulugo.jpg" style="width:100%; height:55px; object-fit:cover; border-radius:6px; margin-bottom:4px;">
-              <div style="font-size:0.68rem; font-weight:700; color:var(--text-title);">Kulugo</div>
-              <div style="font-size:0.58rem; color:var(--text-muted);">Warts</div>
-            </div>
-          </div>
-          <div class="patient-card" style="padding:14px;">
-            <div style="font-size:0.75rem; font-weight:800; color:var(--brand-primary); text-transform:uppercase; margin-bottom:8px;">
-              Output A: Patient View (Simplified)
-            </div>
-            <div class="telemetry-chip-bar" style="padding:6px 10px; margin-bottom:10px;">
-              <span class="chip-title">Skin-Tone Calibration:</span>
-              <span class="chip-value" style="font-size:0.7rem;">${data.fitzpatrick.split(' ')[1]} (Melanin-Rich)</span>
-            </div>
-            <div style="margin-bottom:10px;">
-              <span class="category-pill ${data.badgeClass}">${data.category.toUpperCase()}</span>
-              <h3 style="font-size:1.25rem; font-weight:900; color:var(--text-title); margin-top:4px;">${data.name}</h3>
-              <div style="font-size:0.75rem; color:var(--text-muted);">Common Local Name: <strong>${data.localName}</strong></div>
-            </div>
-            <div class="score-banner" style="padding:10px 14px; margin-bottom:12px;">
-              <span class="score-title" style="font-size:0.75rem;">Diagnostic Confidence Score:</span>
-              <span class="score-num" style="font-size:1.4rem;">${data.confidence}%</span>
-            </div>
-            <button onclick="setSimulatorPage(5)" style="width:100%; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer;">
-              Inspect Lesion Features →
-            </button>
-          </div>
-        </div>
-      `;
-      break;
-
-    case 5:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <div style="font-size:0.8rem; font-weight:800; text-transform:uppercase; color:var(--text-title); margin-bottom:2px;">
-            Identified Lesion Features
-          </div>
-          <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:10px;">Fine-Grained Diagnostic Cues</div>
-          <div class="features-container" style="gap:6px; margin-bottom:14px;">
-            <div class="feature-box" style="padding:8px 10px;">
-              <div class="feature-box-title">Surface Texture</div>
-              <div class="feature-box-desc" style="font-size:0.72rem;">${data.morphologicalFeatures.texture}</div>
-            </div>
-            <div class="feature-box" style="padding:8px 10px;">
-              <div class="feature-box-title">Crust & Exudate</div>
-              <div class="feature-box-desc" style="font-size:0.72rem;">${data.morphologicalFeatures.crust}</div>
-            </div>
-            <div class="feature-box" style="padding:8px 10px;">
-              <div class="feature-box-title">Boundary / Edge</div>
-              <div class="feature-box-desc" style="font-size:0.72rem;">${data.morphologicalFeatures.boundary}</div>
-            </div>
-            <div class="feature-box" style="padding:8px 10px;">
-              <div class="feature-box-title">Differential Key</div>
-              <div class="feature-box-desc" style="font-size:0.72rem;">${data.morphologicalFeatures.differential}</div>
-            </div>
-          </div>
-          <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; color:var(--text-title); margin-bottom:4px;">
-            Grad-CAM heatmap (Model D)
-          </div>
-          <p style="font-size:0.68rem; color:var(--text-muted); margin-bottom:8px;">
-            Hover or tap cells to see AI attention focus:
-          </p>
-          <div id="sim-tensor-grid" class="tensor-grid-container" style="max-width:240px; margin-bottom:8px;"></div>
-          <div id="sim-tensor-inspector" class="tensor-inspector-bar" style="font-size:0.65rem; padding:6px 8px;"></div>
-          <button onclick="setSimulatorPage(6)" style="width:100%; margin-top:12px; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer;">
-            View Diagnostic Insights →
-          </button>
-        </div>
-      `;
-      setTimeout(() => renderGradientsGrid('sim-tensor-grid', 'sim-tensor-inspector', AppState.currentPreset), 50);
-      break;
-
-    case 6:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <div style="font-size:0.85rem; font-weight:800; text-transform:uppercase; color:var(--text-title); margin-bottom:4px;">
-            Diagnostic & Computational Insights
-          </div>
-          <div style="background:#FFF; border:1px solid var(--brand-border); border-radius:12px; padding:12px; margin-bottom:14px;">
-            <ul style="padding-left:16px; font-size:0.72rem; color:var(--text-body); line-height:1.4;">
-              ${data.insights.map(item => `<li style="margin-bottom:8px;">${item}</li>`).join('')}
-            </ul>
-          </div>
-          <div class="compliance-box" style="margin-top:0; margin-bottom:16px;">
-            <div class="compliance-box-title">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              <span>DATA PRIVACY & MEDICAL DISCLAIMER (RA 10173 COMPLIANT)</span>
-            </div>
-            <p class="compliance-box-desc">
-              In accordance with RA 10173 (Data Privacy Act of 2012), all skin image analysis is conducted locally or securely in-memory without persistent retention. This application is an academic AI research screening aid and does not replace certified clinical dermatological diagnosis. Always consult a licensed physician or dermatologist.
-            </p>
-          </div>
-          <button onclick="setSimulatorPage(7)" style="width:100%; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer;">
-            Go to Clinician Panel Dashboard →
-          </button>
-        </div>
-      `;
-      break;
-
-    case 7:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <div style="font-size:0.85rem; font-weight:800; text-transform:uppercase; color:var(--brand-primary); margin-bottom:8px;">
-            Output B: Panel Dashboard
-          </div>
-          <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">
-            ITA Colorimetry & Adaptive CLAHE Telemetry
-          </div>
-          <div class="telemetry-grid-4" style="gap:6px; margin-bottom:12px;">
-            <div class="telemetry-stat-card" style="padding:8px 4px;">
-              <div class="telemetry-stat-label">ITA Value</div>
-              <div class="telemetry-stat-num" style="font-size:1.1rem;">${data.ita}°</div>
-            </div>
-            <div class="telemetry-stat-card" style="padding:8px 4px;">
-              <div class="telemetry-stat-label">Clip Limit</div>
-              <div class="telemetry-stat-num" style="font-size:1.1rem;">${data.clipLimit}</div>
-            </div>
-            <div class="telemetry-stat-card" style="padding:8px 4px;">
-              <div class="telemetry-stat-label">Fitzpatrick</div>
-              <div class="telemetry-stat-num" style="font-size:0.95rem;">${data.fitzpatrick.split(' ')[1]}</div>
-            </div>
-            <div class="telemetry-stat-card" style="padding:8px 4px;">
-              <div class="telemetry-stat-label">Contrast Gain</div>
-              <div class="telemetry-stat-num" style="font-size:1.1rem;">${data.contrastGain}</div>
-            </div>
-          </div>
-          <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">
-            Two-Stage Decoupled Representation
-          </div>
-          <div class="stage-status-card" style="padding:8px 10px; margin-bottom:6px;">
-            <div class="stage-header">
-              <span class="stage-title" style="font-size:0.7rem;">Stage 1: Localization Learning</span>
-              <span class="stage-badge frozen">FROZEN</span>
-            </div>
-            <p class="stage-desc" style="font-size:0.65rem;">Spatial bounding box & edge geometry extraction. YOLOv26 CSP-Darknet locked.</p>
-          </div>
-          <div class="stage-status-card active-head" style="padding:8px 10px; margin-bottom:12px;">
-            <div class="stage-header">
-              <span class="stage-title" style="font-size:0.7rem;">Stage 2: Fine-Grained Discrimination</span>
-              <span class="stage-badge active">ACTIVE HEAD</span>
-            </div>
-            <p class="stage-desc" style="font-size:0.65rem;">Morphology feature specialization optimized via Focal Loss for long-tail minority classes.</p>
-          </div>
-          <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">
-            Class Overlap Profiler
-          </div>
-          <div class="profiler-bars" style="gap:6px; margin-bottom:14px;">
-            ${data.overlapProfile.map(item => `
-              <div class="profiler-item">
-                <div class="profiler-label-row" style="font-size:0.68rem;">
-                  <span>${item.name}</span>
-                  <span class="text-mono">${item.value}%</span>
-                </div>
-                <div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${item.value}%"></div></div>
-              </div>
-            `).join('')}
-          </div>
-          <button onclick="setSimulatorPage(8)" style="width:100%; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer;">
-            Inspect YOLOv26 Evaluation Metrics →
-          </button>
-        </div>
-      `;
-      break;
-
-    case 8:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; color:var(--text-title); margin-bottom:6px;">
-            YOLOv26 Model Evaluation Metrics
-          </div>
-          <div class="metrics-5-grid" style="gap:6px; margin-bottom:10px;">
-            <div class="metric-mini-card">
-              <div class="metric-mini-label">Precision</div>
-              <div class="metric-mini-num" style="font-size:0.95rem;">${data.metrics.precision}</div>
-              <div class="metric-mini-sub">TP Ratio</div>
-            </div>
-            <div class="metric-mini-card">
-              <div class="metric-mini-label">Recall</div>
-              <div class="metric-mini-num" style="font-size:0.95rem;">${data.metrics.recall}</div>
-              <div class="metric-mini-sub">Sensitivity</div>
-            </div>
-            <div class="metric-mini-card">
-              <div class="metric-mini-label">F1-Score</div>
-              <div class="metric-mini-num" style="font-size:0.95rem;">${data.metrics.f1}</div>
-              <div class="metric-mini-sub">Harmonic</div>
-            </div>
-          </div>
-          <div style="display:flex; gap:6px; margin-bottom:12px;">
-            <div class="metric-mini-card" style="flex:1;">
-              <div class="metric-mini-label">mAP50</div>
-              <div class="metric-mini-num" style="font-size:0.95rem;">${data.metrics.map50}</div>
-            </div>
-            <div class="metric-mini-card" style="flex:1;">
-              <div class="metric-mini-label">mAP50-95</div>
-              <div class="metric-mini-num" style="font-size:0.95rem;">${data.metrics.map50_95}</div>
-            </div>
-          </div>
-          <div style="display:flex; justify-content:space-between; background:var(--bg-subtle); border:1px solid var(--brand-border); border-radius:8px; padding:8px 10px; margin-bottom:10px; font-size:0.68rem;">
-            <div>Latency: <strong class="text-mono" style="color:var(--brand-primary);">${data.metrics.latency}</strong></div>
-            <div>GFLOPs: <strong class="text-mono" style="color:var(--brand-primary);">${data.metrics.gflops}</strong></div>
-            <div>Margin: <strong class="text-mono" style="color:#15803D;">${data.metrics.attribution}</strong></div>
-          </div>
-          <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">
-            Spatial Bounding Box Coordinates
-          </div>
-          <div class="bbox-coords-box" style="margin-bottom:10px;">
-            <div><div class="coord-label">XMIN</div><div class="coord-val" style="font-size:0.75rem;">${data.bbox.xmin}</div></div>
-            <div><div class="coord-label">YMIN</div><div class="coord-val" style="font-size:0.75rem;">${data.bbox.ymin}</div></div>
-            <div><div class="coord-label">XMAX</div><div class="coord-val" style="font-size:0.75rem;">${data.bbox.xmax}</div></div>
-            <div><div class="coord-label">YMAX</div><div class="coord-val" style="font-size:0.75rem;">${data.bbox.ymax}</div></div>
-          </div>
-          <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">
-            Differential Diagnosis Probabilities
-          </div>
-          <div style="background:#FFF; border:1px solid var(--brand-border); border-radius:8px; padding:8px 10px; margin-bottom:12px;">
-            ${data.differential.map(item => `
-              <div style="display:flex; justify-content:space-between; font-size:0.72rem; margin-bottom:3px;">
-                <span>${item.name}</span>
-                <strong class="text-mono" style="color:var(--brand-primary);">${item.prob}</strong>
-              </div>
-            `).join('')}
-          </div>
-          <button onclick="setSimulatorPage(9)" style="width:100%; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer;">
-            Inspect Raw Conv Gradients Array →
-          </button>
-        </div>
-      `;
-      break;
-
-    case 9:
-      container.innerHTML = `
-        <div style="padding-top:4px;">
-          <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; color:var(--text-title); margin-bottom:2px;">
-            Raw XAI Gradients Array
-          </div>
-          <div style="font-size:0.68rem; color:var(--text-muted); margin-bottom:10px;">
-            Final Conv Layer Tensor Activations (A^k)
-          </div>
-          <div id="sim-page9-grid" class="tensor-grid-container" style="max-width:260px; margin-bottom:10px;"></div>
-          <div id="sim-page9-inspector" class="tensor-inspector-bar" style="font-size:0.65rem; padding:8px;"></div>
-          <p style="font-size:0.68rem; color:var(--text-muted); line-height:1.35; margin-top:10px;">
-            *Tap on individual tensor activation weights above to observe spatial localization gradients before YOLOv26 head prediction.
-          </p>
-          <button onclick="setSimulatorPage(2)" style="width:100%; margin-top:14px; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer;">
-            ← Back to Home
-          </button>
-        </div>
-      `;
-      setTimeout(() => renderGradientsGrid('sim-page9-grid', 'sim-page9-inspector', AppState.currentPreset), 50);
-      break;
-  }
-}
-
-function renderPosterView() {
-  const container = document.getElementById('poster-screens-grid');
-  if (!container) return;
-  container.innerHTML = '';
-
-  const pageTitles = [
-    '1st Page: Splash & Login',
-    '2nd Page: Home & Quick Upload',
-    '3rd Page: Image Workspace',
-    '4th Page: Output A (Patient View)',
-    '5th Page: Lesion Features',
-    '6th Page: Diagnostic Insights',
-    '7th Page: Output B (Panel Dashboard)',
-    '8th Page: YOLOv26 Evaluation',
-    '9th Page: Raw XAI Gradients'
-  ];
-
-  for (let i = 1; i <= 9; i++) {
-    const item = document.createElement('div');
-    item.className = 'poster-phone-item';
-    item.innerHTML = `
-      <div class="poster-page-label">${pageTitles[i - 1]}</div>
-      <div class="poster-phone-bezel">
-        <div class="phone-screen" id="poster-screen-${i}"></div>
-        <div class="phone-home-indicator"></div>
-      </div>
-    `;
-    container.appendChild(item);
-  }
-
-  setTimeout(() => {
-    for (let i = 1; i <= 9; i++) {
-      const scr = document.getElementById(`poster-screen-${i}`);
-      if (!scr) continue;
-      
-      scr.innerHTML = `
-        <div class="phone-header">
-          <button class="phone-header-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
-          <span class="phone-header-title">IDENTI - SKIN</span>
-          <button class="phone-header-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-          </button>
-        </div>
-        <div class="phone-content" id="poster-inner-content-${i}"></div>
-        <div class="phone-bottom-nav">
-          <div class="phone-nav-item ${i===2?'active':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span>Home</span></div>
-          <div class="phone-nav-item ${i===3?'active':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg><span>Workspace</span></div>
-          <div class="phone-nav-item ${i===4||i===5||i===6?'active':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg><span>History</span></div>
-          <div class="phone-nav-item ${i===7||i===8||i===9?'active':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg><span>Insights</span></div>
-          <div class="phone-nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><span>Profile</span></div>
-        </div>
-      `;
-
-      const inner = document.getElementById(`poster-inner-content-${i}`);
-      if (inner) renderPosterScreenContent(i, inner);
-    }
-  }, 100);
-}
-
-function renderPosterScreenContent(pageNum, targetEl) {
-  const data = PRESETS[AppState.currentPreset] || PRESETS.buni;
-  
-  if (pageNum === 1) {
-    targetEl.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px 0; text-align:center;">
-        <div style="width:60px; height:60px; background:linear-gradient(135deg, #FF6F3C, #D45B28); border-radius:18px; display:flex; align-items:center; justify-content:center; color:#FFF; margin-bottom:14px;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        </div>
-        <div style="font-size:1.25rem; font-weight:900; color:var(--text-title); margin-bottom:4px;">IDENTI-SKIN</div>
-        <p style="font-size:0.65rem; color:var(--text-muted); margin-bottom:20px; line-height:1.3;">AI-Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision</p>
-        <button style="width:100%; padding:10px; background:var(--brand-primary); color:#FFF; border:none; border-radius:10px; font-weight:700; font-size:0.75rem; margin-bottom:8px;">Get Started</button>
-        <button style="width:100%; padding:10px; background:#FFF; border:1px solid var(--brand-border); border-radius:10px; font-weight:700; font-size:0.75rem; margin-bottom:16px;">I Have an Account</button>
-        <div style="font-size:0.58rem; color:var(--text-muted);">Your data is protected & safe - RA 10173 Compliant</div>
-      </div>
-    `;
-  } else if (pageNum === 2) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:1.15rem; font-weight:900; color:var(--text-title);">Welcome Back!</div>
-        <div style="font-size:0.68rem; color:var(--text-muted); margin-bottom:12px;">Analyze skin images and get AI-assisted insights in seconds.</div>
-        <div class="upload-dropzone" style="padding:14px; margin-bottom:12px;">
-          <div style="font-size:0.75rem; font-weight:700; color:var(--brand-primary);">Tap to Upload or Take a Photo</div>
-          <div style="font-size:0.6rem; color:var(--text-muted);">Auto ITA-calibrated & processed locally<br>RA 10173 compliant</div>
-        </div>
-        <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; margin-bottom:6px;">Recent Analysis</div>
-        <div style="display:flex; flex-direction:column; gap:6px;">
-          <div class="preset-card" style="padding:6px;"><img src="assets/sample_buni.jpg" class="preset-thumb" style="width:32px; height:32px;"><div class="preset-info"><div class="preset-name" style="font-size:0.72rem;">Buni (Tinea Corporis)</div><div class="preset-sub" style="font-size:0.58rem;">Analyzed just now</div></div><span class="preset-score" style="font-size:0.62rem;">94.2%</span></div>
-          <div class="preset-card" style="padding:6px;"><img src="assets/sample_mamaso.jpg" class="preset-thumb" style="width:32px; height:32px;"><div class="preset-info"><div class="preset-name" style="font-size:0.72rem;">Mamaso (Impetigo)</div><div class="preset-sub" style="font-size:0.58rem;">Analyzed 2 days ago</div></div><span class="preset-score" style="font-size:0.62rem;">92.1%</span></div>
-          <div class="preset-card" style="padding:6px;"><img src="assets/sample_kulugo.jpg" class="preset-thumb" style="width:32px; height:32px;"><div class="preset-info"><div class="preset-name" style="font-size:0.72rem;">Kulugo (Warts)</div><div class="preset-sub" style="font-size:0.58rem;">Analyzed 5 days ago</div></div><span class="preset-score" style="font-size:0.62rem; background:var(--status-gold-bg); color:var(--status-gold);">88.7%</span></div>
-        </div>
-      </div>
-    `;
-  } else if (pageNum === 3) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:0.85rem; font-weight:800; color:var(--text-title); margin-bottom:8px;">Image Workspace</div>
-        <div id="poster-p3-workspace" class="workspace-canvas-container" style="aspect-ratio:1/1; max-height:210px; margin-bottom:10px;"></div>
-        <div style="font-size:0.65rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">Comparison Slider: 50%</div>
-        <div style="font-size:0.65rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Heatmap Opacity: 70%</div>
-        <div style="display:flex; flex-direction:column; gap:4px; font-size:0.65rem;">
-          <div class="toggle-pill active" style="padding:4px 8px;"><div class="toggle-checkbox" style="width:12px; height:12px;">✓</div><span>Adaptive L* - CLAHE</span></div>
-          <div class="toggle-pill active" style="padding:4px 8px;"><div class="toggle-checkbox" style="width:12px; height:12px;">✓</div><span>Decoupled YOLOv26</span></div>
-          <div class="toggle-pill active" style="padding:4px 8px;"><div class="toggle-checkbox" style="width:12px; height:12px;">✓</div><span>Grad-CAM heatmap (Model D)</span></div>
-        </div>
-      </div>
-    `;
-    setTimeout(() => renderWorkspace('poster-p3-workspace', AppState.currentPreset, 50, 70), 50);
-  } else if (pageNum === 4) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:0.62rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">VERIFIED CASE PRESETS (PHILIPPINE CONTEXT)</div>
-        <div style="display:flex; gap:4px; margin-bottom:8px;">
-          <div style="flex:1; background:#FFF; border:1px solid var(--brand-primary); border-radius:6px; padding:4px;"><img src="assets/sample_buni.jpg" style="width:100%; height:32px; object-fit:cover; border-radius:4px;"><div style="font-size:0.55rem; font-weight:700;">Buni</div></div>
-          <div style="flex:1; background:#FFF; border:1px solid var(--brand-border); border-radius:6px; padding:4px;"><img src="assets/sample_mamaso.jpg" style="width:100%; height:32px; object-fit:cover; border-radius:4px;"><div style="font-size:0.55rem; font-weight:700;">Mamaso</div></div>
-          <div style="flex:1; background:#FFF; border:1px solid var(--brand-border); border-radius:6px; padding:4px;"><img src="assets/sample_kulugo.jpg" style="width:100%; height:32px; object-fit:cover; border-radius:4px;"><div style="font-size:0.55rem; font-weight:700;">Kulugo</div></div>
-        </div>
-        <div class="patient-card" style="padding:10px;">
-          <div style="font-size:0.68rem; font-weight:800; color:var(--brand-primary); text-transform:uppercase;">Output A: Patient View (Simplified)</div>
-          <div class="telemetry-chip-bar" style="padding:4px 6px; margin:6px 0;"><span class="chip-value" style="font-size:0.6rem;">Type IV | ITA: 22.4° • Clip: 3.4</span></div>
-          <span class="category-pill ${data.badgeClass}" style="font-size:0.58rem;">${data.category.toUpperCase()}</span>
-          <div style="font-size:0.95rem; font-weight:900; color:var(--text-title);">${data.name}</div>
-          <div style="font-size:0.65rem; color:var(--text-muted); margin-bottom:6px;">Common Local Name: ${data.localName}</div>
-          <div class="score-banner" style="padding:6px 10px;"><span style="font-size:0.65rem; font-weight:700; color:var(--brand-primary);">Score:</span><span class="score-num" style="font-size:1.1rem;">${data.confidence}%</span></div>
-        </div>
-      </div>
-    `;
-  } else if (pageNum === 5) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-title); margin-bottom:2px;">Identified Lesion Features</div>
-        <div style="font-size:0.62rem; color:var(--text-muted); margin-bottom:8px;">Fine-Grained Cues</div>
-        <div class="features-container" style="gap:4px; margin-bottom:8px;">
-          <div class="feature-box" style="padding:6px;"><div class="feature-box-title" style="font-size:0.6rem;">SURFACE TEXTURE</div><div class="feature-box-desc" style="font-size:0.65rem;">${data.morphologicalFeatures.texture}</div></div>
-          <div class="feature-box" style="padding:6px;"><div class="feature-box-title" style="font-size:0.6rem;">CRUST & EXUDATE</div><div class="feature-box-desc" style="font-size:0.65rem;">${data.morphologicalFeatures.crust}</div></div>
-          <div class="feature-box" style="padding:6px;"><div class="feature-box-title" style="font-size:0.6rem;">BOUNDARY / EDGE</div><div class="feature-box-desc" style="font-size:0.65rem;">${data.morphologicalFeatures.boundary}</div></div>
-          <div class="feature-box" style="padding:6px;"><div class="feature-box-title" style="font-size:0.6rem;">DIFFERENTIAL KEY</div><div class="feature-box-desc" style="font-size:0.65rem;">${data.morphologicalFeatures.differential}</div></div>
-        </div>
-        <div style="font-size:0.7rem; font-weight:800; text-transform:uppercase;">GRAD-CAM HEATMAP OVERLAY</div>
-        <div id="poster-p5-grid" class="tensor-grid-container" style="max-width:180px; margin-top:4px;"></div>
-      </div>
-    `;
-    setTimeout(() => renderGradientsGrid('poster-p5-grid', 'temp-p5-bar', AppState.currentPreset), 50);
-  } else if (pageNum === 6) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-title); margin-bottom:6px;">Diagnostic & Computational Insights</div>
-        <div style="background:#FFF; border:1px solid var(--brand-border); border-radius:8px; padding:8px; font-size:0.65rem; line-height:1.35; margin-bottom:10px;">
-          <div style="margin-bottom:6px;">• <strong>Stage 1:</strong> ITA 22.4° (Type IV) calibrated adaptive CLAHE clip limit 3.4.</div>
-          <div style="margin-bottom:6px;">• <strong>Stage 1:</strong> Regressed annular boundary (IoU 78.2%) before backbone freezing.</div>
-          <div>• <strong>Stage 2:</strong> Focal Loss prioritized elevated peripheral ring features.</div>
-        </div>
-        <div class="compliance-box" style="padding:8px;">
-          <div class="compliance-box-title" style="font-size:0.62rem;">DATA PRIVACY & MEDICAL DISCLAIMER (RA 10173 COMPLIANT)</div>
-          <div class="compliance-box-desc" style="font-size:0.58rem;">In accordance with RA 10173 (Data Privacy Act of 2012), skin imaging is processed locally. This platform is an academic assistive screening aid and does not replace professional dermatological diagnosis.</div>
-        </div>
-      </div>
-    `;
-  } else if (pageNum === 7) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--brand-primary); margin-bottom:6px;">Output B: Panel Dashboard</div>
-        <div style="font-size:0.6rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">ITA Colorimetry & Adaptive CLAHE Telemetry</div>
-        <div class="telemetry-grid-4" style="gap:4px; margin-bottom:8px;">
-          <div class="telemetry-stat-card" style="padding:4px;"><div class="telemetry-stat-label" style="font-size:0.55rem;">ITA VALUE</div><div class="telemetry-stat-num" style="font-size:0.85rem;">${data.ita}°</div></div>
-          <div class="telemetry-stat-card" style="padding:4px;"><div class="telemetry-stat-label" style="font-size:0.55rem;">CLIP LIMIT</div><div class="telemetry-stat-num" style="font-size:0.85rem;">${data.clipLimit}</div></div>
-          <div class="telemetry-stat-card" style="padding:4px;"><div class="telemetry-stat-label" style="font-size:0.55rem;">FITZPATRICK</div><div class="telemetry-stat-num" style="font-size:0.75rem;">TYPE IV</div></div>
-          <div class="telemetry-stat-card" style="padding:4px;"><div class="telemetry-stat-label" style="font-size:0.55rem;">CONTRAST GAIN</div><div class="telemetry-stat-num" style="font-size:0.85rem;">${data.contrastGain}</div></div>
-        </div>
-        <div style="font-size:0.6rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">Two-Stage Decoupled Representation</div>
-        <div class="stage-status-card" style="padding:6px; margin-bottom:4px;"><div class="stage-header"><span class="stage-title" style="font-size:0.62rem;">Stage 1: Localization</span><span class="stage-badge frozen" style="font-size:0.55rem;">FROZEN</span></div></div>
-        <div class="stage-status-card active-head" style="padding:6px; margin-bottom:8px;"><div class="stage-header"><span class="stage-title" style="font-size:0.62rem;">Stage 2: Discrimination</span><span class="stage-badge active" style="font-size:0.55rem;">ACTIVE HEAD</span></div></div>
-        <div style="font-size:0.6rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">Class Overlap Profiler</div>
-        <div class="profiler-bars" style="gap:4px;">
-          ${data.overlapProfile.map(item => `
-            <div class="profiler-item"><div class="profiler-label-row" style="font-size:0.6rem;"><span>${item.name}</span><span class="text-mono">${item.value}%</span></div><div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${item.value}%"></div></div></div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  } else if (pageNum === 8) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; margin-bottom:4px;">YOLOv26 Model Evaluation Metrics</div>
-        <div class="metrics-5-grid" style="gap:4px; margin-bottom:6px;">
-          <div class="metric-mini-card" style="padding:4px;"><div class="metric-mini-label" style="font-size:0.55rem;">PRECISION</div><div class="metric-mini-num" style="font-size:0.8rem;">${data.metrics.precision}</div></div>
-          <div class="metric-mini-card" style="padding:4px;"><div class="metric-mini-label" style="font-size:0.55rem;">RECALL</div><div class="metric-mini-num" style="font-size:0.8rem;">${data.metrics.recall}</div></div>
-          <div class="metric-mini-card" style="padding:4px;"><div class="metric-mini-label" style="font-size:0.55rem;">F1-SCORE</div><div class="metric-mini-num" style="font-size:0.8rem;">${data.metrics.f1}</div></div>
-        </div>
-        <div style="background:var(--bg-subtle); border:1px solid var(--brand-border); border-radius:6px; padding:6px; font-size:0.62rem; margin-bottom:8px;">
-          <div>Latency: <strong>${data.metrics.latency}</strong> | GFLOPs: <strong>${data.metrics.gflops}</strong></div>
-          <div>Margin Attribution: <strong>${data.metrics.attribution}</strong></div>
-        </div>
-        <div style="font-size:0.62rem; font-weight:800; text-transform:uppercase; margin-bottom:3px;">Spatial Coordinates</div>
-        <div class="bbox-coords-box" style="gap:4px; padding:4px; margin-bottom:8px;">
-          <div><div class="coord-label" style="font-size:0.52rem;">XMIN</div><div class="coord-val" style="font-size:0.7rem;">${data.bbox.xmin}</div></div>
-          <div><div class="coord-label" style="font-size:0.52rem;">YMIN</div><div class="coord-val" style="font-size:0.7rem;">${data.bbox.ymin}</div></div>
-          <div><div class="coord-label" style="font-size:0.52rem;">XMAX</div><div class="coord-val" style="font-size:0.7rem;">${data.bbox.xmax}</div></div>
-          <div><div class="coord-label" style="font-size:0.52rem;">YMAX</div><div class="coord-val" style="font-size:0.7rem;">${data.bbox.ymax}</div></div>
-        </div>
-        <div style="font-size:0.62rem; font-weight:800; text-transform:uppercase; margin-bottom:3px;">Differential Probabilities</div>
-        <div style="background:#FFF; border:1px solid var(--brand-border); border-radius:6px; padding:6px; font-size:0.62rem;">
-          ${data.differential.map(d => `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${d.name}</span><strong>${d.prob}</strong></div>`).join('')}
-        </div>
-      </div>
-    `;
-  } else if (pageNum === 9) {
-    targetEl.innerHTML = `
-      <div>
-        <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; margin-bottom:2px;">Raw XAI Gradients Array</div>
-        <div style="font-size:0.58rem; color:var(--text-muted); margin-bottom:6px;">Final Conv Layer Activation Weights</div>
-        <div id="poster-p9-grid" class="tensor-grid-container" style="max-width:200px; margin-bottom:8px;"></div>
-        <div style="background:var(--bg-subtle); border:1px solid var(--brand-border); border-radius:6px; padding:6px; font-size:0.6rem;">
-          Cell: [ch512, 8, 11] | Activation: 0.942 | Attribution: High
-        </div>
-      </div>
-    `;
-    setTimeout(() => renderGradientsGrid('poster-p9-grid', 'temp-p9-bar', AppState.currentPreset), 50);
-  }
-}
-
-// Patient tab: only the user's own analysed photo, never a demo preset.
-function renderPatientTab(data) {
-  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  const badge = document.getElementById('mob-patient-badge');
-  const insights = document.getElementById('mob-insights-list');
-  const features = document.getElementById('mob-patient-features');
-  renderRecentAnalysis(data);
-  if (!data) {
-    if (features) features.style.display = 'none';
-    set('mob-patient-title', 'No photo analyzed yet');
-    set('mob-patient-local', 'Upload or take a photo on the Home tab to see the result here.');
-    set('mob-patient-score', '—');
-    set('mob-patient-ita', '—');
-    if (badge) badge.style.display = 'none';
-    if (insights) insights.innerHTML = '';
-    const emptySplit = document.getElementById('mob-patient-split');
-    if (emptySplit) emptySplit.innerHTML = '';
-    const emptyPhoto = document.getElementById('mob-patient-photo');
-    if (emptyPhoto) emptyPhoto.innerHTML = '';
-    return;
-  }
-  set('mob-patient-title', data.name);
-  set('mob-patient-local', `Common Local Name: ${data.localName}`);
-  set('mob-patient-score', data.confidence ? `${data.name} · ${data.confidence}%` : data.name);
-  set('mob-patient-ita', `${data.fitzpatrick.replace('Fitzpatrick ', '')} | ITA: ${data.ita}° • Clip: ${data.clipLimit}`);
-  if (badge) {
-    badge.style.display = '';
-    badge.textContent = data.category.toUpperCase();
-    badge.className = `category-pill ${data.badgeClass}`;
-  }
-  if (insights) insights.innerHTML = renderPipelineInsights(data.insights, true);
-
-  // Disease split within the predicted disease's cluster.
-  const split = document.getElementById('mob-patient-split');
-  if (split) split.innerHTML = renderClusterSplit(data.classScores || [], data.topLabel);
-
-  // Grad-CAM of Model D on the photo (with the detected lesion boxes).
-  const photo = document.getElementById('mob-patient-photo');
-  if (photo) {
-    const img = data.gradcamImage || data.boxedImage;
-    photo.innerHTML = img ? `
-      <div class="patient-split-title">Where the AI looked (Grad-CAM)</div>
-      <img src="${img}" alt="Grad-CAM of Model D on your photo">
-      <p class="patient-split-note">Red/yellow = the areas that most influenced the result. Boxes = detected lesions.</p>` : '';
-  }
-
-  const explain = document.getElementById('mob-patient-explain');
-  if (explain) explain.innerHTML = renderFeatureExtraction(data.lesionCrops || []) + renderComputation(data);
-
-  const f = data.morphologicalFeatures;
-  const detected = data.name !== 'No lesion detected';
-  if (features) features.style.display = detected ? '' : 'none';
-  set('mob-feat-note', `Typical features of ${data.localName}, for reference; not measured from this photo.`);
-  set('mob-feat-texture', f.texture);
-  set('mob-feat-crust', f.crust);
-  set('mob-feat-boundary', f.boundary);
-  set('mob-feat-key', f.differential);
-}
-
-// Feature extraction: each detected lesion cropped from the photo with its confidence
-// and the features measured from that crop.
-function renderFeatureExtraction(crops) {
-  if (!crops.length) return '';
-  const tag = (v, hi, lo, hiText, loText) => (v > hi ? hiText : v < lo ? loText : '');
-  const sgn = v => (v > 0 ? `+${v}` : `${v}`);
-  return `
-    <div class="patient-split-title">Feature extraction (each detected lesion)</div>
-    <div class="feature-crops">
-      ${crops.map((c, i) => {
-        const p = Math.min(Math.max(c.confidence, 1e-6), 1 - 1e-6);
-        const z = Math.log(p / (1 - p));
-        const [lL, la, lb] = c.lesion_lab || [0, 0, 0];
-        const [sL, sa, sb] = c.skin_lab || [0, 0, 0];
-        const dL = Math.round((lL - sL) * 10) / 10, da = Math.round((la - sa) * 10) / 10, db = Math.round((lb - sb) * 10) / 10;
-        return `
-        <article class="feature-crop">
-          <div class="feature-crop-top">
-            <img src="${c.image}" alt="Detected lesion ${i + 1}">
-            <div class="feature-crop-body">
-              <div class="feature-crop-head"><b>Lesion ${i + 1}</b><span>${(c.confidence * 100).toFixed(2)}%</span></div>
-              <div class="feature-crop-label">${PATIENT_NAMES[c.label] || c.label}</div>
-              <ul>
-                <li>Size: ${c.box_px[0]} × ${c.box_px[1]} px</li>
-                <li>Colour vs skin (ΔE): ${c.delta_e} ${c.delta_e >= 10 ? '(clearly visible)' : c.delta_e >= 5 ? '(visible)' : '(subtle)'}</li>
-                <li>Redness: ${sgn(c.redder)} ${tag(c.redder, 3, -3, '(redder)', '(less red)')}</li>
-                <li>Yellowness: ${sgn(c.yellower)} ${tag(c.yellower, 3, -3, '(yellower)', '')}</li>
-                <li>Roughness: ${c.roughness_ratio}× ${tag(c.roughness_ratio, 1.3, 0.8, '(rougher)', '(smoother)')}</li>
-              </ul>
-            </div>
-          </div>
-          <div class="feature-calc">
-            <div><b>Confidence:</b> <code>p = 1 / (1 + e^−z) = 1 / (1 + e^−(${z.toFixed(2)})) = ${p.toFixed(4)} = ${(p * 100).toFixed(2)}%</code></div>
-            <div><b>Colour (CIELAB):</b> lesion L*a*b* = (${lL}, ${la}, ${lb}), skin around it = (${sL}, ${sa}, ${sb})<br>
-              <code>ΔE = √(ΔL*² + Δa*² + Δb*²) = √(${dL}² + ${da}² + ${db}²) = ${c.delta_e}</code><br>
-              <code>Redness = Δa* = ${la} − ${sa} = ${sgn(da)}</code> · <code>Yellowness = Δb* = ${lb} − ${sb} = ${sgn(db)}</code></div>
-            <div><b>Roughness:</b> <code>σ(Laplacian) lesion ÷ σ(Laplacian) skin = ${c.lesion_rough} ÷ ${c.skin_rough} = ${c.roughness_ratio}×</code></div>
-          </div>
-        </article>`;
-      }).join('')}
-    </div>
-    <p class="patient-split-note">Each crop is a lesion box from Model D. z is the model's raw score for the predicted disease and p its confidence.
-      Colour and roughness are measured inside the box versus the skin ring around it (box enlarged by 50%).</p>`;
-}
-
-// Step-by-step justification of the result, with the numbers from this photo.
-function renderComputation(data) {
-  if (!data.detections) return '';
-  const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
-  const steps = [];
-  const it = data.itaInputs;
-  steps.push(`
-    <li><b>Skin tone (ITA).</b> The skin pixels are found with K-means${it ? ` (k = ${it.k})` : ''} and their average CIELAB colour is used:
-      ${it ? `L* = ${n1(it.meanL)}, b* = ${n1(it.meanB)}.<br>
-      <code>ITA = arctan((L* − 50) / b*) × 180/π = arctan((${n1(it.meanL)} − 50) / ${n1(it.meanB)}) × 180/π = ${n1(data.ita)}°</code><br>
-      ${data.fitzpatrick}; ${data.bracket} bracket.` : 'skin could not be isolated, so no ITA was computed.'}</li>`);
-  steps.push(`
-    <li><b>Enhancement.</b> ${data.bracket ? `${data.bracket} skin → CLAHE clip limit β = ${data.beta}` : `No ITA → fallback β = ${data.beta}`}
-      (calibrated on the training images: Darkest 5.0, Medium 3.5, Lightest 1.0), applied to the L* (lightness) channel only.</li>`);
-  const dets = data.detections;
-  steps.push(`
-    <li><b>Detection.</b> Model D found ${dets.length} lesion(s) with confidence ≥ 25%${dets.length ? ':' : '.'}
-      ${dets.length ? `<table class="calc-table"><tr><th>#</th><th>Disease</th><th>Confidence</th></tr>
-        ${dets.slice(0, 6).map((d, i) => `<tr><td>${i + 1}</td><td>${PATIENT_NAMES[d.label] || d.label}</td><td>${(d.confidence * 100).toFixed(1)}%</td></tr>`).join('')}
-        </table>` : ''}</li>`);
-  const cs = data.classScores || [];
-  const split = cs.length ? clusterSplit(cs, data.topLabel) : null;
-  if (split) {
-    const others = CLUSTERS.find(c => c !== split.cluster);
-    steps.push(`
-      <li><b>Scores within the cluster.</b> ${PATIENT_NAMES[data.topLabel] || data.topLabel} belongs to the
-        <b>${split.cluster.name}</b> cluster. The model gives each disease a raw score z, turned into
-        <code>p = 1 / (1 + e^−z)</code>; the split is <code>p ÷ Σp</code> over the four diseases of this cluster
-        (Σp = ${split.total.toFixed(3)}).
-        <table class="calc-table"><tr><th>Disease</th><th>z</th><th>p</th><th>Split</th></tr>
-        ${split.rows.map(c => `<tr><td>${PATIENT_NAMES[c.label] || c.label}</td><td>${c.logit === null ? '—' : c.logit.toFixed(2)}</td><td>${c.score.toFixed(3)}</td><td>${c.value.toFixed(1)}%</td></tr>`).join('')}
-        </table>
-        Example: ${PATIENT_NAMES[split.rows[0].label] || split.rows[0].label} = ${split.rows[0].score.toFixed(3)} ÷ ${split.total.toFixed(3)} = ${split.rows[0].value.toFixed(1)}%.
-        The ${others.name} diseases are not part of this split.</li>`);
-  }
-  steps.push(`
-    <li><b>Decision.</b> "Most likely to be" = the disease with the highest total confidence over all boxes
-      (${data.topLabel ? PATIENT_NAMES[data.topLabel] || data.topLabel : 'none'}); the percentage beside it is its strongest box
-      (${data.confidence}%), i.e. the model's own score p for that lesion, so it is not 100% even when it is the only disease.
-      Detections below 25% are not shown.</li>`);
-  const m = data.lesionMeasures;
-  const measured = m ? `
-    <div class="patient-split-title" style="margin-top:10px;">Lesion features measured from your photo</div>
-    <table class="calc-table">
-      <tr><td>Lesions detected</td><td>${m.lesions}</td></tr>
-      <tr><td>Main lesion size</td><td>${m.box_px[0]} × ${m.box_px[1]} px (${m.area_percent}% of the photo)</td></tr>
-      <tr><td>Colour difference from nearby skin (ΔE)</td><td>${m.delta_e} ${m.delta_e >= 10 ? '(clearly visible)' : m.delta_e >= 5 ? '(visible)' : '(subtle)'}</td></tr>
-      <tr><td>Redness (Δa*)</td><td>${m.redder > 0 ? '+' : ''}${m.redder} ${m.redder > 3 ? '(redder than skin)' : ''}</td></tr>
-      <tr><td>Yellowness (Δb*)</td><td>${m.yellower > 0 ? '+' : ''}${m.yellower} ${m.yellower > 3 ? '(yellower, e.g. crust)' : ''}</td></tr>
-      <tr><td>Darkness (ΔL*)</td><td>${m.darker > 0 ? '+' : ''}${m.darker} ${m.darker > 3 ? '(darker than skin)' : m.darker < -3 ? '(lighter than skin)' : ''}</td></tr>
-      <tr><td>Surface roughness vs skin</td><td>${m.roughness_ratio}× ${m.roughness_ratio > 1.3 ? '(rougher / scaly or crusted)' : m.roughness_ratio < 0.8 ? '(smoother)' : '(similar)'}</td></tr>
-      <tr><td>Grad-CAM attention inside the detected boxes</td><td>${m.gradcam_in_box_percent}%</td></tr>
-    </table>
-    <p class="patient-split-note">Size, colour and roughness: main lesion box versus the skin around it (CIELAB colour, Laplacian texture).
-      These describe the lesion; the AI's decision comes from the model scores above, and Grad-CAM shows where it looked.</p>` : '';
-  return `
-    <details class="calc-details" open>
-      <summary>How the AI got this result</summary>
-      <ol class="calc-steps">${steps.join('')}</ol>
-      ${measured}
-    </details>`;
-}
-
+// Two morphological clusters of four diseases (paper: analytical groupings, not medical categories).
 const CLUSTERS = [
-  { name: 'Vesiculopapular / Eruptive', note: 'bumps and blisters',
-    classes: ['Varicella', 'HFMD', 'Molluscum', 'Impetigo'] },
-  { name: 'Papulosquamous / Verrucous', note: 'scaly patches and rough growths',
-    classes: ['Tinea corporis', 'Tinea versicolor', 'Warts', 'Tinea pedis'] },
+  { name: 'Vesiculopapular / Eruptive', classes: ['Varicella', 'HFMD', 'Molluscum', 'Impetigo'] },
+  { name: 'Papulosquamous / Verrucous', classes: ['Tinea corporis', 'Tinea versicolor', 'Warts', 'Tinea pedis'] },
 ];
-const PATIENT_NAMES = {
-  'Varicella': 'Bulutong (Chickenpox)', 'HFMD': 'Hand, Foot and Mouth Disease', 'Molluscum': 'Molluscum',
-  'Impetigo': 'Mamaso (Impetigo)', 'Tinea corporis': 'Buni (Ringworm)', 'Tinea versicolor': 'An-an (Tinea versicolor)',
-  'Warts': 'Kulugo (Warts)', 'Tinea pedis': "Alipunga (Athlete's foot)",
+
+// Pathogen categories from the paper's scope (four viral, three fungal, one bacterial).
+const CATEGORY = {
+  Molluscum: 'Viral', Varicella: 'Viral', HFMD: 'Viral', Warts: 'Viral',
+  'Tinea corporis': 'Fungal', 'Tinea versicolor': 'Fungal', 'Tinea pedis': 'Fungal',
+  Impetigo: 'Bacterial',
 };
 
-// Split inside the cluster of the predicted disease only: the four diseases of that
-// cluster, their model scores scaled to 100%.
-function clusterSplit(classScores, topLabel) {
-  const byLabel = Object.fromEntries(classScores.map(c => [c.label, c]));
-  const best = topLabel || ([...classScores].sort((a, b) => b.score - a.score)[0] || {}).label;
-  const cluster = CLUSTERS.find(c => c.classes.includes(best));
-  if (!cluster) return null;
-  const members = cluster.classes.map(label => byLabel[label] || { label, score: 0, logit: null });
-  const total = members.reduce((sum, c) => sum + c.score, 0);
-  if (!total) return null;
-  const rows = members.map(c => ({ ...c, value: Math.round((c.score / total) * 1000) / 10 }))
-    .sort((a, b) => b.value - a.value);
-  return { cluster, rows, total };
+const DISPLAY_NAME = {
+  Warts: 'Kulugo (Warts)', Molluscum: 'Molluscum contagiosum', Varicella: 'Bulutong-tubig (Chickenpox)',
+  HFMD: 'Hand, foot and mouth disease', 'Tinea versicolor': 'An-an (Tinea versicolor)',
+  'Tinea corporis': 'Buni (Ringworm)', 'Tinea pedis': "Alipunga (Athlete's foot)", Impetigo: 'Mamaso (Impetigo)',
+};
+
+// The four configurations of SOP 1 and SOP 2.
+const CONFIGS = {
+  A: { short: 'Baseline', text: 'Baseline YOLOv26, raw images' },
+  B: { short: 'Fixed L*-CLAHE', text: 'Fixed-parameter L*-CLAHE, clip limit 2.0' },
+  C: { short: 'Focal Loss', text: 'Focal Loss optimization, raw images' },
+  D: { short: 'Proposed', text: 'ITA-guided adaptive L*-CLAHE + two-stage decoupled training + Focal Loss' },
+};
+
+// ITA brackets of the Phase 0 calibration and the SOP 3 skin-type groups (ITA proxy).
+const BRACKET_RULE = 'Darkest: ITA < 28° · Medium: 28° ≤ ITA ≤ 41° · Lightest: ITA > 41°';
+const BRACKET_EDGES = [28, 41];
+
+// ------------------------------------------------------------------ state
+
+const State = {
+  user: null,
+  tab: 'home',
+  current: null,        // { source, name, result, at }
+  history: [],
+  compare: null,        // runCompare result for the current photo
+  consistency: null,
+  deviceRuntime: null,
+  sessionTimings: [],
+  benchModel: 'D',
+  gradcamExample: 0,
+  split: 50,
+  showBoxes: true,
+};
+let BENCH = null;
+let GRADCAM = null;
+
+// ------------------------------------------------------------------ helpers
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pct = (x, d = 1) => `${(x * 100).toFixed(d)}%`;
+// Scores: small values keep two significant decimals instead of rounding to 0.0%.
+const pctS = x => (x >= 0.01 ? pct(x) : x >= 0.0001 ? `${(x * 100).toFixed(2)}%` : '< 0.01%');
+const num = (x, d = 3) => (x === null || x === undefined || Number.isNaN(x) ? '—' : Number(x).toFixed(d));
+const ms = x => `${Math.round(x)} ms`;
+const pText = p => (p < 0.001 ? 'p < 0.001' : `p = ${p.toFixed(3)}`);
+const clusterOf = label => CLUSTERS.find(c => c.classes.includes(label));
+const logit = p => { const q = Math.min(Math.max(p, 1e-12), 1 - 1e-12); return Math.log(q / (1 - q)); };
+// Sigmoid values: 4 decimals, or 3 significant digits when very small.
+const sig = p => (p >= 0.0001 ? p.toFixed(4) : p.toExponential(2));
+const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
+const sd = xs => (xs.length > 1 ? Math.sqrt(xs.reduce((a, b) => a + (b - mean(xs)) ** 2, 0) / (xs.length - 1)) : 0);
+const isClinician = () => State.user?.role === 'clinician';
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
-function renderClusterSplit(classScores, topLabel) {
-  const split = clusterSplit(classScores, topLabel);
-  if (!split) return '';
-  const { cluster, rows } = split;
-  const lookAlike = rows.length > 1 && rows[1].value >= 10;
-  return `
-    <div class="patient-split-title">Disease split within the cluster</div>
-    <div class="cluster-block">
-      <div class="cluster-head"><span>${cluster.name}<small>${cluster.note}</small></span></div>
-      ${rows.map(r => `
-        <div class="profiler-item">
-          <div class="profiler-label-row"><span>${PATIENT_NAMES[r.label] || r.label}</span><span class="text-mono">${r.value.toFixed(1)}%</span></div>
-          <div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${r.value}%"></div></div>
-        </div>`).join('')}
-    </div>
-    ${lookAlike ? `<p class="cluster-warning">${PATIENT_NAMES[rows[1].label] || rows[1].label} is a look-alike in the same cluster. Confirm with a dermatologist.</p>` : ''}
-    <p class="patient-split-note">The AI's scores for the four diseases of this cluster, scaled to 100%; not a medical probability.</p>`;
-}
+// ------------------------------------------------------------------ progress dialog
 
-// Home "Recent Analysis": the latest photo analysed on this device.
-function renderRecentAnalysis(data) {
-  const el = document.getElementById('mob-recent-analysis');
-  if (!el) return;
-  if (!data) {
-    el.innerHTML = '<p class="evaluation-note">No analysis yet. Upload or take a photo to start.</p>';
+// Modal shown while the models run. Steps are driven by the real progress events of
+// ondevice.js; each finished step shows its measured time.
+const Progress = (() => {
+  let job = null;
+  let lastFocus = null;
+
+  const el = {
+    root: () => $('progress-dialog'), steps: () => $('progress-steps'), title: () => $('progress-title'),
+    sub: () => $('progress-sub'), photo: () => $('progress-photo'), message: () => $('progress-message'),
+    cancel: () => $('progress-cancel'), primary: () => $('progress-primary'),
+  };
+
+  function render() {
+    if (!job) return;
+    const done = job.steps.filter(s => s.state === 'done').length;
+    if (!job.steps.length) { el.steps().innerHTML = ''; el.sub().textContent = ''; return; }
+    el.steps().innerHTML = job.steps.map(s => `
+      <li class="step ${s.state}">
+        <span class="step-icon" aria-hidden="true"></span>
+        <span class="step-label">${esc(s.label)}${s.hint && s.state === 'active' ? `<small>${esc(s.hint)}</small>` : ''}</span>
+        <span class="step-time">${s.state === 'done' && s.ms !== undefined ? ms(s.ms) : s.state === 'active' ? 'running' : ''}</span>
+      </li>`).join('') + `
+      <li class="step-count" aria-hidden="true"><span style="width:${(100 * done / job.steps.length).toFixed(0)}%"></span></li>`;
+    el.sub().textContent = job.finished ? job.sub : `${done} of ${job.steps.length} steps done${job.sub ? ` · ${job.sub}` : ''}`;
+  }
+
+  function trapFocus(e) {
+    if (!job) return;
+    if (e.key === 'Escape') { e.preventDefault(); (job.finished ? close : cancel)(); return; }
+    if (e.key !== 'Tab') return;
+    const buttons = [el.cancel(), el.primary()].filter(b => !b.hidden);
+    if (!buttons.length) return;
+    const i = buttons.indexOf(document.activeElement);
+    e.preventDefault();
+    buttons[(i + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus();
+  }
+
+  function open({ title, sub = '', photo = null, steps }) {
+    lastFocus = document.activeElement;
+    job = { steps: steps.map(s => ({ ...s, state: 'pending' })), sub, cancelled: false, finished: false };
+    el.title().textContent = title;
+    el.photo().src = photo || '';
+    el.root().querySelector('.dialog-photo').hidden = !photo;
+    el.root().classList.remove('finished', 'failed', 'warn');
+    el.message().hidden = true;
+    el.cancel().hidden = false;
+    el.cancel().textContent = 'Cancel';
+    el.cancel().onclick = cancel;
+    el.primary().hidden = true;
+    el.root().hidden = false;
+    document.addEventListener('keydown', trapFocus);
+    render();
+    el.cancel().focus();
+    return job;
+  }
+
+  function update(id, state, time) {
+    if (!job) return;
+    const s = job.steps.find(x => x.id === id);
+    if (!s) return;
+    s.state = state;
+    if (time !== undefined) s.ms = time;
+    render();
+  }
+
+  function finish({ title, message, primaryLabel = 'OK', onPrimary = null, failed = false, tone = 'ok' }) {
+    if (!job) return;
+    job.finished = true;
+    job.steps.forEach(s => { if (s.state === 'active') s.state = failed ? 'error' : 'done'; });
+    const total = job.steps.reduce((a, s) => a + (s.ms || 0), 0);
+    job.sub = failed ? '' : `Finished in ${ms(total)} on this device`;
+    el.root().classList.add(failed ? 'failed' : 'finished');
+    el.root().classList.toggle('warn', tone === 'warn');
+    if (title) el.title().textContent = title;
+    el.message().innerHTML = message;
+    el.message().hidden = !message;
+    el.cancel().hidden = true;
+    el.primary().hidden = false;
+    el.primary().textContent = primaryLabel;
+    el.primary().onclick = () => { close(); if (onPrimary) onPrimary(); };
+    render();
+    el.primary().focus();
+  }
+
+  function cancel() {
+    if (job) job.cancelled = true;
+    close();
+  }
+
+  function close() {
+    el.root().hidden = true;
+    document.removeEventListener('keydown', trapFocus);
+    job = null;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  return { open, update, finish, close };
+})();
+
+const ANALYSIS_STEPS = [
+  { id: 'load', label: 'Loading the model and photo', hint: 'The first analysis also loads the model.' },
+  { id: 'ita', label: 'Skin mask and ITA (Phase 0)' },
+  { id: 'clahe', label: 'L*-CLAHE enhancement' },
+  { id: 'detect', label: 'Detecting lesions (YOLOv26, Model D)' },
+  { id: 'gradcam', label: 'Grad-CAM' },
+  { id: 'features', label: 'Measuring lesion features' },
+];
+
+// ------------------------------------------------------------------ analysis
+
+async function analyzePhoto(source, name) {
+  const job = Progress.open({ title: 'Analyzing on device', photo: source, steps: ANALYSIS_STEPS });
+  let result;
+  try {
+    result = await OnDevice.runDetect(source, { onStep: (id, state, t) => { if (!job.cancelled) Progress.update(id, state, t); } });
+  } catch (err) {
+    if (!job.cancelled) {
+      Progress.finish({ title: 'Analysis failed', failed: true,
+        message: `<p>${esc(err.message || err)}</p><p>Try another photo, or take it again in natural light.</p>` });
+    }
     return;
   }
-  el.innerHTML = `
-    <div class="preset-card active" onclick="switchMobileTab('patient')">
-      <img src="${data.thumb}" class="preset-thumb" alt="Latest analysis">
-      <div class="preset-info">
-        <div class="preset-name">${data.name}</div>
-        <div class="preset-sub">Latest analysis on this device</div>
-      </div>
-      <span class="preset-score" style="font-size:0.68rem; padding:3px 8px; border-radius:6px;">${data.confidence ? `${data.confidence}% Confidence` : 'No detection'}</span>
-    </div>`;
+  if (job.cancelled) return;
+
+  State.current = { source, name, result, at: new Date() };
+  State.compare = null;
+  State.consistency = null;
+  State.history.unshift(State.current);
+  State.history = State.history.slice(0, 6);
+  State.sessionTimings.push(result.timings);
+  renderAll();
+
+  const top = result.detections[0];
+  const message = top
+    ? `<p>Top prediction: <b>${esc(DISPLAY_NAME[top.label])}</b>, model confidence ${pct(top.confidence)}.</p>
+       <p>${result.detections.length} lesion box(es) at or above the ${pct(result.settings.confidence, 0)} cutoff.</p>`
+    : `<p><b>No lesion reached the ${pct(result.settings.confidence, 0)} confidence cutoff.</b></p>
+       ${result.below_cutoff ? `<p>Strongest candidate below the cutoff: ${esc(DISPLAY_NAME[result.below_cutoff.label])}, ${pct(result.below_cutoff.confidence)} (not counted).</p>` : ''}
+       <p>Retake the photo closer to the lesion, in focus and in natural light.</p>`;
+  Progress.finish({ title: top ? 'Analysis complete' : 'No lesion detected', message, tone: top ? 'ok' : 'warn',
+    primaryLabel: 'View result', onPrimary: () => switchTab('results') });
 }
 
-// Busy overlay while the on-device models run.
-function setAnalyzingOverlay(text) {
-  let el = document.getElementById('ondevice-busy');
-  if (!text) {
-    if (el) el.remove();
-    return;
-  }
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'ondevice-busy';
-    el.className = 'ondevice-busy';
-    document.body.appendChild(el);
-  }
-  el.textContent = text;
-}
-
-function handleFileUpload(file) {
+async function handleFile(file) {
   if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    processCustomImage(e.target.result);
-  };
-  reader.readAsDataURL(file);
+  const source = await readFileAsDataUrl(file);
+  analyzePhoto(source, file.name || 'Photo');
 }
 
-async function processCustomImage(dataUrl) {
-  AppState.isAnalyzing = true;
-  AppState.customImage = dataUrl;
-  setAnalyzingOverlay('Analyzing on device… (first run loads the model)');
+function openFilePicker() { $('file-input').click(); }
+function openCamera() { $('camera-input').click(); }
 
-  let result;
+// ------------------------------------------------------------------ navigation
+
+const TAB_ALIASES = { patient: 'results', panel: 'benchmark', xai: 'research' };
+const CLINICIAN_TABS = ['benchmark', 'research'];
+
+function switchTab(tab) {
+  tab = TAB_ALIASES[tab] || tab;
+  if (!['home', 'workspace', 'results', 'benchmark', 'research'].includes(tab)) tab = 'home';
+  if (CLINICIAN_TABS.includes(tab) && !isClinician()) tab = 'results';
+  State.tab = tab;
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === `tab-${tab}`));
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    const active = b.dataset.tab === tab;
+    b.classList.toggle('active', active);
+    if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  $('app-content').scrollTop = 0;
+  window.scrollTo(0, 0);
+  if (tab === 'workspace') renderWorkspace();
+}
+
+function toggleDrawer(open) { $('drawer').hidden = !open; }
+
+// ------------------------------------------------------------------ users
+
+function initUser() {
   try {
-    result = await OnDevice.runDetect(dataUrl);
+    const saved = localStorage.getItem('identi_skin_user');
+    if (saved) State.user = { ...JSON.parse(saved), isLoggedIn: true };
   } catch (err) {
-    AppState.isAnalyzing = false;
-    setAnalyzingOverlay(null);
-    alert(`On-device analysis failed: ${err.message}`);
-    return;
+    State.user = null;
   }
-
-  AppState.customImageData = buildDetectionData(result, dataUrl);
-  AppState.isAnalyzing = false;
-  setAnalyzingOverlay(null);
-  renderWorkspace('main-workspace', 'custom');
-  renderWorkspace('sim-workspace', 'custom');
-  updateTelemetryUI(AppState.customImageData);  updateMobileView();
-  renderGradientsGrid('mob-tensor-grid', 'mob-tensor-inspector');
-  renderGradientsGrid('desktop-tensor-grid', 'desktop-tensor-inspector');
+  if (!State.user) State.user = { isLoggedIn: false, name: 'Guest', role: 'patient' };
+  const clinician = isClinician();
+  document.body.classList.toggle('role-patient', !clinician);
+  document.body.classList.toggle('role-clinician', clinician);
+  const initials = (State.user.name || 'G').replace(/^Dr\.\s*/, '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  $('user-avatar').textContent = initials;
+  $('user-name').textContent = State.user.name;
+  $('user-role').textContent = clinician ? 'Clinician / researcher view' : 'Patient view';
+  $('auth-btn').textContent = State.user.isLoggedIn ? 'Sign out' : 'Sign in';
 }
 
-// Local names, category and typical (textbook) lesion features per class.
-// These describe the disease in general; they are not measured from the photo.
-const CLASS_INFO = {
-  'Warts': {
-    local: 'Kulugo', category: 'Viral Infection', badge: 'viral',
-    texture: 'Rough, raised, cauliflower-like surface; tiny black dots (clotted capillaries)',
-    crust: 'Usually none; thickened keratin instead',
-    boundary: 'Well-circumscribed papules or plaques',
-    key: 'No central dimple, unlike Molluscum'
-  },
-  'Molluscum': {
-    local: 'Molluscum', category: 'Viral Infection', badge: 'viral',
-    texture: 'Smooth, firm, pearly dome-shaped papules',
-    crust: 'None',
-    boundary: 'Discrete papules, often in clusters',
-    key: 'Central dimple (umbilication), unlike Warts'
-  },
-  'Varicella': {
-    local: 'Bulutong', category: 'Viral Infection', badge: 'viral',
-    texture: 'Clear vesicles on a red base ("dewdrop on a rose petal")',
-    crust: 'Vesicles dry into crusts; lesions at different stages',
-    boundary: 'Scattered, widespread, mainly trunk',
-    key: 'Mixed stages over the body, unlike HFMD'
-  },
-  'HFMD': {
-    local: 'HFMD', category: 'Viral Infection', badge: 'viral',
-    texture: 'Small oval vesicles or papules with a red halo',
-    crust: 'Rarely crusts',
-    boundary: 'Palms, soles and mouth',
-    key: 'Hand, foot and mouth distribution, unlike Varicella'
-  },
-  'Tinea versicolor': {
-    local: 'An-an', category: 'Fungal Infection', badge: 'fungal',
-    texture: 'Fine, powdery scale on flat patches',
-    crust: 'None',
-    boundary: 'Lighter or darker patches that merge, mainly trunk',
-    key: 'Flat patches without a raised ring, unlike Buni'
-  },
-  'Tinea corporis': {
-    local: 'Buni', category: 'Fungal Infection', badge: 'fungal',
-    texture: 'Scaly, red ring-shaped plaque',
-    crust: 'Scale rather than crust',
-    boundary: 'Raised active edge with central clearing',
-    key: 'Ring with a clear centre, unlike Mamaso'
-  },
-  'Tinea pedis': {
-    local: 'Alipunga', category: 'Fungal Infection', badge: 'fungal',
-    texture: 'Scaling, peeling and white softened skin',
-    crust: 'None; cracks (fissures) may appear',
-    boundary: 'Between the toes or along the sole',
-    key: 'Location on the feet, between the toes'
-  },
-  'Impetigo': {
-    local: 'Mamaso', category: 'Bacterial Infection', badge: 'bacterial',
-    texture: 'Red erosions and small blisters',
-    crust: 'Honey-coloured crusts',
-    boundary: 'Irregular, spreading, often around nose and mouth',
-    key: 'Honey-coloured crust, unlike Buni'
+function authAction() {
+  if (State.user?.isLoggedIn) {
+    try { localStorage.removeItem('identi_skin_user'); } catch (err) { /* storage unavailable */ }
   }
+  window.location.href = 'login.html';
+}
+
+// ------------------------------------------------------------------ rendering: home
+
+function renderHome() {
+  $('recent-list').innerHTML = State.history.length ? State.history.map((h, i) => {
+    const top = h.result.detections[0];
+    return `
+      <button type="button" class="recent" onclick="openHistory(${i})">
+        <img src="${h.source}" alt="">
+        <span class="recent-text"><b>${top ? esc(DISPLAY_NAME[top.label]) : 'No lesion detected'}</b>
+          <small>${top ? `Model confidence ${pct(top.confidence)}` : 'No box at or above the cutoff'} · ${h.at.toLocaleTimeString()}</small></span>
+      </button>`;
+  }).join('') : '<p class="note">No analysis yet in this session.</p>';
+
+  const box = $('home-benchmark');
+  if (!BENCH) { box.innerHTML = ''; return; }
+  const d = BENCH.models.find(m => m.id === 'D');
+  const a = BENCH.models.find(m => m.id === 'A');
+  box.innerHTML = `
+    <div class="card-head"><h2>Benchmark summary</h2><span class="tag">${BENCH.testImages} test images</span></div>
+    <p>Model D (proposed) on the held-out test set: mAP@50 <b>${d.map50.toFixed(1)}%</b>, F1 <b>${d.f1.toFixed(3)}</b>,
+      within-cluster errors (eruptive) <b>${d.withinEruptive.toFixed(1)}%</b>. Baseline (Model A): mAP@50 ${a.map50.toFixed(1)}%, F1 ${a.f1.toFixed(3)}.</p>
+    <p class="note">${isClinician() ? 'Full results, computations and p-values: Benchmark tab.' : 'Full results are in the clinician Benchmark view.'}</p>`;
+}
+
+function openHistory(i) {
+  State.current = State.history[i];
+  State.compare = null;
+  State.consistency = null;
+  renderAll();
+  switchTab('results');
+}
+
+// ------------------------------------------------------------------ rendering: workspace
+
+function renderWorkspace() {
+  const cur = State.current;
+  $('workspace-empty').hidden = Boolean(cur);
+  $('workspace-body').hidden = !cur;
+  renderCompareKeys();
+  renderCompare();
+  if (!cur) return;
+  const r = cur.result;
+  const W = r.image.width, H = r.image.height;
+  const viewer = $('viewer');
+  viewer.style.aspectRatio = `${W} / ${H}`;
+  viewer.style.width = `min(100%, calc(62vh * ${(W / H).toFixed(4)}))`;  // keep the photo's shape under the height limit
+  $('viewer-original').src = cur.source;
+  $('viewer-enhanced').src = r.enhanced_image;
+  setSplit(State.split);
+
+  const svg = $('viewer-boxes');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const font = Math.max(10, Math.round(Math.max(W, H) / 45));
+  svg.innerHTML = State.showBoxes ? r.detections.map((d, i) => {
+    const [x1, y1, x2, y2] = [d.box[0] * W, d.box[1] * H, d.box[2] * W, d.box[3] * H];
+    const label = `${i + 1}. ${d.label} ${pct(d.confidence)}`;
+    return `<g class="det${i === 0 ? ' top' : ''}">
+      <rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" stroke-width="${font / 5}"></rect>
+      <rect class="det-tag" x="${x1}" y="${Math.max(0, y1 - font * 1.4)}" width="${label.length * font * 0.58 + font * 0.6}" height="${font * 1.4}"></rect>
+      <text x="${x1 + font * 0.3}" y="${Math.max(0, y1 - font * 1.4) + font * 1.05}" font-size="${font}">${esc(label)}</text>
+    </g>`;
+  }).join('') : '';
+
+  $('workspace-boxes').innerHTML = r.detections.length ? `
+    <table class="data-table">
+      <thead><tr><th>#</th><th>Disease (box label)</th><th>Model confidence</th><th>Box (x1, y1, x2, y2) px</th></tr></thead>
+      <tbody>${r.detections.map((d, i) => `<tr><td>${i + 1}</td><td>${esc(d.label)}</td><td>${pct(d.confidence)}</td><td class="mono">${d.box_px.join(', ')}</td></tr>`).join('')}</tbody>
+    </table>
+    <p class="note">Boxes with confidence ≥ ${pct(r.settings.confidence, 0)} after per-class non-maximum suppression (IoU ${r.settings.nms_iou}).
+      Pixel coordinates of the analysed image (${W} × ${H}).</p>`
+    : `<p class="note">No box reached the ${pct(r.settings.confidence, 0)} cutoff.${r.below_cutoff ? ` Strongest candidate below it: ${esc(r.below_cutoff.label)} ${pct(r.below_cutoff.confidence)} (not counted).` : ''}</p>`;
+}
+
+function setSplit(p) {
+  State.split = p;
+  $('viewer-enhanced').style.clipPath = `inset(0 0 0 ${p}%)`;
+  $('viewer-split').style.left = `${p}%`;
+}
+
+function renderCompareKeys() {
+  $('compare-keys').innerHTML = Object.entries(CONFIGS).map(([id, c]) => `
+    <div class="model-key${id === 'D' ? ' proposed' : ''}"><b>${id}</b><span>${esc(c.text)}</span></div>`).join('');
+}
+
+const BETA_TEXT = (model, cmp) => {
+  if (model.preprocessing === 'raw') return 'Raw photo (no enhancement)';
+  if (model.preprocessing === 'l_clahe_fixed') return `L*-CLAHE, fixed clip limit β = ${model.beta}`;
+  return `L*-CLAHE, ITA-guided clip limit β = ${model.beta}${cmp.ita === null ? ' (no ITA: Medium fallback)' : ` (${cmp.bracket} bracket)`}`;
 };
 
-function buildDetectionData(result, dataUrl) {
-  const toBox = d => ({
-    label: d.label,
-    confidence: Math.round(d.confidence * 1000) / 10,
-    xmin: Math.round(d.box[0] * 600),
-    ymin: Math.round(d.box[1] * 600),
-    xmax: Math.round(d.box[2] * 600),
-    ymax: Math.round(d.box[3] * 600),
-  });
-  const boxes = result.detections.map(toBox);
-  const top = boxes.find(b => b.label === result.top_label);
-  const ita = result.ita === null ? null : Math.round(result.ita * 10) / 10;
-  const fitz = ita === null ? null : itaToFitzpatrick(ita);
-
-  // Per-class share of the summed detection confidence.
-  const totals = {};
-  result.detections.forEach(d => { totals[d.label] = (totals[d.label] || 0) + d.confidence; });
-  const grand = Object.values(totals).reduce((a, b) => a + b, 0);
-  const ranked = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  const share = v => Math.round((v / grand) * 1000) / 10;
-
-  const insights = [
-    ita === null
-      ? `Skin mask failed (${result.mask_status}); ITA-agnostic clip limit β=${result.beta} applied.`
-      : `ITA ${ita}° (${result.bracket} bracket) → L*-CLAHE clip limit β=${result.beta}.`,
-    boxes.length
-      ? `YOLOv26 (${result.weights}) found ${boxes.length} lesion region(s); top: ${result.top_label} ${top.confidence}%.`
-      : `YOLOv26 (${result.weights}) found no lesion above the confidence threshold.`,
-  ];
-
-  const info = CLASS_INFO[result.top_label];
-  const name = !info ? 'No lesion detected'
-    : info.local === result.top_label ? result.top_label : `${info.local} (${result.top_label})`;
-
-  return {
-    id: 'custom',
-    name,
-    localName: info ? info.local : '—',
-    category: info ? info.category : 'No detection',
-    tag: info ? info.badge : 'fungal',
-    badgeClass: info ? info.badge : 'fungal',
-    confidence: top ? top.confidence : 0,
-    ita: ita === null ? '—' : ita,
-    clipLimit: result.beta,
-    fitzpatrick: fitz ? `Fitzpatrick ${fitz.type} (${fitz.desc})` : 'Not available',
-    contrastGain: `β=${result.beta}`,
-    image: dataUrl,
-    thumb: dataUrl,
-    enhancedImage: result.enhanced_image,
-    boxedImage: result.boxed_image,
-    gradcamImage: result.gradcam_image,
-    gradcamHeatmap: result.gradcam_heatmap,
-    gradcamTargets: result.gradcam_targets || [],
-    classScores: result.class_scores || [],
-    lesionMeasures: result.lesion_measures,
-    lesionCrops: result.lesion_crops || [],
-    itaInputs: result.ita_inputs,
-    detections: result.detections || [],
-    topLabel: result.top_label,
-    beta: result.beta,
-    bracket: result.bracket,
-    boxes,
-    bbox: top ? { xmin: top.xmin, ymin: top.ymin, xmax: top.xmax, ymax: top.ymax } : { xmin: 0, ymin: 0, xmax: 0, ymax: 0 },
-    // Typical features of the detected disease (reference, not measured from the photo).
-    morphologicalFeatures: info ? {
-      texture: info.texture,
-      crust: info.crust,
-      boundary: info.boundary,
-      differential: info.key
-    } : { texture: '—', crust: '—', boundary: '—', differential: 'No lesion detected' },
-    insights,
-    overlapProfile: ranked.slice(0, 3).map(([name, v]) => ({ name, value: share(v) })),
-    // Test-set metrics belong to the trained model, not to one photo.
-    metrics: {
-      precision: '—', recall: '—', f1: '—', map50: '—', map50_95: '—',
-      latency: '—', gflops: '—', attribution: '—'
-    },
-    differential: ranked.slice(0, 3).map(([name, v]) => ({ name, prob: `${share(v)}%` }))
-  };
-}
-
-function openCameraCapture() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.capture = 'environment';
-  input.onchange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileUpload(e.target.files[0]);
-    }
-  };
-  input.click();
-}
-
-function switchViewMode(mode) {
-  AppState.activeViewMode = mode;
-
-  document.querySelectorAll('.view-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
-
-  document.getElementById('view-desktop-workstation')?.classList.toggle('hidden', mode !== 'workstation');
-  document.getElementById('view-mobile-simulator')?.classList.toggle('hidden', mode !== 'simulator');
-  document.getElementById('view-poster-overview')?.classList.toggle('hidden', mode !== 'poster');
-  document.getElementById('view-architecture')?.classList.toggle('hidden', mode !== 'architecture');
-
-  if (mode === 'workstation') {
-    renderWorkspace('main-workspace', AppState.currentPreset);
-    renderGradientsGrid('desktop-tensor-grid', 'desktop-tensor-inspector', AppState.currentPreset);
-  } else if (mode === 'simulator') {
-    renderSimulatorPage(AppState.simulatorPage);
-  } else if (mode === 'poster') {
-    renderPosterView();
-  }
-}
-
-
-function handleHashChange() {
-  const hash = window.location.hash.replace('#', '').toLowerCase();
-  if (['home', 'workspace', 'patient', 'panel', 'xai'].includes(hash)) {
-    if (window.innerWidth <= 768) {
-      switchMobileTab(hash);
-    } else {
-      if (hash === 'home' || hash === 'workspace') switchViewMode('workstation');
-      else if (hash === 'patient') { switchViewMode('workstation'); document.querySelector('.output-tab-btn[data-tab="patient"]')?.click(); }
-      else if (hash === 'panel' || hash === 'xai') { switchViewMode('workstation'); document.querySelector('.output-tab-btn[data-tab="clinician"]')?.click(); }
-    }
-  } else if (['workstation', 'simulator', 'poster', 'architecture'].includes(hash)) {
-    switchViewMode(hash);
-  } else if (hash.startsWith('page-')) {
-    const pageNum = parseInt(hash.replace('page-', ''), 10);
-    if (pageNum >= 1 && pageNum <= 9) {
-      switchViewMode('simulator');
-      setSimulatorPage(pageNum);
-    }
-  }
-}
-
-window.addEventListener('hashchange', handleHashChange);
-
-document.addEventListener('DOMContentLoaded', () => {
-  selectPreset('buni');
-  switchViewMode('workstation');
-  if (window.location.hash) handleHashChange();
-
-  const dropzone = document.getElementById('main-dropzone');
-  if (dropzone) {
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('dragover');
-    });
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handleFileUpload(e.dataTransfer.files[0]);
-      }
-    });
-  }
-
-  const fileInput = document.getElementById('main-file-input');
-  if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleFileUpload(e.target.files[0]);
-      }
-    });
-  }
-
-  const splitInput = document.getElementById('main-split-slider');
-  if (splitInput) {
-    splitInput.addEventListener('input', (e) => {
-      AppState.comparisonSplit = parseInt(e.target.value, 10);
-      updateSplitPosition('main-workspace', AppState.comparisonSplit);
-    });
-  }
-
-  const opacityInput = document.getElementById('main-opacity-slider');
-  if (opacityInput) {
-    opacityInput.addEventListener('input', (e) => {
-      AppState.heatmapOpacity = parseInt(e.target.value, 10);
-      const valEl = document.getElementById('opacity-val-display');
-      if (valEl) valEl.textContent = `${AppState.heatmapOpacity}%`;
-      const heatmap = document.getElementById('main-workspace-canvas-heatmap');
-      if (heatmap) heatmap.style.opacity = (AppState.heatmapOpacity / 100).toString();
-    });
-  }
-
-  document.querySelectorAll('.output-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.tab;
-      AppState.outputTab = tab;
-      document.querySelectorAll('.output-tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      document.getElementById('tab-content-patient')?.classList.toggle('hidden', tab !== 'patient');
-      document.getElementById('tab-content-clinician')?.classList.toggle('hidden', tab !== 'clinician');
-    });
-  });
-
-  console.log('IDENTI-SKIN Clinical Application Initialized.');
-});
-
-
-// ==========================================================================
-// 12. DEDICATED FULL-SCREEN NATIVE MOBILE APP LOGIC (< 768px)
-// ==========================================================================
-// Patients see Home, Workspace and Patient; Panel and XAI are for clinicians/researchers.
-const CLINICIAN_ONLY_TABS = ['panel', 'xai'];
-
-function isPatientUser() {
-  return AppState.currentUser?.role === 'patient';
-}
-
-function switchMobileTab(tabName) {
-  if (isPatientUser() && CLINICIAN_ONLY_TABS.includes(tabName)) tabName = 'patient';
-  // Update tab pane active states
-  const panes = ['home', 'workspace', 'patient', 'panel', 'xai'];
-  panes.forEach(name => {
-    const pane = document.getElementById(`mob-tab-${name}`);
-    if (pane) pane.classList.toggle('active', name === tabName);
-  });
-
-  // Update bottom navigation buttons active states
-  document.querySelectorAll('.mob-nav-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mobtab === tabName);
-  });
-
-  // Scroll to top of content
-  const content = document.querySelector('.mobile-native-content');
-  if (content) content.scrollTop = 0;
-
-  // Render workspace if active
-  if (tabName === 'workspace') {
-    setTimeout(() => {
-      renderWorkspace('mobile-canvas-container', AppState.currentPreset, AppState.comparisonSplit, AppState.heatmapOpacity);
-    }, 50);
-  } else if (tabName === 'xai') {
-    setTimeout(() => {
-      renderGradientsGrid('mob-tensor-grid', 'mob-tensor-inspector', AppState.currentPreset);
-    }, 50);
-  } else if (tabName === 'patient' || tabName === 'panel') {
-    updateMobileView();
-  }
-}
-
-function switchPanelView(viewName) {
-  const views = ['run', 'benchmark'];
-  views.forEach(name => {
-    document.getElementById(`mob-panel-${name}`)?.classList.toggle('active', name === viewName);
-  });
-  document.querySelectorAll('.panel-view-btn').forEach(button => {
-    const active = button.dataset.panelView === viewName;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', String(active));
-  });
-}
-
-// Model selected in the Ablation Benchmark panel (tap a model card).
-let selectedBenchmarkModel = 'D';
-
-function selectBenchmarkModel(id) {
-  selectedBenchmarkModel = id;
-  renderSopBenchmark();
-}
-
-function metricRow(label, key, formatter) {
-  const cells = BENCHMARK_DATA.models.map(model => `<td class="${model.id === selectedBenchmarkModel ? 'best-cell' : ''}">${formatter(model[key])}</td>`).join('');
-  return `<tr><th scope="row">${label}</th>${cells}</tr>`;
-}
-
-function renderConfusionMatrix(model) {
-  const labels = BENCHMARK_DATA.classes;
-  const rows = BENCHMARK_DATA.confusion[model.id];
-  const maxValue = Math.max(1, ...rows.flat());
-  const header = labels.map(label => `<th scope="col">${label}</th>`).join('');
-  const body = rows.map((row, rowIndex) => `
-    <tr>
-      <th scope="row">${labels[rowIndex]}</th>
-      ${row.map((value, colIndex) => {
-        const strength = colIndex === rowIndex ? 0.2 + (value / maxValue) * 0.8 : Math.min(value / 8, 0.55);
-        const className = colIndex === rowIndex ? 'matrix-diagonal' : (value ? 'matrix-error' : '');
-        return `<td class="${className}" style="--cell-strength:${strength.toFixed(2)}">${value}</td>`;
-      }).join('')}
-    </tr>
-  `).join('');
-  const matched = rows.flat().reduce((a, b) => a + b, 0);
-  const correct = rows.reduce((sum, row, i) => sum + row[i], 0);
-  const wrongRate = matched ? (100 * (matched - correct) / matched) : 0;
-
-  return `
-    <article class="confusion-card selected-matrix">
-      <div class="confusion-card-title"><span>Model ${model.id}</span><strong>${model.short}</strong></div>
-      <div class="matrix-axis-label">Predicted class →</div>
-      <table class="confusion-matrix"><thead><tr><th>Actual ↓</th>${header}</tr></thead><tbody>${body}</tbody></table>
-      <div class="matrix-error-rate"><span>Wrong-class rate (matched boxes)</span><strong>${wrongRate.toFixed(1)}%</strong></div>
-    </article>
-  `;
-}
-
-function renderSopBenchmark() {
-  const key = document.getElementById('mob-model-key');
-  if (!key) return;
-  const tableHead = document.getElementById('mob-benchmark-head');
-  const tableBody = document.getElementById('mob-benchmark-body');
-  const carousel = document.getElementById('mob-confusion-carousel');
-  const legend = document.getElementById('mob-class-legend');
-  const groups = document.getElementById('mob-fairness-groups');
-  const finding = document.getElementById('mob-fairness-finding');
-  const subtitle = document.getElementById('mob-fairness-subtitle');
-  const note = document.getElementById('mob-evaluation-note');
-  const xai = document.getElementById('mob-xai-iou');
-
-  if (xai) renderXaiAudit(xai);
-
-  if (!benchmarkReady()) {
-    key.innerHTML = pendingNote();
-    [tableHead, tableBody, carousel, legend, groups, finding].forEach(el => { if (el) el.innerHTML = ''; });
-    if (note) note.textContent = 'Evaluation pending.';
-    return;
-  }
-
-  const selected = BENCHMARK_DATA.models.find(model => model.id === selectedBenchmarkModel) || BENCHMARK_DATA.models[BENCHMARK_DATA.models.length - 1];
-  selectedBenchmarkModel = selected.id;
-
-  key.innerHTML = BENCHMARK_DATA.models.map(model => `
-    <button type="button" class="model-key-item ${model.id === selected.id ? 'selected' : ''}" onclick="selectBenchmarkModel('${model.id}')" aria-pressed="${model.id === selected.id}">
-      <span>Model ${model.id}</span><strong>${model.name}</strong>
-    </button>
-  `).join('');
-
-  if (tableHead) {
-    tableHead.innerHTML = `<tr><th>Metric</th>${BENCHMARK_DATA.models.map(model => `<th class="${model.id === selected.id ? 'best-cell' : ''}">Model ${model.id}</th>`).join('')}</tr>`;
-  }
-  if (tableBody) {
-    tableBody.innerHTML = [
-      metricRow('mAP@50', 'map50', value => `${value.toFixed(1)}%`),
-      metricRow('mAP@50–95', 'map5095', value => `${value.toFixed(1)}%`),
-      metricRow('Precision', 'precision', value => `${value.toFixed(1)}%`),
-      metricRow('Recall', 'recall', value => `${value.toFixed(1)}%`),
-      metricRow('F1', 'f1', value => value.toFixed(3)),
-      metricRow('Within-cluster errors (eruptive)', 'withinEruptive', value => `${value.toFixed(1)}%`),
-      metricRow('Within-cluster errors (scaly)', 'withinScaly', value => `${value.toFixed(1)}%`)
-    ].join('');
-  }
-
-  if (carousel) carousel.innerHTML = renderConfusionMatrix(selected);
-
-  if (legend) {
-    legend.innerHTML = BENCHMARK_DATA.classes.map((code, index) => `<span><b>${code}</b> ${BENCHMARK_DATA.classLegend[index]}</span>`).join('');
-  }
-
-  // Skin-tone comparison: selected model vs the raw baseline (Model A).
-  const baseline = 'A';
-  const fairness = BENCHMARK_DATA.fairness.filter(group => group.scores[selected.id] !== undefined && group.scores[baseline] !== undefined);
-  if (subtitle) {
-    subtitle.textContent = selected.id === baseline
-      ? 'Model A is the raw baseline; select another model to compare'
-      : `Model ${selected.id} vs Model A (raw baseline), ${BENCHMARK_DATA.fairnessMetric || 'mAP@50–95'}`;
-  }
-  if (groups) {
-    groups.innerHTML = fairness.map(group => {
-      const score = group.scores[selected.id];
-      const base = group.scores[baseline];
-      const delta = score - base;
-      const sign = delta >= 0 ? '+' : '−';
-      const head = selected.id === baseline ? '' : `<em class="${delta < 0 ? 'negative' : ''}">${sign}${Math.abs(delta).toFixed(1)} pts</em>`;
-      const scores = selected.id === baseline
-        ? `<span>Model A <b>${base.toFixed(1)}%</b></span>`
-        : `<span>Model A <b>${base.toFixed(1)}%</b></span><span>Model ${selected.id} <b>${score.toFixed(1)}%</b></span>`;
-      return `
-        <article class="fairness-group-card">
-          <div class="fairness-group-head"><div><strong>${group.group}</strong><span>${group.range}</span></div>${head}</div>
-          <p>${group.images} test images · ${BENCHMARK_DATA.fairnessMetric || 'mAP@50–95'}</p>
-          <div class="fairness-score-row">${scores}</div>
-          <div class="delta-track"><span style="width:${Math.min(Math.max(delta, 0) * 5, 100)}%"></span></div>
-        </article>
-      `;
-    }).join('');
-  }
-
-  if (finding) {
-    if (selected.id === baseline || !fairness.length) {
-      finding.innerHTML = '';
-    } else {
-      const best = fairness.reduce((a, b) => (b.scores[selected.id] - b.scores[baseline] > a.scores[selected.id] - a.scores[baseline] ? b : a));
-      const bestDelta = best.scores[selected.id] - best.scores[baseline];
-      const test = BENCHMARK_DATA.fairnessTest;
-      const testText = selected.id === 'D' && test
-        ? ` Difference between groups: p = ${test.p.toFixed(3)} (${test.p < 0.05 ? 'significant' : 'not significant'}, Mann-Whitney U, r = ${test.r.toFixed(2)}); Fitzpatrick VI excluded (${test.excludedVI} images).`
-        : '';
-      finding.innerHTML = bestDelta > 0
-        ? `<strong>Skin-tone finding</strong><span>Largest Model ${selected.id} gain over Model A: <b>${best.group}</b> (+${bestDelta.toFixed(1)} pts, ${best.images} test images).${testText}</span>`
-        : `<strong>Skin-tone finding</strong><span>Model ${selected.id} did not outperform Model A in any skin-type group on this test set.${testText}</span>`;
-    }
-  }
-
-  if (note) note.textContent = `${BENCHMARK_DATA.note} Status: ${BENCHMARK_DATA.status}.`;
-}
-
-function renderDesktopAblationTable() {
-  const body = document.getElementById('ablation-table-body');
-  if (!body) return;
-  if (!benchmarkReady()) {
-    body.innerHTML = '<tr><td colspan="7">Results pending: models are still training.</td></tr>';
-    return;
-  }
-  body.innerHTML = BENCHMARK_DATA.models.map(model => {
-    const strong = value => (model.id === 'D' ? `<strong>${value}</strong>` : value);
+function renderCompare() {
+  const grid = $('compare-grid');
+  const status = $('compare-status');
+  const cmp = State.compare;
+  if (!State.current) { status.textContent = 'Analyse a photo first.'; grid.innerHTML = ''; return; }
+  if (!cmp) { status.textContent = ''; grid.innerHTML = ''; return; }
+  status.textContent = 'Single-photo comparison. The comparison on the 200 test images is in the Benchmark view.';
+  grid.innerHTML = cmp.models.map(m => {
+    const top = m.detections[0];
+    const verdict = top
+      ? `<b>${esc(top.label)}</b> · model confidence ${pct(top.confidence)} · ${m.boxes} box(es)`
+      : `No box ≥ ${pct(cmp.settings.confidence, 0)}${m.below_cutoff ? `; strongest below: ${esc(m.below_cutoff.label)} ${pct(m.below_cutoff.confidence)} (not counted)` : ''}`;
     return `
-      <tr class="${model.id === 'D' ? 'highlight-row' : ''}">
-        <td><strong>Model ${model.id}</strong> (${model.short})</td>
-        <td>${model.name}</td>
-        <td>${strong(`${model.map50.toFixed(1)}%`)}</td>
-        <td>${strong(`${model.map5095.toFixed(1)}%`)}</td>
-        <td>${strong(`${model.precision.toFixed(1)}%`)}</td>
-        <td>${strong(`${model.recall.toFixed(1)}%`)}</td>
-        <td>${strong(model.f1.toFixed(3))}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function renderReportTelemetry() {
-  const map50 = document.getElementById('report-map50');
-  if (!map50) return;
-  const d = BENCHMARK_DATA.models.find(model => model.id === 'D');
-  map50.textContent = benchmarkReady() && d ? `${d.map50.toFixed(1)}%` : 'Pending';
-  const gradcam = document.getElementById('report-gradcam');
-  if (gradcam) gradcam.textContent = GRADCAM_DATA ? GRADCAM_DATA.summary.D.iou_mean.toFixed(3) : 'Pending';
-}
-
-// Same photo through every ablation model, on the device.
-async function runModelComparison() {
-  const status = document.getElementById('mob-compare-status');
-  const grid = document.getElementById('mob-compare-grid');
-  if (!status || !grid) return;
-  if (!AppState.customImage) {
-    status.textContent = 'Upload or take a photo first, then tap the button.';
-    return;
-  }
-  status.textContent = 'Running Models A, B, C and D on this device…';
-  grid.innerHTML = '';
-
-  let result;
-  try {
-    result = await OnDevice.runCompare(AppState.customImage);
-  } catch (err) {
-    status.textContent = `On-device comparison failed: ${err.message}`;
-    return;
-  }
-
-  const ita = result.ita === null ? 'unavailable' : `${result.ita.toFixed(1)}° (${result.bracket})`;
-  status.textContent = `ITA ${ita}. Each model sees its own preprocessed image; top: its detections, bottom: its Grad-CAM on your photo.`;
-  grid.innerHTML = result.models.map(model => {
-    if (!model.available) {
-      return `
-        <article class="compare-card">
-          <div class="compare-card-head"><strong>Model ${model.id}</strong><span>${model.description}</span></div>
-          <div class="compare-pending">Still training: weights not available yet.</div>
-        </article>`;
-    }
-    const verdict = model.top_label
-      ? `${model.top_label} <b>${(model.top_confidence * 100).toFixed(1)}%</b> · ${model.boxes} box(es)`
-      : 'No lesion detected';
-    return `
-      <article class="compare-card ${model.id === 'D' ? 'proposed' : ''}">
-        <div class="compare-card-head"><strong>Model ${model.id}</strong><span>${model.description}</span></div>
-        <img src="${model.image}" alt="Model ${model.id} detections">
-        ${model.gradcam_image ? `<img src="${model.gradcam_image}" alt="Model ${model.id} Grad-CAM"><div class="compare-cam-label">Grad-CAM</div>` : ''}
+      <article class="compare-card${m.id === 'D' ? ' proposed' : ''}">
+        <div class="compare-head"><b>Model ${m.id}</b><span>${esc(CONFIGS[m.id].short)}</span></div>
+        <img src="${m.image}" alt="Model ${m.id} input image with its detections">
+        <div class="compare-pre">${esc(BETA_TEXT(m, cmp))}</div>
         <div class="compare-verdict">${verdict}</div>
+        <div class="compare-time">Inference ${ms(m.inference_ms)} · total ${ms(m.total_ms)}</div>
       </article>`;
   }).join('');
 }
 
-function toggleMobileDrawer(open) {
-  const drawer = document.getElementById('mobile-drawer');
-  if (drawer) {
-    if (open) {
-      drawer.classList.remove('hidden');
-    } else {
-      drawer.classList.add('hidden');
-    }
-  }
-}
-window.addEventListener('hashchange', () => {
-  if (window.location.hash === '#drawer') toggleMobileDrawer(true);
-});
-
-
-function updateMobileView() {
-  const data = AppState.customImageData || PRESETS[AppState.currentPreset] || PRESETS.buni;
-  renderPatientTab(AppState.customImageData);
-
-  // Update preset chip carousel active state
-  document.querySelectorAll('.mob-preset-chip').forEach(chip => {
-    const chipKey = chip.textContent.toLowerCase().replace(/[^a-z]/g, '');
-    chip.classList.toggle('active', chipKey === AppState.currentPreset || chip.textContent.includes(data.name.split(' ')[0]));
-  });
-
-
-  // Clinician panel
-  const elIta = document.getElementById('mob-ita-val');
-  if (elIta) elIta.textContent = `${data.ita}°`;
-
-  const elClip = document.getElementById('mob-clip-val');
-  if (elClip) elClip.textContent = `${data.clipLimit}`;
-
-  const elFitz = document.getElementById('mob-fitz-val');
-  if (elFitz) elFitz.textContent = data.fitzpatrick.split(' ')[1] || 'TYPE IV';
-
-  const elGain = document.getElementById('mob-gain-val');
-  if (elGain) elGain.textContent = data.contrastGain;
-
-  const phaseIta = document.getElementById('mob-phase-ita');
-  if (phaseIta) phaseIta.textContent = `${data.ita}°`;
-  const phaseClip = document.getElementById('mob-phase-clip');
-  if (phaseClip) phaseClip.textContent = data.clipLimit;
-
-  // Overlap bars
-  const elOverlap = document.getElementById('mob-overlap-bars');
-  if (elOverlap) {
-    elOverlap.innerHTML = data.overlapProfile.map(item => `
-      <div class="profiler-item">
-        <div class="profiler-label-row" style="font-size:0.68rem;">
-          <span>${item.name}</span>
-          <span class="text-mono">${item.value}%</span>
-        </div>
-        <div class="profiler-bar-bg"><div class="profiler-bar-fill" style="width:${item.value}%"></div></div>
-      </div>
-    `).join('');
-  }
-
-  // Evaluation Metrics
-  const m = data.metrics;
-  if (document.getElementById('mob-metric-precision')) document.getElementById('mob-metric-precision').textContent = m.precision;
-  if (document.getElementById('mob-metric-recall')) document.getElementById('mob-metric-recall').textContent = m.recall;
-  if (document.getElementById('mob-metric-f1')) document.getElementById('mob-metric-f1').textContent = m.f1;
-  if (document.getElementById('mob-metric-latency')) document.getElementById('mob-metric-latency').textContent = m.latency;
-  if (document.getElementById('mob-metric-gflops')) document.getElementById('mob-metric-gflops').textContent = m.gflops;
-  if (document.getElementById('mob-metric-attribution')) document.getElementById('mob-metric-attribution').textContent = m.attribution;
-
-  // Coordinates
-  const b = data.bbox;
-  if (document.getElementById('mob-coord-xmin')) document.getElementById('mob-coord-xmin').textContent = b.xmin;
-  if (document.getElementById('mob-coord-ymin')) document.getElementById('mob-coord-ymin').textContent = b.ymin;
-  if (document.getElementById('mob-coord-xmax')) document.getElementById('mob-coord-xmax').textContent = b.xmax;
-  if (document.getElementById('mob-coord-ymax')) document.getElementById('mob-coord-ymax').textContent = b.ymax;
-
-  // Differential
-  const elDiffList = document.getElementById('mob-differential-list');
-  if (elDiffList) {
-    elDiffList.innerHTML = data.differential.map(d => `
-      <div style="display:flex; justify-content:space-between; font-size:0.72rem; margin-bottom:3px;">
-        <span>${d.name}</span>
-        <strong class="text-mono" style="color:var(--brand-primary);">${d.prob}</strong>
-      </div>
-    `).join('');
-  }
-
-  loadBenchmarkData();
-}
-
-// Hook mobile slider inputs
-document.addEventListener('DOMContentLoaded', () => {
-  const mobSplit = document.getElementById('mob-split-slider');
-  if (mobSplit) {
-    mobSplit.addEventListener('input', (e) => {
-      AppState.comparisonSplit = parseInt(e.target.value, 10);
-      updateSplitPosition('mobile-canvas-container', AppState.comparisonSplit);
-    });
-  }
-
-  const mobOpacity = document.getElementById('mob-opacity-slider');
-  if (mobOpacity) {
-    mobOpacity.addEventListener('input', (e) => {
-      AppState.heatmapOpacity = parseInt(e.target.value, 10);
-      const valEl = document.getElementById('mob-opacity-val');
-      if (valEl) valEl.textContent = `${AppState.heatmapOpacity}%`;
-      const heatmap = document.getElementById('mobile-canvas-container-canvas-heatmap');
-      if (heatmap) heatmap.style.opacity = (AppState.heatmapOpacity / 100).toString();
-    });
-  }
-
-  // Check if initial viewport is mobile phone
-  if (window.innerWidth <= 768) {
-    updateMobileView();
-    renderWorkspace('mobile-canvas-container', AppState.currentPreset);
-  }
-});
-
-
-// ==========================================================================
-// 13. AUTHENTICATION, CLINICAL REPORT & TRIAGE LOGIC
-// ==========================================================================
-// Set by initUserSession(): the signed-in user, or a guest (patient view).
-AppState.currentUser = null;
-
-function openAuthModal(tab) {
-  const modal = document.getElementById('auth-modal');
-  if (modal) modal.classList.remove('hidden');
-  setAuthTab(tab || 'login');
-}
-
-function closeAuthModal() {
-  const modal = document.getElementById('auth-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-function setAuthTab(tab) {
-  const btnLogin = document.getElementById('tab-btn-login');
-  const btnReg = document.getElementById('tab-btn-register');
-  const formLogin = document.getElementById('form-login');
-  const formReg = document.getElementById('form-register');
-  const title = document.getElementById('auth-title');
-
-  if (tab === 'login') {
-    btnLogin?.classList.add('active');
-    btnReg?.classList.remove('active');
-    formLogin?.classList.remove('hidden');
-    formReg?.classList.add('hidden');
-    if (title) title.textContent = 'Sign In to IDENTI-SKIN';
-  } else {
-    btnLogin?.classList.remove('active');
-    btnReg?.classList.add('active');
-    formLogin?.classList.add('hidden');
-    formReg?.classList.remove('hidden');
-    if (title) title.textContent = 'Register New Account';
-  }
-}
-
-function initUserSession() {
+async function runComparison() {
+  const cur = State.current;
+  if (!cur) { $('compare-status').textContent = 'Analyse a photo first.'; return; }
+  const steps = [{ id: 'ita', label: 'Skin mask and ITA (Phase 0)' },
+    ...Object.entries(CONFIGS).map(([id, c]) => ({ id: `model-${id}`, label: `Model ${id}: ${c.short}` }))];
+  const job = Progress.open({ title: 'Comparing models on device', photo: cur.source, steps });
   try {
-    const saved = localStorage.getItem('identi_skin_user');
-    if (saved) {
-      AppState.currentUser = JSON.parse(saved);
-      AppState.currentUser.isLoggedIn = true;
+    const cmp = await OnDevice.runCompare(cur.source, { onStep: (id, state, t) => { if (!job.cancelled) Progress.update(id, state, t); } });
+    if (job.cancelled) return;
+    State.compare = cmp;
+    renderCompare();
+    renderResearch();
+    Progress.finish({ title: 'Comparison complete', message: '<p>Each model saw its own preprocessed image. Results are below the button.</p>' });
+  } catch (err) {
+    if (!job.cancelled) Progress.finish({ title: 'Comparison failed', failed: true, message: `<p>${esc(err.message || err)}</p>` });
+  }
+}
+
+// ------------------------------------------------------------------ rendering: results
+
+function scoreBars(scores, labels, highlight) {
+  return labels.map(label => {
+    const s = scores[CLASSES.indexOf(label)];
+    return `
+      <div class="bar-row${label === highlight ? ' top' : ''}">
+        <div class="bar-label"><span>${esc(DISPLAY_NAME[label])}</span><b>${pctS(s)}</b></div>
+        <div class="bar"><span style="width:${(s * 100).toFixed(1)}%"></span></div>
+      </div>`;
+  }).join('');
+}
+
+function candidateCard(det, counted) {
+  const cluster = clusterOf(det.label);
+  const ranked = [...cluster.classes].sort((a, b) => det.scores[CLASSES.indexOf(b)] - det.scores[CLASSES.indexOf(a)]);
+  const s = l => det.scores[CLASSES.indexOf(l)];
+  const outside = CLASSES.filter(c => !cluster.classes.includes(c)).sort((a, b) => s(b) - s(a))[0];
+  return `
+    <div class="card">
+      <div class="card-head"><h2>Candidate diseases</h2><span class="tag">${counted ? 'Top box' : 'Not counted'}</span></div>
+      <p class="note">Model scores of the four diseases in the <b>${esc(cluster.name)}</b> group, read from the same box.
+        Each is an independent sigmoid score, so they do not add up to 100%.</p>
+      ${scoreBars(det.scores, ranked, det.label)}
+      <p class="explain">${esc(DISPLAY_NAME[ranked[0]])} ranked first: ${pctS(s(ranked[0]))} versus ${esc(DISPLAY_NAME[ranked[1]])} ${pctS(s(ranked[1]))}
+        (difference ${((s(ranked[0]) - s(ranked[1])) * 100).toFixed(1)} percentage points).
+        Highest score outside this group: ${esc(DISPLAY_NAME[outside])} ${pctS(s(outside))}.</p>
+    </div>`;
+}
+
+function featureCard(r) {
+  const crops = r.lesion_crops || [];
+  if (!crops.length) return '';
+  const W = r.image.width, H = r.image.height;
+  const sign = v => (v > 0 ? `+${v}` : `${v}`);
+  return `
+    <div class="card">
+      <div class="card-head"><h2>Lesion feature extraction</h2><span class="tag">${crops.length} lesion(s)</span></div>
+      <p class="note">Each detected box, cropped from the photo, with values measured inside the box and in the ring of skin around it
+        (box enlarged by 50%). These measurements describe the lesion; they are not inputs to the model.</p>
+      <div class="crops">
+        ${crops.map((c, i) => {
+          const [lL, la, lb] = c.lesion_lab;
+          const [sL, sa, sb] = c.skin_lab;
+          const dL = +(lL - sL).toFixed(1), da = +(la - sa).toFixed(1), db = +(lb - sb).toFixed(1);
+          const z = logit(c.confidence);
+          return `
+          <article class="crop">
+            <div class="crop-top">
+              <img src="${c.image}" alt="Lesion ${i + 1}">
+              <div>
+                <div class="crop-conf">${(c.confidence * 100).toFixed(2)}</div>
+                <div class="crop-label">${esc(c.label)}</div>
+                <div class="muted">model confidence (%)</div>
+              </div>
+            </div>
+            <table class="kv">
+              <tr><td>Box size</td><td>${c.box_px[0]} × ${c.box_px[1]} px (${(100 * c.box_px[0] * c.box_px[1] / (W * H)).toFixed(1)}% of the photo)</td></tr>
+              <tr><td>Colour difference ΔE*ab</td><td>${c.delta_e}</td></tr>
+              <tr><td>Δa* (redness)</td><td>${sign(da)}</td></tr>
+              <tr><td>Δb* (yellowness)</td><td>${sign(db)}</td></tr>
+              <tr><td>ΔL* (lightness)</td><td>${sign(dL)}</td></tr>
+              <tr><td>Texture ratio</td><td>${c.roughness_ratio}</td></tr>
+            </table>
+            <details class="calc">
+              <summary>How these were calculated</summary>
+              <p><b>Confidence</b> = σ(z) = 1 / (1 + e<sup>−z</sup>) with z = ${z.toFixed(3)} → ${c.confidence.toFixed(4)}.</p>
+              <p><b>CIELAB</b> means: lesion (L*, a*, b*) = (${lL}, ${la}, ${lb}); surrounding skin = (${sL}, ${sa}, ${sb}).</p>
+              <p><b>ΔE*ab</b> = √(ΔL*² + Δa*² + Δb*²) = √(${dL}² + ${da}² + ${db}²) = ${c.delta_e}.</p>
+              <p><b>Δa*</b> = ${la} − ${sa} = ${sign(da)} (positive = redder than the skin); <b>Δb*</b> = ${lb} − ${sb} = ${sign(db)} (positive = more yellow);
+                <b>ΔL*</b> = ${lL} − ${sL} = ${sign(dL)} (negative = darker).</p>
+              <p><b>Texture ratio</b> = σ(Laplacian of grey levels) in the box ÷ σ in the skin ring = ${c.lesion_rough} ÷ ${c.skin_rough} = ${c.roughness_ratio}
+                (above 1 = more local intensity variation than the surrounding skin).</p>
+            </details>
+          </article>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function calculationCard(r) {
+  const top = r.detections[0] || r.below_cutoff;
+  const scoreTable = top ? `
+    <table class="data-table">
+      <thead><tr><th>Disease</th><th>z (logit)</th><th>σ(z)</th></tr></thead>
+      <tbody>${CLASSES.map((c, k) => `<tr class="${c === top.label ? 'hl' : ''}"><td>${esc(c)}</td><td class="mono">${logit(top.scores[k]).toFixed(3)}</td><td class="mono">${sig(top.scores[k])}</td></tr>`).join('')}</tbody>
+    </table>` : '';
+  return `
+    <details class="card calc-card">
+      <summary>How this result was calculated</summary>
+      <ol class="calc-steps">
+        <li><b>Photo.</b> ${r.image.sourceWidth} × ${r.image.sourceHeight} px, reduced to ${r.image.width} × ${r.image.height} (longest side at most ${r.settings.max_side} px).</li>
+        <li><b>Enhancement (Phase 0).</b> L*-CLAHE on the lightness channel only, clip limit β = ${r.beta},
+          chosen from the measured skin tone with the study's calibration (β = ${r.settings.calibration.beta_high}, ${r.settings.calibration.beta_mid}, ${r.settings.calibration.beta_low}
+          for darkest, medium, lightest skin)${r.ita === null ? '; the skin could not be isolated, so the medium value was used' : ''}.</li>
+        <li><b>Detection.</b> Model D (YOLOv26) reads the enhanced photo at ${r.model_input[1]} × ${r.model_input[0]} px and gives every candidate box
+          a score for each of the 8 diseases. Boxes whose highest score is at least ${r.settings.confidence} are kept, then overlapping boxes of the same
+          disease are merged (non-maximum suppression, IoU ${r.settings.nms_iou}): <b>${r.detections.length} box(es)</b>.</li>
+        ${top ? `<li><b>Scores of the ${r.detections.length ? 'top' : 'strongest (not counted)'} box.</b> Model confidence = σ(z) = 1 / (1 + e<sup>−z</sup>):
+          ${scoreTable}
+          The box is labelled with the disease of the highest score: <b>${esc(top.label)}</b>, σ = ${top.confidence.toFixed(4)}.</li>` : ''}
+        <li><b>Top prediction.</b> ${r.detections.length
+          ? `The label of the box with the highest confidence (${esc(r.detections[0].label)}). Its group (${esc(clusterOf(r.detections[0].label).name)}) and category (${CATEGORY[r.detections[0].label]}) are the study's definitions, not model outputs.`
+          : 'None, because no box reached the cutoff. The strongest candidate above is shown for information only.'}</li>
+      </ol>
+      <p class="note"><b>Data sources:</b> model output of D.onnx (exported from ${esc(BENCH_D_WEIGHTS)}); cutoff ${r.settings.confidence} and NMS IoU ${r.settings.nms_iou}
+        from models/manifest.json (Ultralytics defaults, also used for the test-set confusion matrices); clip limits from
+        phase0_calibration_d2.json. Measured on this device in ${ms(r.timings.total)}.</p>
+    </details>`;
+}
+const BENCH_D_WEIGHTS = 'best_ModelD_g1.0_f11_seed42.pt';
+
+function renderResults() {
+  const cur = State.current;
+  $('results-empty').hidden = Boolean(cur);
+  $('results-body').hidden = !cur;
+  if (!cur) return;
+  const r = cur.result;
+  const top = r.detections[0];
+  let html = '';
+  if (top) {
+    const cluster = clusterOf(top.label);
+    html += `
+      <div class="card prediction">
+        <div class="pill ${CATEGORY[top.label].toLowerCase()}">${CATEGORY[top.label]} infection</div>
+        <div class="muted">Top prediction</div>
+        <h2>${esc(DISPLAY_NAME[top.label])}</h2>
+        <div class="confidence"><span>Model confidence</span><b>${pct(top.confidence)}</b></div>
+        <p class="note">The detector's score for this disease in its highest-confidence box (sigmoid output, 0–100%). It is not the
+          probability that you have the disease. Group: ${esc(cluster.name)} (analysis grouping used in the study).</p>
+      </div>`;
+    html += candidateCard(top, true);
+    if (r.detections.length > 1) {
+      html += `
+        <div class="card">
+          <div class="card-head"><h2>All detected boxes</h2><span class="tag">${r.detections.length}</span></div>
+          ${r.detections.slice(0, 12).map((d, i) => `
+            <div class="bar-row"><div class="bar-label"><span>${i + 1}. ${esc(DISPLAY_NAME[d.label])}</span><b>${pct(d.confidence)}</b></div>
+            <div class="bar"><span style="width:${(d.confidence * 100).toFixed(1)}%"></span></div></div>`).join('')}
+          <p class="note">Model confidence of each box (≥ ${pct(r.settings.confidence, 0)}). Positions are shown in the Workspace.</p>
+        </div>`;
+    }
+  } else {
+    html += `
+      <div class="card prediction none">
+        <div class="muted">Result</div>
+        <h2>No lesion detected</h2>
+        <p>No box reached the ${pct(r.settings.confidence, 0)} confidence cutoff.</p>
+        ${r.below_cutoff ? `<p class="note">Strongest candidate below the cutoff (not counted): <b>${esc(DISPLAY_NAME[r.below_cutoff.label])}</b>, ${pct(r.below_cutoff.confidence)}.</p>` : ''}
+        <p class="note">Retake the photo closer to the lesion, in focus and in natural light, without filters.</p>
+      </div>`;
+    if (r.below_cutoff) html += candidateCard(r.below_cutoff, false);
+  }
+  html += featureCard(r);
+  html += calculationCard(r);
+  html += `<button type="button" class="btn wide" onclick="openReport()">Print / save report</button>`;
+  $('results-body').innerHTML = html;
+}
+
+// ------------------------------------------------------------------ rendering: benchmark
+
+function selectBenchModel(id) {
+  State.benchModel = id;
+  renderBenchmark();
+}
+
+function renderBenchmark() {
+  const body = $('bench-body');
+  if (!BENCH) { $('bench-note').textContent = 'benchmark_data.json not found.'; body.innerHTML = ''; return; }
+  $('bench-note').textContent = BENCH.note;
+  const models = BENCH.models;
+  const sel = models.find(m => m.id === State.benchModel) || models[3];
+  const cell = (m, v) => `<td class="${m.id === sel.id ? 'sel' : ''}">${v}</td>`;
+  const head = `<tr><th></th>${models.map(m => `<th class="${m.id === sel.id ? 'sel' : ''}">${m.id}</th>`).join('')}</tr>`;
+  const ex = sel.exact;
+  const pc = sel.perClass;
+  const sum = key => pc.reduce((a, c) => a + c[key], 0);
+
+  const sopMap = `
+    <div class="card">
+      <div class="card-head"><h2>What each SOP is answered by</h2></div>
+      <table class="data-table">
+        <tr><td><b>SOP 1</b> Localization of A–D: mAP@50, mAP@50–95</td><td>Section 1 below</td></tr>
+        <tr><td><b>SOP 2</b> Classification of A–D: precision, recall, F1, within-cluster misclassification</td><td>Section 2</td></tr>
+        <tr><td><b>SOP 3</b> ΔAP50 (D − A), Fitzpatrick I–II vs III–V (ITA proxy)</td><td>Section 3</td></tr>
+        <tr><td><b>H01</b> Differences among A–D (Friedman, Wilcoxon, Bonferroni, rank-biserial)</td><td>Section 4</td></tr>
+        <tr><td><b>H02</b> Skin-type difference (Mann-Whitney U)</td><td>Section 3</td></tr>
+        <tr><td>System check: inference time</td><td>Section 5</td></tr>
+        <tr><td>Framework on one photo</td><td>Workspace, Results, Research</td></tr>
+      </table>
+    </div>`;
+
+  const keys = `
+    <div class="model-keys selectable">${models.map(m => `
+      <button type="button" class="model-key${m.id === sel.id ? ' selected' : ''}" onclick="selectBenchModel('${m.id}')" aria-pressed="${m.id === sel.id}">
+        <b>${m.id}</b><span>${esc(CONFIGS[m.id].text)}</span></button>`).join('')}</div>
+    <p class="note">Tap a configuration to show its computations, per-disease values and confusion matrix.</p>`;
+
+  const sop1 = `
+    <div class="card">
+      <div class="card-head"><h2>1 · Localization (SOP 1)</h2></div>
+      <table class="data-table center"><thead>${head}</thead><tbody>
+        <tr><th>mAP@50</th>${models.map(m => cell(m, `${m.map50.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>mAP@50–95</th>${models.map(m => cell(m, `${m.map5095.toFixed(1)}%`)).join('')}</tr>
+      </tbody></table>
+      <h3>Per disease, Model ${sel.id}</h3>
+      <table class="data-table"><thead><tr><th>Disease</th><th>Boxes</th><th>AP@50</th><th>AP@50–95</th></tr></thead><tbody>
+        ${pc.map(c => `<tr><td>${esc(c.class)}</td><td>${c.instances}</td><td class="mono">${c.AP50.toFixed(4)}</td><td class="mono">${c.AP50_95.toFixed(4)}</td></tr>`).join('')}
+      </tbody></table>
+      <details class="calc"><summary>Computation for Model ${sel.id}</summary>
+        <p>AP@50 of a disease = area under its precision–recall curve, a predicted box counting as correct when IoU ≥ 0.50 with a labelled box of the same disease.
+          AP@50–95 averages AP over IoU 0.50, 0.55, …, 0.95.</p>
+        <p><b>mAP@50</b> = (1/8) Σ AP@50 = (${pc.map(c => c.AP50.toFixed(4)).join(' + ')}) / 8 = ${(sum('AP50') / 8).toFixed(4)} = ${(ex.mAP50 * 100).toFixed(1)}%</p>
+        <p><b>mAP@50–95</b> = (1/8) Σ AP@50–95 = ${(sum('AP50_95')).toFixed(4)} / 8 = ${(sum('AP50_95') / 8).toFixed(4)} = ${(ex.mAP50_95 * 100).toFixed(1)}%</p>
+      </details>
+    </div>`;
+
+  const cl = sel.clusters;
+  const sop2 = `
+    <div class="card">
+      <div class="card-head"><h2>2 · Classification (SOP 2)</h2></div>
+      <table class="data-table center"><thead>${head}</thead><tbody>
+        <tr><th>Precision</th>${models.map(m => cell(m, `${m.precision.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>Recall</th>${models.map(m => cell(m, `${m.recall.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>F1</th>${models.map(m => cell(m, m.f1.toFixed(3))).join('')}</tr>
+        <tr><th>Within-cluster errors, eruptive</th>${models.map(m => cell(m, `${m.withinEruptive.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>Within-cluster errors, scaly/verrucous</th>${models.map(m => cell(m, `${m.withinScaly.toFixed(1)}%`)).join('')}</tr>
+      </tbody></table>
+      <h3>Per disease, Model ${sel.id}</h3>
+      <table class="data-table"><thead><tr><th>Disease</th><th>P</th><th>R</th><th>F1</th></tr></thead><tbody>
+        ${pc.map(c => `<tr><td>${esc(c.class)}</td><td class="mono">${c.precision.toFixed(4)}</td><td class="mono">${c.recall.toFixed(4)}</td><td class="mono">${c.F1.toFixed(4)}</td></tr>`).join('')}
+      </tbody></table>
+      <details class="calc"><summary>Computation for Model ${sel.id}</summary>
+        <p>Per disease: precision = TP / (TP + FP), recall = TP / (TP + FN), at the confidence that maximizes the mean F1 (Ultralytics evaluation).</p>
+        <p><b>Precision</b> = (1/8) Σ P = (${pc.map(c => c.precision.toFixed(4)).join(' + ')}) / 8 = ${ex.precision.toFixed(4)}</p>
+        <p><b>Recall</b> = (1/8) Σ R = (${pc.map(c => c.recall.toFixed(4)).join(' + ')}) / 8 = ${ex.recall.toFixed(4)}</p>
+        <p><b>F1</b> = 2PR / (P + R) = 2 × ${ex.precision.toFixed(4)} × ${ex.recall.toFixed(4)} / (${ex.precision.toFixed(4)} + ${ex.recall.toFixed(4)}) = ${ex.F1.toFixed(4)}</p>
+        <p><b>Within-cluster misclassification rate</b> = boxes given another disease of the same cluster ÷ detected boxes of that cluster
+          (confidence ≥ 0.25, IoU ≥ 0.5):</p>
+        <table class="data-table"><thead><tr><th>Cluster</th><th>Labelled</th><th>Detected</th><th>Correct</th><th>Within</th><th>Cross</th><th>Rate</th></tr></thead><tbody>
+          ${cl.map(c => `<tr><td>${esc(c.cluster)}</td><td>${c.gt}</td><td>${c.detected}</td><td>${c.correct}</td><td>${c.within}</td><td>${c.cross}</td><td class="mono">${c.within} / ${c.detected} = ${(100 * c.within / c.detected).toFixed(1)}%</td></tr>`).join('')}
+        </tbody></table>
+      </details>
+      <h3>Confusion matrix, Model ${sel.id}</h3>
+      ${confusionMatrix(sel)}
+    </div>`;
+
+  const ft = BENCH.fairnessTest;
+  const sop3 = `
+    <div class="card">
+      <div class="card-head"><h2>3 · Skin-type groups (SOP 3, H02)</h2></div>
+      <p class="note">Groups from the ITA of each test image (ITA proxy of Fitzpatrick type; ITA ≤ −30°, type VI, excluded: ${ft.excludedVI} images; no ITA: ${ft.excludedNoIta}).</p>
+      <table class="data-table center"><thead><tr><th>Group</th><th>Images</th>${models.map(m => `<th>${m.id}</th>`).join('')}<th>ΔAP50 (D − A)</th></tr></thead><tbody>
+        ${BENCH.fairness.map(g => `<tr><td>${esc(g.group)}<small>${esc(g.range)}</small></td><td>${g.images}</td>${models.map(m => `<td>${g.scores[m.id].toFixed(1)}%</td>`).join('')}<td class="mono">${g.dAP50 >= 0 ? '+' : ''}${(g.dAP50 * 100).toFixed(1)} pts</td></tr>`).join('')}
+      </tbody></table>
+      <p class="explain">Mann-Whitney U on the per-image ΔAP50 (D − A), III–V (n = ${ft.n2}) versus I–II (n = ${ft.n1}):
+        U = ${ft.U}, <b>${pText(ft.p)}</b>, rank-biserial r = ${ft.r.toFixed(3)}; bootstrap 95% CI of the difference ${ft.ciLow.toFixed(3)} to ${ft.ciHigh.toFixed(3)}.
+        ${ft.p < 0.05 ? 'H02 is rejected at α = 0.05.' : 'H02 is not rejected at α = 0.05.'}</p>
+      <details class="calc"><summary>Computation</summary>
+        <p>For each test image: ΔAP50 = AP50 of Model D − AP50 of Model A. Group mAP@50 values above are computed on the images of each group.</p>
+        ${BENCH.fairness.map(g => `<p>${esc(g.group)}: mAP@50 D − A = ${g.scores.D.toFixed(1)}% − ${g.scores.A.toFixed(1)}% = ${(g.dAP50 * 100).toFixed(1)} points; mean per-image ΔAP50 = ${g.meanPerImageDAP50.toFixed(4)}, median = ${g.medianPerImageDAP50.toFixed(4)}.</p>`).join('')}
+      </details>
+    </div>`;
+
+  const h01 = `
+    <div class="card">
+      <div class="card-head"><h2>4 · Differences among A–D (H01)</h2></div>
+      <p class="note">Per-image scores on the ${BENCH.testImages} test images. Friedman test across A–D, then Wilcoxon signed-rank D versus A, B, C with Bonferroni correction (× 3); r = rank-biserial correlation.</p>
+      <div class="table-scroll"><table class="data-table center"><thead><tr><th>Metric</th><th>Friedman χ²</th><th>p</th><th>D vs A</th><th>D vs B</th><th>D vs C</th></tr></thead><tbody>
+        ${BENCH.tests.map(t => `<tr><td>${esc(t.metric)}</td><td>${t.friedmanChi2}</td><td class="${t.friedmanP < 0.05 ? 'sig' : ''}">${pText(t.friedmanP)}</td>
+          ${t.pairs.map(p => `<td class="${p.pBonf < 0.05 ? 'sig' : ''}">${pText(p.pBonf)}<small>r = ${p.r.toFixed(2)}</small></td>`).join('')}</tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">Highlighted: p < 0.05 after correction.</p>
+    </div>`;
+
+  const rt = BENCH.runtime;
+  const sess = State.sessionTimings;
+  const dev = State.deviceRuntime;
+  const runtime = `
+    <div class="card">
+      <div class="card-head"><h2>5 · Inference time</h2></div>
+      ${rt ? `
+      <h3>Training hardware (${esc(rt.hardware.device)})</h3>
+      <table class="data-table center"><thead><tr><th>Model</th><th>GFLOPs</th><th>Params (M)</th><th>Inference (ms)</th><th>Total (ms)</th></tr></thead><tbody>
+        ${Object.entries(rt.models).map(([id, m]) => `<tr><td>${id}</td><td>${m.gflops_640}</td><td>${m.params_million}</td><td>${m.inference_ms_mean} ± ${m.inference_ms_sd}</td><td>${m.total_ms_mean} ± ${m.total_ms_sd}</td></tr>`).join('')}
+      </tbody></table>
+      <p class="note">${esc(rt.hardware.framework)}; batch ${rt.hardware.batch}, input ${rt.hardware.imgsz} px (${esc(rt.hardware.letterbox)}), ${rt.models.D.images_timed} test images after ${rt.hardware.warmup_images} warm-up images; mean ± SD.
+        Total = preprocess + inference + postprocess. ${esc(rt.hardware.note)}</p>` : '<p class="note">Runtime file not found.</p>'}
+      <h3>This device (on-device pipeline, Model D)</h3>
+      ${dev ? runtimeTable(dev.runs, `${dev.runs.length} timed runs on a ${dev.image.width} × ${dev.image.height} px photo, after one warm-up run`) : ''}
+      ${sess.length ? runtimeTable(sess, `${sess.length} analyses in this session (first one includes model loading)`) : ''}
+      <button type="button" class="btn wide" onclick="measureDeviceRuntime()">Measure on this device (current photo, 5 runs)</button>
+      <p class="note">Device: ${esc(deviceText())}. On-device settings: WebAssembly, 1 thread, longest side ≤ 1280 px, model input 640 px.</p>
+    </div>`;
+
+  body.innerHTML = sopMap + keys + sop1 + sop2 + sop3 + h01 + runtime;
+}
+
+function deviceText() {
+  const n = navigator;
+  return [n.userAgent.match(/\(([^)]+)\)/)?.[1], n.hardwareConcurrency ? `${n.hardwareConcurrency} logical cores` : null,
+    n.deviceMemory ? `${n.deviceMemory} GB memory (approx.)` : null].filter(Boolean).join(' · ');
+}
+
+function runtimeTable(runs, caption) {
+  const keys = [['load', 'Load'], ['ita', 'Skin mask + ITA'], ['clahe', 'L*-CLAHE'], ['detect', 'Detection'], ['inference_ms', 'of which model inference'],
+    ['gradcam', 'Grad-CAM'], ['features', 'Features'], ['total', 'Total']];
+  return `
+    <table class="data-table center"><caption>${esc(caption)}</caption><thead><tr><th>Step</th><th>${runs.length > 1 ? 'Mean (ms)' : 'Time (ms)'}</th>${runs.length > 1 ? '<th>SD</th>' : ''}</tr></thead><tbody>
+      ${keys.map(([k, label]) => { const xs = runs.map(r => r[k]).filter(v => v !== undefined); return xs.length ? `<tr><td>${label}</td><td>${mean(xs).toFixed(0)}</td>${runs.length > 1 ? `<td>${sd(xs).toFixed(0)}</td>` : ''}</tr>` : ''; }).join('')}
+    </tbody></table>`;
+}
+
+function confusionMatrix(model) {
+  const codes = BENCH.classes;
+  const rows = BENCH.confusion[model.id];
+  const max = Math.max(1, ...rows.flat());
+  const correct = rows.reduce((a, row, i) => a + row[i], 0);
+  const matched = rows.flat().reduce((a, b) => a + b, 0);
+  return `
+    <div class="table-scroll"><table class="confusion">
+      <thead><tr><th>Actual ↓ / Predicted →</th>${codes.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((row, i) => `<tr><th>${codes[i]}</th>${row.map((v, j) => `<td class="${i === j ? 'diag' : v ? 'err' : ''}" style="--a:${(i === j ? 0.15 + 0.85 * v / max : Math.min(v / 10, 0.6)).toFixed(2)}">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>
+    <p class="note">Matched boxes (confidence ≥ 0.25, IoU ≥ 0.5): ${correct} of ${matched} given the correct disease (${(100 * correct / matched).toFixed(1)}%).
+      ${BENCH.classes.map((c, i) => `${c} = ${esc(BENCH.classNames[i])}`).join(', ')}.</p>`;
+}
+
+async function measureDeviceRuntime() {
+  const cur = State.current;
+  if (!cur) { alertInDialog('Analyse a photo first; the measurement repeats Model D on that photo.'); return; }
+  const repeats = 5;
+  const steps = [{ id: 'warmup', label: 'Warm-up run (not timed)' },
+    ...Array.from({ length: repeats }, (_, i) => ({ id: `r${i}`, label: `Timed run ${i + 1} of ${repeats}` }))];
+  const job = Progress.open({ title: 'Measuring inference time', photo: cur.source, steps });
+  try {
+    Progress.update('warmup', 'active');
+    const t = performance.now();
+    await OnDevice.runDetect(cur.source);
+    Progress.update('warmup', 'done', performance.now() - t);
+    const runs = [];
+    for (let i = 0; i < repeats; i++) {
+      if (job.cancelled) return;
+      Progress.update(`r${i}`, 'active');
+      const r = await OnDevice.runDetect(cur.source);
+      runs.push(r.timings);
+      Progress.update(`r${i}`, 'done', r.timings.total);
+    }
+    if (job.cancelled) return;
+    State.deviceRuntime = { runs, at: new Date(), image: cur.result.image };
+    renderBenchmark();
+    const totals = runs.map(r => r.total);
+    Progress.finish({ title: 'Measurement complete', message: `<p>Mean total time per analysis: <b>${mean(totals).toFixed(0)} ± ${sd(totals).toFixed(0)} ms</b> (n = ${runs.length}).</p>` });
+  } catch (err) {
+    if (!job.cancelled) Progress.finish({ title: 'Measurement failed', failed: true, message: `<p>${esc(err.message || err)}</p>` });
+  }
+}
+
+function alertInDialog(text) {
+  Progress.open({ title: 'IDENTI-SKIN', steps: [] });
+  Progress.finish({ title: 'IDENTI-SKIN', message: `<p>${esc(text)}</p>`, tone: 'warn' });
+}
+
+// ------------------------------------------------------------------ rendering: research
+
+function itaGroup(ita) {
+  if (ita === null) return 'not available (no ITA)';
+  if (ita > 41) return 'I–II proxy (ITA > 41°)';
+  if (ita > -30) return 'III–V proxy (−30° < ITA ≤ 41°)';
+  return 'VI proxy (ITA ≤ −30°), excluded from SOP 3';
+}
+
+function renderResearch() {
+  const body = $('research-body');
+  const cur = State.current;
+  let html = '';
+  if (!cur) {
+    html += '<div class="card empty-state">Analyse a photo to see how its result was generated.</div>';
+  } else {
+    const r = cur.result;
+    const it = r.ita_inputs;
+    const nearest = r.ita === null ? null : BRACKET_EDGES.reduce((a, e) => (Math.abs(r.ita - e) < Math.abs(r.ita - a) ? e : a));
+    const top = r.detections[0] || r.below_cutoff;
+    html += `
+      <div class="card">
+        <div class="card-head"><h2>How this result was generated</h2><span class="tag">${esc(cur.name)}</span></div>
+        <h3>Phase 0: skin tone and enhancement</h3>
+        <table class="kv">
+          <tr><td>Skin mask</td><td>${it ? `K-means in CIELAB (k = ${it.k}) on the photo reduced to ${it.width} × ${it.height} px; skin cluster = ${it.maskPixels} of ${it.pixels} pixels (${(100 * it.maskPixels / it.pixels).toFixed(1)}%), status ${esc(r.mask_status)}` : `failed (${esc(r.mask_status)})`}</td></tr>
+          ${it ? `<tr><td>Mean skin colour</td><td>L* = ${it.meanL.toFixed(2)}, b* = ${it.meanB.toFixed(2)}</td></tr>
+          <tr><td>ITA</td><td>arctan((L* − 50) / b*) × 180/π = arctan((${it.meanL.toFixed(2)} − 50) / ${it.meanB.toFixed(2)}) × 180/π = <b>${r.ita.toFixed(1)}°</b></td></tr>
+          <tr><td>ITA bracket</td><td>${esc(r.bracket)} (${BRACKET_RULE}); ${Math.abs(r.ita - nearest).toFixed(1)}° from the ${nearest}° edge</td></tr>` : ''}
+          <tr><td>Clip limit β</td><td><b>${r.beta}</b> (${r.beta_source === 'ita_bracket' ? 'from the ITA bracket' : 'medium-bracket fallback, no ITA'}; calibration: Darkest ${r.settings.calibration.beta_high}, Medium ${r.settings.calibration.beta_mid}, Lightest ${r.settings.calibration.beta_low})</td></tr>
+          <tr><td>L*-CLAHE</td><td>lightness channel only, tile grid ${r.settings.tile_grid_size.join(' × ')}</td></tr>
+          <tr><td>SOP 3 group</td><td>${itaGroup(r.ita)}. ITA is a colour measurement, not a clinical Fitzpatrick assessment.</td></tr>
+        </table>
+        <h3>Localization and classification</h3>
+        <table class="kv">
+          <tr><td>Model</td><td>Model D, D.onnx (${esc(BENCH_D_WEIGHTS)}), one-to-many head + NMS (as in the test-set evaluation)</td></tr>
+          <tr><td>Input</td><td>${r.image.width} × ${r.image.height} px → letterbox to ${r.model_input[1]} × ${r.model_input[0]} (640, stride 32, grey padding)</td></tr>
+          <tr><td>Cutoff / NMS</td><td>confidence ≥ ${r.settings.confidence}; per-class NMS, IoU ${r.settings.nms_iou}</td></tr>
+          <tr><td>Boxes</td><td>${r.detections.length}${r.below_cutoff ? `; strongest below the cutoff: ${esc(r.below_cutoff.label)} ${r.below_cutoff.confidence.toFixed(4)}` : ''}</td></tr>
+        </table>
+        ${r.detections.length ? `
+        <div class="table-scroll"><table class="data-table"><thead><tr><th>#</th><th>Label</th><th>σ</th><th>x1, y1, x2, y2 (px)</th>${CLASSES.map(c => `<th title="${esc(c)}">${esc(c.split(' ').map(w => w[0]).join(''))}</th>`).join('')}</tr></thead><tbody>
+          ${r.detections.slice(0, 15).map((d, i) => `<tr><td>${i + 1}</td><td>${esc(d.label)}</td><td class="mono">${d.confidence.toFixed(4)}</td><td class="mono">${d.box_px.join(', ')}</td>${d.scores.map(s => `<td class="mono">${s.toFixed(3)}</td>`).join('')}</tr>`).join('')}
+        </tbody></table></div>
+        <p class="note">All 8 sigmoid class scores of each box (column initials: ${CLASSES.map(c => `${c.split(' ').map(w => w[0]).join('')} = ${c}`).join(', ')}).</p>` : ''}
+        <h3>Measured time of this run</h3>
+        ${runtimeTable([r.timings], r.first_load ? 'This run (includes loading the model)' : 'This run')}
+      </div>`;
+
+    const c = State.consistency;
+    html += `
+      <div class="card">
+        <div class="card-head"><h2>Run consistency</h2></div>
+        <p class="note">Repeats the analysis of this photo with identical settings and compares ITA, β, every box, its label and all class scores.</p>
+        ${c ? `<p class="explain ${c.identical === c.runs ? 'ok' : 'bad'}">${c.identical} of ${c.runs} repeated runs identical to the first run.
+          ${c.identical === c.runs ? 'The result is stable.' : `Largest difference: ${esc(c.difference)}.`}</p>
+          ${runtimeTable(c.timings, `${c.runs} repeated runs`)}` : ''}
+        <button type="button" class="btn wide" onclick="runConsistency()">Repeat this analysis 5 times</button>
+      </div>`;
+
+    html += `
+      <div class="card">
+        <div class="card-head"><h2>Grad-CAM of this photo</h2><span class="tag">Research only</span></div>
+        ${r.gradcam_image ? `<img class="figure" src="${r.gradcam_image}" alt="Grad-CAM of Model D on this photo">` : '<p class="note">Not available.</p>'}
+        <p class="note">Shows where Model D's class evidence is strongest (Grad-CAM at the last feature layer of the class head; target anchors with score ≥ 0.25, up to 10:
+          ${r.gradcam_targets.length ? r.gradcam_targets.map(t => `${esc(t.label)} ${t.score.toFixed(3)}`).join(', ') : 'none'}).
+          ${r.lesion_measures && r.lesion_measures.gradcam_in_box_percent !== null ? `Share of the heatmap inside the detected boxes: ${r.lesion_measures.gradcam_in_box_percent}%.` : ''}
+          A heatmap shows where the model focused. It is not a measure of accuracy and not a validated explanation of the diagnosis.</p>
+        ${State.compare ? `
+          <h3>Per configuration (same photo)</h3>
+          <div class="cam-grid">${State.compare.models.map(m => m.gradcam_image ? `<figure><img src="${m.gradcam_image}" alt="Grad-CAM of Model ${m.id}"><figcaption>Model ${m.id}</figcaption></figure>` : '').join('')}</div>` : ''}
+      </div>`;
+  }
+  html += gradcamAudit();
+  body.innerHTML = html;
+}
+
+function gradcamAudit() {
+  if (!GRADCAM) return '';
+  const s = GRADCAM.summary, st = GRADCAM.statistics;
+  const ex = GRADCAM.examples[Math.min(State.gradcamExample, GRADCAM.examples.length - 1)];
+  return `
+    <div class="card">
+      <div class="card-head"><h2>Grad-CAM on the test set</h2><span class="tag">Research only</span></div>
+      <table class="data-table center"><thead><tr><th>Model</th><th>IoU with labelled boxes</th><th>Heatmap energy inside boxes</th></tr></thead><tbody>
+        ${Object.keys(CONFIGS).map(k => `<tr><td>${k}</td><td>${s[k].iou_mean.toFixed(3)}</td><td>${(s[k].energy_mean * 100).toFixed(1)}%</td></tr>`).join('')}
+      </tbody></table>
+      <p class="note">${esc(GRADCAM.method)}. IoU uses the heatmap region ≥ ${GRADCAM.iou_threshold * 100}% of its maximum.
+        IoU: Friedman ${pText(st.gradcam_iou.friedman_p)}; D vs A ${pText(st.gradcam_iou.D_vs_A_p_bonf)}, D vs B ${pText(st.gradcam_iou.D_vs_B_p_bonf)}, D vs C ${pText(st.gradcam_iou.D_vs_C_p_bonf)} (Bonferroni).
+        These describe where each model looks; they are not accuracy measures. Examples are pending review by the adviser/panel.</p>
+      <div class="chips">${GRADCAM.examples.map((e, i) => `<button type="button" class="chip${e === ex ? ' active' : ''}" onclick="State.gradcamExample=${i}; renderResearch()">${esc(e.disease)}</button>`).join('')}</div>
+      <div class="cam-grid">
+        <figure><img src="assets/gradcam/${ex.image_id}_original.jpg" alt="Original test image"><figcaption>Original (${esc(ex.disease)})</figcaption></figure>
+        ${Object.keys(CONFIGS).map(k => `<figure><img src="assets/gradcam/${ex.image_id}_${k}.jpg" alt="Grad-CAM of Model ${k}"><figcaption>${k} · IoU ${ex.models[k].iou.toFixed(2)}</figcaption></figure>`).join('')}
+      </div>
+    </div>`;
+}
+
+// Signature of a result for the consistency check (everything except timings and images).
+function signature(r) {
+  return {
+    ita: r.ita, beta: r.beta,
+    boxes: r.detections.map(d => ({ label: d.label, confidence: d.confidence, box: d.box, scores: d.scores })),
+    below: r.below_cutoff && { label: r.below_cutoff.label, confidence: r.below_cutoff.confidence },
+  };
+}
+
+function firstDifference(a, b) {
+  if (a.ita !== b.ita) return `ITA ${a.ita} vs ${b.ita}`;
+  if (a.beta !== b.beta) return `β ${a.beta} vs ${b.beta}`;
+  if (a.boxes.length !== b.boxes.length) return `${a.boxes.length} vs ${b.boxes.length} boxes`;
+  for (let i = 0; i < a.boxes.length; i++) {
+    const x = a.boxes[i], y = b.boxes[i];
+    if (x.label !== y.label) return `box ${i + 1}: ${x.label} vs ${y.label}`;
+    if (x.confidence !== y.confidence) return `box ${i + 1}: confidence ${x.confidence} vs ${y.confidence}`;
+    if (JSON.stringify(x.box) !== JSON.stringify(y.box)) return `box ${i + 1}: position differs`;
+    if (JSON.stringify(x.scores) !== JSON.stringify(y.scores)) return `box ${i + 1}: class scores differ`;
+  }
+  return 'below-cutoff candidate differs';
+}
+
+async function runConsistency() {
+  const cur = State.current;
+  if (!cur) return;
+  const runs = 5;
+  const job = Progress.open({ title: 'Checking run consistency', photo: cur.source,
+    steps: Array.from({ length: runs }, (_, i) => ({ id: `run${i}`, label: `Repeat ${i + 1} of ${runs}` })) });
+  const reference = JSON.stringify(signature(cur.result));
+  let identical = 0, difference = null;
+  const timings = [];
+  try {
+    for (let i = 0; i < runs; i++) {
+      if (job.cancelled) return;
+      Progress.update(`run${i}`, 'active');
+      const r = await OnDevice.runDetect(cur.source);
+      timings.push(r.timings);
+      const sig = signature(r);
+      if (JSON.stringify(sig) === reference) identical++;
+      else if (!difference) difference = firstDifference(signature(cur.result), sig);
+      Progress.update(`run${i}`, 'done', r.timings.total);
     }
   } catch (err) {
-    console.error('Failed to parse saved user:', err);
+    if (!job.cancelled) Progress.finish({ title: 'Check failed', failed: true, message: `<p>${esc(err.message || err)}</p>` });
+    return;
   }
-
-  // Not signed in ("Get Started"): patient view. The clinician panels need a clinician sign-in.
-  if (!AppState.currentUser) {
-    AppState.currentUser = {
-      isLoggedIn: false,
-      name: 'Guest',
-      email: 'Not signed in',
-      role: 'patient'
-    };
-  }
-  updateAuthUI();
+  if (job.cancelled) return;
+  State.consistency = { runs, identical, difference, timings };
+  renderResearch();
+  Progress.finish({ title: identical === runs ? 'Results are identical' : 'Results differ',
+    message: `<p>${identical} of ${runs} repeated runs gave exactly the same ITA, β, boxes and scores as the first run.${difference ? ` First difference: ${esc(difference)}.` : ''}</p>` });
 }
 
-function logoutUser() {
-  localStorage.removeItem('identi_skin_user');
-  window.location.href = 'login.html';
-}
+// ------------------------------------------------------------------ report
 
-function demoLogin(role) {
-  if (role === 'clinician') {
-    AppState.currentUser = {
-      isLoggedIn: true,
-      name: 'Dr. Maria Santos',
-      email: 'm.santos@pup.edu.ph',
-      role: 'clinician'
-    };
+function openReport() {
+  const cur = State.current;
+  const body = $('report-body');
+  if (!cur) {
+    body.innerHTML = '<h2>Report</h2><p>No photo analysed yet.</p>';
   } else {
-    AppState.currentUser = {
-      isLoggedIn: true,
-      name: 'Juan Dela Cruz',
-      email: 'juan.delacruz@gmail.com',
-      role: 'patient'
-    };
+    const r = cur.result;
+    const top = r.detections[0];
+    const d = BENCH && BENCH.models.find(m => m.id === 'D');
+    body.innerHTML = `
+      <div class="report-head"><div><b>IDENTI-SKIN screening summary</b><div class="muted">ITA-guided adaptive L*-CLAHE YOLOv26 framework (Model D), on-device</div></div>
+        <div class="muted">${cur.at.toLocaleString()}</div></div>
+      <img class="report-photo" src="${r.boxed_image}" alt="Analysed photo with detected boxes">
+      <table class="kv">
+        <tr><td>Top prediction</td><td>${top ? `<b>${esc(DISPLAY_NAME[top.label])}</b> (${CATEGORY[top.label]}; ${esc(clusterOf(top.label).name)} group)` : 'No lesion detected'}</td></tr>
+        <tr><td>Model confidence</td><td>${top ? `${pct(top.confidence)} (sigmoid score of the top box; not a probability of disease)` : `no box ≥ ${r.settings.confidence}`}</td></tr>
+        ${top ? `<tr><td>Candidate scores (same group)</td><td>${clusterOf(top.label).classes.map(c => `${esc(c)} ${pctS(top.scores[CLASSES.indexOf(c)])}`).join(' · ')}</td></tr>` : ''}
+        <tr><td>Detected boxes</td><td>${r.detections.length}</td></tr>
+        <tr><td>Enhancement</td><td>L*-CLAHE, clip limit β = ${r.beta}</td></tr>
+        ${isClinician() ? `<tr><td>ITA</td><td>${r.ita === null ? 'not available' : `${r.ita.toFixed(1)}° (${esc(r.bracket)} bracket)`}</td></tr>` : ''}
+        ${d ? `<tr><td>Model D on the test set</td><td>mAP@50 ${d.map50.toFixed(1)}%, F1 ${d.f1.toFixed(3)} (${BENCH.testImages} held-out images; not specific to this photo)</td></tr>` : ''}
+      </table>
+      <p class="note">Academic screening aid (PUP CCIS thesis 2026). Not a diagnosis; consult a licensed physician or dermatologist. Analysed on this device (RA 10173).</p>
+      <div class="signature">Attending physician / dermatologist</div>`;
   }
-
-  localStorage.setItem('identi_skin_user', JSON.stringify(AppState.currentUser));
-  updateAuthUI();
-  closeAuthModal();
-
-  if (role === 'clinician') {
-    if (window.innerWidth <= 768) switchMobileTab('panel');
-    else switchViewMode('workstation');
-  } else {
-    if (window.innerWidth <= 768) switchMobileTab('patient');
-    else switchViewMode('workstation');
-  }
+  $('report-dialog').hidden = false;
 }
 
-function handleAuthSubmit(e, mode) {
-  e.preventDefault();
-  if (mode === 'login') {
-    const email = document.getElementById('login-email').value;
-    const role = document.getElementById('login-role').value;
-    const name = email.split('@')[0].replace('.', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+function closeReport() { $('report-dialog').hidden = true; }
 
-    AppState.currentUser = {
-      isLoggedIn: true,
-      name: (role === 'clinician' ? 'Dr. ' : '') + name,
-      email: email,
-      role: role
-    };
-  } else {
-    const name = document.getElementById('reg-name').value;
-    const email = document.getElementById('reg-email').value;
-    const role = document.getElementById('reg-role').value;
+// ------------------------------------------------------------------ init
 
-    AppState.currentUser = {
-      isLoggedIn: true,
-      name: name,
-      email: email,
-      role: role
-    };
-  }
-
-  localStorage.setItem('identi_skin_user', JSON.stringify(AppState.currentUser));
-  updateAuthUI();
-  closeAuthModal();
-  alert('Successfully signed in as ' + AppState.currentUser.name + '!');
+function renderAll() {
+  renderHome();
+  renderResults();
+  renderWorkspace();
+  renderBenchmark();
+  renderResearch();
 }
 
-function updateAuthUI() {
-  const u = AppState.currentUser;
-  if (!u) return;
-
-  const isClinician = u.role === 'clinician';
-  document.body.classList.toggle('role-patient', !isClinician);
-  // Guests get "Sign In" (clinicians sign in to open the technical panels).
-  document.querySelectorAll('.auth-toggle-btn').forEach(btn => {
-    btn.textContent = u.isLoggedIn ? 'Sign Out' : 'Sign In';
-    btn.style.color = u.isLoggedIn ? '#DC2626' : 'var(--brand-primary)';
-  });
-  if (!isClinician) {
-    const activeTab = document.querySelector('.mob-nav-btn.active')?.dataset.mobtab;
-    if (CLINICIAN_ONLY_TABS.includes(activeTab)) switchMobileTab('patient');
-    if (!document.getElementById('tab-content-clinician')?.classList.contains('hidden')) {
-      document.querySelector('.output-tab-btn[data-tab="patient"]')?.click();
-    }
-  }
-  const roleLabel = isClinician ? 'CLINICIAN' : 'PATIENT';
-  const avatar = (u.name || 'U').replace(/^Dr\.\s*/, '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-
-  // Desktop Header updates
-  const label = document.getElementById('auth-btn-label');
-  if (label) label.textContent = u.name;
-
-  const hdrAvatar = document.getElementById('header-user-avatar');
-  if (hdrAvatar) hdrAvatar.textContent = avatar;
-
-  const hdrName = document.getElementById('header-user-name');
-  if (hdrName) hdrName.textContent = u.name;
-
-  const hdrRole = document.getElementById('header-user-role');
-  if (hdrRole) {
-    hdrRole.textContent = roleLabel;
-    hdrRole.style.background = isClinician ? 'var(--brand-primary)' : '#2563EB';
-  }
-
-  // Mobile Drawer updates
-  const mobAvatar = document.getElementById('mob-user-avatar');
-  if (mobAvatar) mobAvatar.textContent = avatar;
-
-  const mobName = document.getElementById('mob-user-name');
-  if (mobName) mobName.textContent = u.name;
-
-  const mobRole = document.getElementById('mob-user-role');
-  if (mobRole) mobRole.textContent = (isClinician ? 'Clinician' : 'Patient User') + ' • ' + (u.email || 'PUP CCIS');
+async function loadData() {
+  try {
+    const res = await fetch('benchmark_data.json', { cache: 'no-store' });
+    if (res.ok) BENCH = await res.json();
+  } catch (err) { BENCH = null; }
+  try {
+    const res = await fetch('assets/gradcam/gradcam.json', { cache: 'no-store' });
+    if (res.ok) GRADCAM = await res.json();
+  } catch (err) { GRADCAM = null; }
+  renderAll();
 }
 
-function openReportModal() {
-  const modal = document.getElementById('report-modal');
-  if (!modal) return;
-
-  const data = AppState.customImageData || PRESETS[AppState.currentPreset] || PRESETS.buni;
-
-  // Fill in dynamic values
-  const now = new Date();
-  document.getElementById('report-date').textContent = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  document.getElementById('report-patient-name').textContent = AppState.currentUser ? AppState.currentUser.name : 'Juan Dela Cruz';
-  document.getElementById('report-ita-summary').textContent = `${data.fitzpatrick.split(' ')[1]} (Melanin-Rich) • ITA: ${data.ita}°`;
-  document.getElementById('report-condition-name').textContent = data.name;
-  document.getElementById('report-local-name').textContent = `Common Philippine Term: ${data.localName}`;
-  document.getElementById('report-confidence').textContent = `${data.confidence}%`;
-  document.getElementById('report-category').textContent = data.category.toUpperCase();
-  document.getElementById('report-category').className = `category-pill ${data.badgeClass}`;
-
-  document.getElementById('report-texture').textContent = data.morphologicalFeatures.texture;
-  document.getElementById('report-crust').textContent = data.morphologicalFeatures.crust;
-  document.getElementById('report-boundary').textContent = data.morphologicalFeatures.boundary;
-  document.getElementById('report-diff').textContent = data.morphologicalFeatures.differential;
-
-  modal.classList.remove('hidden');
-}
-
-function closeReportModal() {
-  document.getElementById('report-modal')?.classList.add('hidden');
-}
-
-function openTriageModal() {
-  document.getElementById('triage-modal')?.classList.remove('hidden');
-}
-
-function closeTriageModal() {
-  document.getElementById('triage-modal')?.classList.add('hidden');
-}
-
-function handleTriageSubmit(e) {
-  e.preventDefault();
-  const visual = document.getElementById('triage-visual').value;
-
-  let matched = 'buni';
-  if (visual === 'ring') matched = 'buni';
-  else if (visual === 'honey') matched = 'mamaso';
-  else if (visual === 'wart') matched = 'kulugo';
-  else if (visual === 'patches') matched = 'an_an';
-  else if (visual === 'macerated') matched = 'alipunga';
-  else if (visual === 'blisters') matched = 'bulutong';
-
-  selectPreset(matched);
-  closeTriageModal();
-
-  const data = PRESETS[matched];
-  alert(`AI Triage Recommendation:\nBased on your reported visual cues and symptoms, the highest probability correlation is ${data.name} (${data.localName}) with ${data.confidence}% confidence score.\n\nLoading full workspace analysis...`);
-
-  if (window.innerWidth <= 768) {
-    switchMobileTab('patient');
-  } else {
-    switchViewMode('workstation');
-  }
-}
-
-// Initialize Auth label on load
 document.addEventListener('DOMContentLoaded', () => {
-  initUserSession();
-  if (window.location.hash === '#drawer') toggleMobileDrawer(true);
+  initUser();
+  $('file-input').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
+  $('camera-input').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
+  $('split-slider').addEventListener('input', e => setSplit(+e.target.value));
+  $('toggle-boxes').addEventListener('change', e => { State.showBoxes = e.target.checked; renderWorkspace(); });
+  renderAll();
+  loadData();
+  const hash = window.location.hash.replace('#', '');
+  if (hash) switchTab(hash);
+  window.addEventListener('hashchange', () => switchTab(window.location.hash.replace('#', '')));
 });
