@@ -133,7 +133,7 @@ Done in `frontend/app.html`, `app.js`, `app.css`, `ondevice.js`, `backend/export
 - Results: top prediction = label of the highest-confidence box; the 4 candidate diseases of its cluster with
   their raw sigmoid scores from the same box (not scaled to 100%), margin, best score outside the cluster;
   below-cutoff candidate shown as "not counted"; expandable "How this result was calculated" with z, σ(z),
-  all 8 scores, cutoff/NMS and data sources. No ITA, Grad-CAM or reference text in the patient view.
+  all 8 scores, cutoff/NMS and data sources. No ITA or Grad-CAM in the patient view; the morphological view returns as labelled reference text (literature, not measured), at the student's request. Compare A–D is clinician-only.
 - Lesion feature extraction: per box crop + confidence + measured CIELAB ΔE, Δa*, Δb*, ΔL*, texture ratio,
   box size, each with its formula. Verbal labels that needed invented thresholds were removed.
 - Benchmark: SOP map, SOP 1–3 tables, per-disease values, computations (mAP = mean AP, P/R macro means,

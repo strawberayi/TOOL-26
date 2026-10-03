@@ -31,6 +31,28 @@ const DISPLAY_NAME = {
   'Tinea corporis': 'Buni (Ringworm)', 'Tinea pedis': "Alipunga (Athlete's foot)", Impetigo: 'Mamaso (Impetigo)',
 };
 
+// Typical appearance of each disease: reference text (literature), not measured from the photo.
+// Sources cited in the paper's review: Chauhan et al. (2023), Leung et al. (2022), Rahim et al. (2025).
+const MORPHOLOGY = {
+  Warts: { texture: 'Rough, raised, cauliflower-like surface; tiny black dots (clotted capillaries)',
+    crust: 'Usually none; thickened keratin instead', border: 'Well-circumscribed papules or plaques',
+    apart: 'No central dimple, unlike Molluscum' },
+  Molluscum: { texture: 'Smooth, firm, pearly dome-shaped papules', crust: 'None',
+    border: 'Discrete papules, often in clusters', apart: 'Central dimple (umbilication), unlike Warts' },
+  Varicella: { texture: 'Clear vesicles on a red base', crust: 'Vesicles dry into crusts; lesions at different stages',
+    border: 'Scattered and widespread, mainly the trunk', apart: 'Mixed stages over the body, unlike HFMD' },
+  HFMD: { texture: 'Small oval vesicles or papules with a red halo', crust: 'Rarely crusts',
+    border: 'Palms, soles and mouth', apart: 'Hand, foot and mouth distribution, unlike Varicella' },
+  'Tinea versicolor': { texture: 'Fine, powdery scale on flat patches', crust: 'None',
+    border: 'Lighter or darker patches that merge, mainly the trunk', apart: 'Flat patches without a raised ring, unlike Buni' },
+  'Tinea corporis': { texture: 'Scaly, red ring-shaped plaque', crust: 'Scale rather than crust',
+    border: 'Raised active edge with central clearing', apart: 'Ring with a clear centre, unlike Mamaso' },
+  'Tinea pedis': { texture: 'Scaling, peeling and white softened skin', crust: 'None; cracks (fissures) may appear',
+    border: 'Between the toes or along the sole', apart: 'Location on the feet, between the toes' },
+  Impetigo: { texture: 'Red erosions and small blisters', crust: 'Honey-coloured crusts',
+    border: 'Irregular, spreading, often around the nose and mouth', apart: 'Honey-coloured crust, unlike Buni' },
+};
+
 // The four configurations of SOP 1 and SOP 2.
 const CONFIGS = {
   A: { short: 'Baseline', text: 'Baseline YOLOv26, raw images' },
@@ -504,6 +526,23 @@ function featureCard(r) {
     </div>`;
 }
 
+function morphologyCard(label) {
+  const m = MORPHOLOGY[label];
+  return `
+    <div class="card morphology">
+      <div class="card-head"><h2>Morphological view</h2><span class="tag">Reference</span></div>
+      <p class="note">Typical appearance of <b>${esc(DISPLAY_NAME[label])}</b> from the literature, to compare with the photo.
+        <b>Not measured from your photo</b> and not used by the model; the measured values are in Lesion feature extraction.</p>
+      <table class="kv">
+        <tr><td>Surface texture</td><td>${esc(m.texture)}</td></tr>
+        <tr><td>Crust and exudate</td><td>${esc(m.crust)}</td></tr>
+        <tr><td>Border and distribution</td><td>${esc(m.border)}</td></tr>
+        <tr><td>How to tell apart</td><td>${esc(m.apart)}</td></tr>
+      </table>
+      <p class="note">Sources cited in the study: Chauhan et al. (2023); Leung et al. (2022); Rahim et al. (2025).</p>
+    </div>`;
+}
+
 function calculationCard(r) {
   const top = r.detections[0] || r.below_cutoff;
   const scoreTable = top ? `
@@ -578,6 +617,7 @@ function renderResults() {
     if (r.below_cutoff) html += candidateCard(r.below_cutoff, false);
   }
   html += featureCard(r);
+  if (top) html += morphologyCard(top.label);
   html += calculationCard(r);
   html += `<button type="button" class="btn wide" onclick="openReport()">Print / save report</button>`;
   $('results-body').innerHTML = html;
