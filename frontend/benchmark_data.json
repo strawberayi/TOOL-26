@@ -1,7 +1,9 @@
 {
   "status": "final",
-  "generated": "2026-10-01T04:16",
-  "note": "Held-out test set (200 images), YOLO26n, seed 42. P/R at the F1-maximizing confidence; within-cluster rates at confidence 0.25, IoU 0.5. Friedman → Wilcoxon (D vs A, B, C, Bonferroni).",
+  "generated": "2026-10-04T05:05",
+  "testImages": 200,
+  "seed": 42,
+  "note": "Held-out test set (200 images), YOLO26n, seed 42, the same images for every model. mAP, P, R: official Ultralytics evaluation (P and R at the confidence that maximizes F1, averaged over the 8 diseases). Within-cluster rates and confusion matrices: boxes with confidence ≥ 0.25 matched to labels at IoU ≥ 0.5.",
   "models": [
     {
       "id": "A",
@@ -13,43 +15,447 @@
       "recall": 47.9,
       "f1": 0.465,
       "withinEruptive": 7.0,
-      "withinScaly": 0.0
+      "withinScaly": 0.0,
+      "exact": {
+        "mAP50": 0.4261,
+        "mAP50_95": 0.1899,
+        "precision": 0.4524,
+        "recall": 0.4788,
+        "F1": 0.4652
+      },
+      "perClass": [
+        {
+          "class": "Warts",
+          "instances": 110,
+          "precision": 0.5348,
+          "recall": 0.4703,
+          "F1": 0.5004,
+          "AP50": 0.4703,
+          "AP50_95": 0.1843
+        },
+        {
+          "class": "Molluscum",
+          "instances": 213,
+          "precision": 0.4799,
+          "recall": 0.6291,
+          "F1": 0.5444,
+          "AP50": 0.5431,
+          "AP50_95": 0.2331
+        },
+        {
+          "class": "Varicella",
+          "instances": 329,
+          "precision": 0.3904,
+          "recall": 0.462,
+          "F1": 0.4232,
+          "AP50": 0.403,
+          "AP50_95": 0.1449
+        },
+        {
+          "class": "HFMD",
+          "instances": 368,
+          "precision": 0.4336,
+          "recall": 0.3832,
+          "F1": 0.4068,
+          "AP50": 0.322,
+          "AP50_95": 0.112
+        },
+        {
+          "class": "Tinea versicolor",
+          "instances": 233,
+          "precision": 0.3773,
+          "recall": 0.1373,
+          "F1": 0.2014,
+          "AP50": 0.1451,
+          "AP50_95": 0.0607
+        },
+        {
+          "class": "Tinea corporis",
+          "instances": 42,
+          "precision": 0.5369,
+          "recall": 0.6429,
+          "F1": 0.5851,
+          "AP50": 0.5922,
+          "AP50_95": 0.2961
+        },
+        {
+          "class": "Tinea pedis",
+          "instances": 8,
+          "precision": 0.4275,
+          "recall": 0.75,
+          "F1": 0.5446,
+          "AP50": 0.6153,
+          "AP50_95": 0.3669
+        },
+        {
+          "class": "Impetigo",
+          "instances": 132,
+          "precision": 0.4389,
+          "recall": 0.3555,
+          "F1": 0.3928,
+          "AP50": 0.3174,
+          "AP50_95": 0.1208
+        }
+      ],
+      "clusters": [
+        {
+          "cluster": "Vesiculopapular/Eruptive",
+          "gt": 1042,
+          "detected": 457,
+          "correct": 417,
+          "within": 32,
+          "cross": 8,
+          "missed": 585
+        },
+        {
+          "cluster": "Papulosquamous/Verrucous",
+          "gt": 393,
+          "detected": 112,
+          "correct": 100,
+          "within": 0,
+          "cross": 12,
+          "missed": 281
+        }
+      ]
     },
     {
       "id": "B",
       "short": "Fixed L*-CLAHE",
-      "name": "Fixed L*-CLAHE (β = 2.0)",
+      "name": "YOLOv26 with fixed-parameter L*-CLAHE (clip limit 2.0)",
       "map50": 39.5,
       "map5095": 20.3,
       "precision": 50.2,
       "recall": 41.6,
       "f1": 0.455,
       "withinEruptive": 10.3,
-      "withinScaly": 2.9
+      "withinScaly": 2.9,
+      "exact": {
+        "mAP50": 0.3946,
+        "mAP50_95": 0.2031,
+        "precision": 0.5019,
+        "recall": 0.4157,
+        "F1": 0.4548
+      },
+      "perClass": [
+        {
+          "class": "Warts",
+          "instances": 110,
+          "precision": 0.6131,
+          "recall": 0.5,
+          "F1": 0.5508,
+          "AP50": 0.4846,
+          "AP50_95": 0.2418
+        },
+        {
+          "class": "Molluscum",
+          "instances": 213,
+          "precision": 0.5171,
+          "recall": 0.5882,
+          "F1": 0.5504,
+          "AP50": 0.5043,
+          "AP50_95": 0.2276
+        },
+        {
+          "class": "Varicella",
+          "instances": 329,
+          "precision": 0.3457,
+          "recall": 0.3211,
+          "F1": 0.333,
+          "AP50": 0.2361,
+          "AP50_95": 0.083
+        },
+        {
+          "class": "HFMD",
+          "instances": 368,
+          "precision": 0.4633,
+          "recall": 0.2935,
+          "F1": 0.3593,
+          "AP50": 0.279,
+          "AP50_95": 0.0933
+        },
+        {
+          "class": "Tinea versicolor",
+          "instances": 233,
+          "precision": 0.3468,
+          "recall": 0.1159,
+          "F1": 0.1737,
+          "AP50": 0.1154,
+          "AP50_95": 0.0503
+        },
+        {
+          "class": "Tinea corporis",
+          "instances": 42,
+          "precision": 0.6371,
+          "recall": 0.5714,
+          "F1": 0.6025,
+          "AP50": 0.6314,
+          "AP50_95": 0.3755
+        },
+        {
+          "class": "Tinea pedis",
+          "instances": 8,
+          "precision": 0.6437,
+          "recall": 0.625,
+          "F1": 0.6342,
+          "AP50": 0.625,
+          "AP50_95": 0.4501
+        },
+        {
+          "class": "Impetigo",
+          "instances": 132,
+          "precision": 0.4484,
+          "recall": 0.3106,
+          "F1": 0.367,
+          "AP50": 0.2813,
+          "AP50_95": 0.1032
+        }
+      ],
+      "clusters": [
+        {
+          "cluster": "Vesiculopapular/Eruptive",
+          "gt": 1042,
+          "detected": 360,
+          "correct": 317,
+          "within": 37,
+          "cross": 6,
+          "missed": 682
+        },
+        {
+          "cluster": "Papulosquamous/Verrucous",
+          "gt": 393,
+          "detected": 105,
+          "correct": 97,
+          "within": 3,
+          "cross": 5,
+          "missed": 288
+        }
+      ]
     },
     {
       "id": "C",
       "short": "Focal Loss",
-      "name": "Focal Loss Optimization (raw images)",
+      "name": "YOLOv26 with Focal Loss optimization (raw images)",
       "map50": 36.8,
       "map5095": 17.3,
       "precision": 43.0,
       "recall": 39.0,
       "f1": 0.409,
       "withinEruptive": 15.2,
-      "withinScaly": 2.6
+      "withinScaly": 2.6,
+      "exact": {
+        "mAP50": 0.3678,
+        "mAP50_95": 0.1734,
+        "precision": 0.4303,
+        "recall": 0.3903,
+        "F1": 0.4093
+      },
+      "perClass": [
+        {
+          "class": "Warts",
+          "instances": 110,
+          "precision": 0.4689,
+          "recall": 0.4818,
+          "F1": 0.4753,
+          "AP50": 0.4633,
+          "AP50_95": 0.1983
+        },
+        {
+          "class": "Molluscum",
+          "instances": 213,
+          "precision": 0.3993,
+          "recall": 0.7042,
+          "F1": 0.5096,
+          "AP50": 0.5735,
+          "AP50_95": 0.2426
+        },
+        {
+          "class": "Varicella",
+          "instances": 329,
+          "precision": 0.3178,
+          "recall": 0.31,
+          "F1": 0.3139,
+          "AP50": 0.2297,
+          "AP50_95": 0.0861
+        },
+        {
+          "class": "HFMD",
+          "instances": 368,
+          "precision": 0.3839,
+          "recall": 0.2826,
+          "F1": 0.3256,
+          "AP50": 0.2401,
+          "AP50_95": 0.082
+        },
+        {
+          "class": "Tinea versicolor",
+          "instances": 233,
+          "precision": 0.3384,
+          "recall": 0.1888,
+          "F1": 0.2424,
+          "AP50": 0.1514,
+          "AP50_95": 0.0578
+        },
+        {
+          "class": "Tinea corporis",
+          "instances": 42,
+          "precision": 0.483,
+          "recall": 0.4048,
+          "F1": 0.4404,
+          "AP50": 0.4377,
+          "AP50_95": 0.2962
+        },
+        {
+          "class": "Tinea pedis",
+          "instances": 8,
+          "precision": 0.5651,
+          "recall": 0.5,
+          "F1": 0.5306,
+          "AP50": 0.6,
+          "AP50_95": 0.3233
+        },
+        {
+          "class": "Impetigo",
+          "instances": 132,
+          "precision": 0.4862,
+          "recall": 0.25,
+          "F1": 0.3302,
+          "AP50": 0.2469,
+          "AP50_95": 0.101
+        }
+      ],
+      "clusters": [
+        {
+          "cluster": "Vesiculopapular/Eruptive",
+          "gt": 1042,
+          "detected": 356,
+          "correct": 290,
+          "within": 54,
+          "cross": 12,
+          "missed": 686
+        },
+        {
+          "cluster": "Papulosquamous/Verrucous",
+          "gt": 393,
+          "detected": 116,
+          "correct": 104,
+          "within": 3,
+          "cross": 9,
+          "missed": 277
+        }
+      ]
     },
     {
       "id": "D",
       "short": "Proposed",
-      "name": "ITA L*-CLAHE + two-stage + Focal Loss",
+      "name": "ITA-guided adaptive L*-CLAHE + two-stage decoupled training + Focal Loss",
       "map50": 41.4,
       "map5095": 19.8,
       "precision": 50.8,
       "recall": 44.2,
       "f1": 0.473,
       "withinEruptive": 5.5,
-      "withinScaly": 2.8
+      "withinScaly": 2.8,
+      "exact": {
+        "mAP50": 0.4142,
+        "mAP50_95": 0.1981,
+        "precision": 0.5081,
+        "recall": 0.4417,
+        "F1": 0.4726
+      },
+      "perClass": [
+        {
+          "class": "Warts",
+          "instances": 110,
+          "precision": 0.4967,
+          "recall": 0.4576,
+          "F1": 0.4763,
+          "AP50": 0.4279,
+          "AP50_95": 0.1984
+        },
+        {
+          "class": "Molluscum",
+          "instances": 213,
+          "precision": 0.5169,
+          "recall": 0.7324,
+          "F1": 0.6061,
+          "AP50": 0.6294,
+          "AP50_95": 0.2537
+        },
+        {
+          "class": "Varicella",
+          "instances": 329,
+          "precision": 0.4453,
+          "recall": 0.3465,
+          "F1": 0.3897,
+          "AP50": 0.3117,
+          "AP50_95": 0.1048
+        },
+        {
+          "class": "HFMD",
+          "instances": 368,
+          "precision": 0.4616,
+          "recall": 0.3052,
+          "F1": 0.3675,
+          "AP50": 0.2596,
+          "AP50_95": 0.0877
+        },
+        {
+          "class": "Tinea versicolor",
+          "instances": 233,
+          "precision": 0.3555,
+          "recall": 0.1459,
+          "F1": 0.2069,
+          "AP50": 0.1401,
+          "AP50_95": 0.0572
+        },
+        {
+          "class": "Tinea corporis",
+          "instances": 42,
+          "precision": 0.5359,
+          "recall": 0.5952,
+          "F1": 0.564,
+          "AP50": 0.6318,
+          "AP50_95": 0.3755
+        },
+        {
+          "class": "Tinea pedis",
+          "instances": 8,
+          "precision": 0.8313,
+          "recall": 0.6172,
+          "F1": 0.7084,
+          "AP50": 0.6033,
+          "AP50_95": 0.3938
+        },
+        {
+          "class": "Impetigo",
+          "instances": 132,
+          "precision": 0.4214,
+          "recall": 0.3333,
+          "F1": 0.3722,
+          "AP50": 0.3102,
+          "AP50_95": 0.1136
+        }
+      ],
+      "clusters": [
+        {
+          "cluster": "Vesiculopapular/Eruptive",
+          "gt": 1042,
+          "detected": 362,
+          "correct": 332,
+          "within": 20,
+          "cross": 10,
+          "missed": 680
+        },
+        {
+          "cluster": "Papulosquamous/Verrucous",
+          "gt": 393,
+          "detected": 108,
+          "correct": 97,
+          "within": 3,
+          "cross": 8,
+          "missed": 285
+        }
+      ]
     }
   ],
   "classes": [
@@ -61,6 +467,16 @@
     "BU",
     "AL",
     "MA"
+  ],
+  "classNames": [
+    "Warts",
+    "Molluscum",
+    "Varicella",
+    "HFMD",
+    "Tinea versicolor",
+    "Tinea corporis",
+    "Tinea pedis",
+    "Impetigo"
   ],
   "classLegend": [
     "Kulugo (Warts)",
@@ -405,7 +821,8 @@
   "fairnessMetric": "mAP@50",
   "fairness": [
     {
-      "group": "Fitzpatrick I–II",
+      "group": "Fitzpatrick I–II (ITA proxy)",
+      "key": "I-II",
       "range": "ITA > 41°",
       "images": 85,
       "scores": {
@@ -413,10 +830,14 @@
         "B": 48.8,
         "C": 38.5,
         "D": 46.6
-      }
+      },
+      "dAP50": -0.0411,
+      "meanPerImageDAP50": -0.0638,
+      "medianPerImageDAP50": 0.0
     },
     {
-      "group": "Fitzpatrick III–V",
+      "group": "Fitzpatrick III–V (ITA proxy)",
+      "key": "III-V",
       "range": "−30° < ITA ≤ 41°",
       "images": 102,
       "scores": {
@@ -424,20 +845,255 @@
         "B": 33.7,
         "C": 34.3,
         "D": 38.0
-      }
+      },
+      "dAP50": 0.004,
+      "meanPerImageDAP50": -0.0116,
+      "medianPerImageDAP50": 0.0
     }
   ],
   "fairnessTest": {
     "test": "Mann-Whitney U on per-image ΔAP50 (D − A), III–V vs I–II",
-    "p": 0.018,
-    "r": 0.2,
-    "excludedVI": 11
+    "n1": 85,
+    "n2": 102,
+    "U": 5192.0,
+    "p": 0.0181,
+    "r": 0.198,
+    "ciLow": -0.0237,
+    "ciHigh": 0.1381,
+    "excludedVI": 11,
+    "excludedNoIta": 2
   },
+  "tests": [
+    {
+      "metric": "AP@50",
+      "n": 200,
+      "friedmanChi2": 4.571,
+      "friedmanP": 0.206,
+      "means": {
+        "A": 0.6284,
+        "B": 0.5827,
+        "C": 0.5805,
+        "D": 0.5899
+      },
+      "pairs": [
+        {
+          "vs": "A",
+          "p": 0.0249,
+          "pBonf": 0.0747,
+          "r": -0.223
+        },
+        {
+          "vs": "B",
+          "p": 0.8558,
+          "pBonf": 1.0,
+          "r": -0.018
+        },
+        {
+          "vs": "C",
+          "p": 0.5745,
+          "pBonf": 1.0,
+          "r": -0.054
+        }
+      ]
+    },
+    {
+      "metric": "AP@50–95",
+      "n": 200,
+      "friedmanChi2": 2.184,
+      "friedmanP": 0.5352,
+      "means": {
+        "A": 0.3116,
+        "B": 0.3141,
+        "C": 0.3028,
+        "D": 0.3037
+      },
+      "pairs": [
+        {
+          "vs": "A",
+          "p": 0.7113,
+          "pBonf": 1.0,
+          "r": -0.031
+        },
+        {
+          "vs": "B",
+          "p": 0.635,
+          "pBonf": 1.0,
+          "r": -0.04
+        },
+        {
+          "vs": "C",
+          "p": 0.3094,
+          "pBonf": 0.9283,
+          "r": -0.084
+        }
+      ]
+    },
+    {
+      "metric": "Precision",
+      "n": 200,
+      "friedmanChi2": 13.407,
+      "friedmanP": 0.0038,
+      "means": {
+        "A": 0.4979,
+        "B": 0.5149,
+        "C": 0.4333,
+        "D": 0.4862
+      },
+      "pairs": [
+        {
+          "vs": "A",
+          "p": 0.7371,
+          "pBonf": 1.0,
+          "r": -0.037
+        },
+        {
+          "vs": "B",
+          "p": 0.3389,
+          "pBonf": 1.0,
+          "r": -0.105
+        },
+        {
+          "vs": "C",
+          "p": 0.0409,
+          "pBonf": 0.1226,
+          "r": 0.224
+        }
+      ]
+    },
+    {
+      "metric": "Recall",
+      "n": 200,
+      "friedmanChi2": 14.888,
+      "friedmanP": 0.0019,
+      "means": {
+        "A": 0.4679,
+        "B": 0.4499,
+        "C": 0.3793,
+        "D": 0.445
+      },
+      "pairs": [
+        {
+          "vs": "A",
+          "p": 0.0859,
+          "pBonf": 0.2578,
+          "r": -0.225
+        },
+        {
+          "vs": "B",
+          "p": 0.8682,
+          "pBonf": 1.0,
+          "r": -0.02
+        },
+        {
+          "vs": "C",
+          "p": 0.0179,
+          "pBonf": 0.0537,
+          "r": 0.279
+        }
+      ]
+    },
+    {
+      "metric": "F1",
+      "n": 200,
+      "friedmanChi2": 14.658,
+      "friedmanP": 0.0021,
+      "means": {
+        "A": 0.4476,
+        "B": 0.4467,
+        "C": 0.3657,
+        "D": 0.4369
+      },
+      "pairs": [
+        {
+          "vs": "A",
+          "p": 0.3437,
+          "pBonf": 1.0,
+          "r": -0.103
+        },
+        {
+          "vs": "B",
+          "p": 0.5806,
+          "pBonf": 1.0,
+          "r": -0.059
+        },
+        {
+          "vs": "C",
+          "p": 0.0023,
+          "pBonf": 0.0068,
+          "r": 0.325
+        }
+      ]
+    }
+  ],
   "friedman": {
     "AP50": 0.206,
     "AP50_95": 0.5352,
     "precision": 0.0038,
     "recall": 0.0019,
     "F1": 0.0021
+  },
+  "runtime": {
+    "hardware": {
+      "device": "NVIDIA GeForce RTX 3050 Laptop GPU",
+      "framework": "PyTorch 2.14.0+cu130, Ultralytics",
+      "batch": 1,
+      "imgsz": 640,
+      "letterbox": "rectangular (stride 32)",
+      "confidence": 0.25,
+      "nms_iou": 0.7,
+      "warmup_images": 10,
+      "test_images": 200,
+      "note": "Ultralytics r.speed per image: preprocess, inference, postprocess (ms). L*-CLAHE preprocessing of B and D is already applied in their test images, so it is not included here."
+    },
+    "models": {
+      "A": {
+        "weights": "best_ModelA_raw_seed42.pt",
+        "gflops_640": 5.91,
+        "params_million": 2.507,
+        "images_timed": 190,
+        "preprocess_ms": 0.98,
+        "inference_ms_mean": 8.5,
+        "inference_ms_sd": 2.01,
+        "postprocess_ms": 0.9,
+        "total_ms_mean": 10.38,
+        "total_ms_sd": 2.11
+      },
+      "B": {
+        "weights": "best_ModelC_fixed_l_clahe_seed42.pt",
+        "gflops_640": 5.91,
+        "params_million": 2.507,
+        "images_timed": 190,
+        "preprocess_ms": 1.02,
+        "inference_ms_mean": 8.2,
+        "inference_ms_sd": 0.83,
+        "postprocess_ms": 0.92,
+        "total_ms_mean": 10.14,
+        "total_ms_sd": 1.07
+      },
+      "C": {
+        "weights": "best_ModelC_focal_seed42.pt",
+        "gflops_640": 5.91,
+        "params_million": 2.507,
+        "images_timed": 190,
+        "preprocess_ms": 0.91,
+        "inference_ms_mean": 7.45,
+        "inference_ms_sd": 0.33,
+        "postprocess_ms": 0.77,
+        "total_ms_mean": 9.13,
+        "total_ms_sd": 0.48
+      },
+      "D": {
+        "weights": "best_ModelD_g1.0_f11_seed42.pt",
+        "gflops_640": 5.91,
+        "params_million": 2.507,
+        "images_timed": 190,
+        "preprocess_ms": 0.94,
+        "inference_ms_mean": 7.72,
+        "inference_ms_sd": 0.78,
+        "postprocess_ms": 0.84,
+        "total_ms_mean": 9.51,
+        "total_ms_sd": 0.98
+      }
+    }
   }
 }

@@ -314,7 +314,7 @@ const OnDevice = (() => {
       const chosen = plausible.reduce((a, b) => (b.count > a.count || (b.count === a.count && b.label < a.label) ? b : a));
       const [meanL, , meanB] = chosen.mean;
       if (Math.abs(meanB) < cfg.minimum_abs_b) continue;
-      return { ita: Math.atan((meanL - 50) / meanB) * 180 / Math.PI, k, meanL, meanB };
+      return { ita: Math.atan((meanL - 50) / meanB) * 180 / Math.PI, k, meanL, meanB, maskPixels: chosen.count, pixels: n, width: rgb.cols, height: rgb.rows };
     }
     return null;
   }
@@ -340,7 +340,8 @@ const OnDevice = (() => {
         status = 'MASK_FALLBACK';
       }
       if (!result) return { ita: null, bracket: null, status: 'MASK_FAILED' };
-      return { ita: result.ita, bracket: bracketOf(result.ita), status, meanL: result.meanL, meanB: result.meanB, k: result.k };
+      return { ita: result.ita, bracket: bracketOf(result.ita), status, meanL: result.meanL, meanB: result.meanB, k: result.k,
+               maskPixels: result.maskPixels, pixels: result.pixels, width: result.width, height: result.height };
     } finally {
       small.delete();
     }
@@ -448,44 +449,65 @@ const OnDevice = (() => {
     return camSpecs[file];
   }
 
-  // Returns { detections, cam }. cam (Float32Array, rgb.rows x rgb.cols, 0..1) is
-  // computed when camSpec is given.
-  async function detect(cv, rgb, modelFile, manifest, camSpec = null) {
+  // Returns { detections, below, cam, timing, input }.
+  // detections: boxes with confidence >= manifest.confidence after per-class NMS; each keeps
+  //   the 8 sigmoid class scores of its anchor (scores), so the ranking of the candidate
+  //   diseases comes straight from the model output.
+  // below: the strongest anchor under the cutoff (not counted as a detection), or null.
+  // cam (Float32Array, rgb.rows x rgb.cols, 0..1): Grad-CAM, computed when camSpec is given.
+  // With options.deferCam the Grad-CAM is not computed; computeCam() is returned instead.
+  async function detect(cv, rgb, modelFile, manifest, camSpec = null, options = {}) {
     const session = await getSession(modelFile);
     const size = manifest.imgsz;
+    let t = performance.now();
     const { tensor, r, left, top, ph, pw } = letterbox(cv, rgb, size);
+    const timing = { letterbox_ms: performance.now() - t };
+    t = performance.now();
     const outputs = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, ph, pw]) });
+    timing.inference_ms = performance.now() - t;
+    t = performance.now();
     // [1, 4 + nc, N]: cx cy w h (input pixels) and sigmoid class scores, one-to-many head.
     const out0 = outputs[session.outputNames[0]];
     const raw = out0.data, nc = out0.dims[1] - 4, N = out0.dims[2];
+    const scoresOf = j => Array.from({ length: nc }, (_, k) => raw[(4 + k) * N + j]);
     const cand = [];
+    let strongest = null;
     for (let j = 0; j < N; j++) {
       let c = 0, score = raw[4 * N + j];
       for (let k = 1; k < nc; k++) {
         const v = raw[(4 + k) * N + j];
         if (v > score) { score = v; c = k; }
       }
-      if (score < manifest.confidence) continue;
       const cx = raw[j], cy = raw[N + j], w = raw[2 * N + j], h = raw[3 * N + j];
-      cand.push({ x1: cx - w / 2, y1: cy - h / 2, x2: cx + w / 2, y2: cy + h / 2, score, c });
+      const box = { x1: cx - w / 2, y1: cy - h / 2, x2: cx + w / 2, y2: cy + h / 2, score, c, j };
+      if (!strongest || score > strongest.score) strongest = box;
+      if (score >= manifest.confidence) cand.push(box);
     }
     const kept = nms(cand, manifest.nms_iou || 0.7, 300);
-    const detections = [];
     const clamp = (v, max) => Math.min(Math.max(v, 0), max);
-    for (const k of kept) {
+    const round4 = v => Math.round(v * 10000) / 10000;
+    const toPhoto = k => {
       const x1 = clamp((k.x1 - left) / r, rgb.cols), y1 = clamp((k.y1 - top) / r, rgb.rows);
       const x2 = clamp((k.x2 - left) / r, rgb.cols), y2 = clamp((k.y2 - top) / r, rgb.rows);
-      detections.push({
+      return {
         label: manifest.classes[k.c],
-        confidence: Math.round(k.score * 10000) / 10000,
-        box: [x1 / rgb.cols, y1 / rgb.rows, x2 / rgb.cols, y2 / rgb.rows].map(v => Math.round(v * 10000) / 10000),
-      });
-    }
-    detections.sort((a, b) => b.confidence - a.confidence);
-    const cam = camSpec && outputs[camSpec.layers[0].feature]
-      ? gradCam(cv, outputs, camSpec, manifest, { r, left, top, ph, pw, rows: rgb.rows, cols: rgb.cols })
-      : null;
-    return { detections, cam };
+        confidence: k.score,  // full float32 precision (z = logit(confidence) is shown in the app)
+        box: [x1 / rgb.cols, y1 / rgb.rows, x2 / rgb.cols, y2 / rgb.rows].map(round4),
+        box_px: [x1, y1, x2, y2].map(Math.round),
+        scores: scoresOf(k.j),
+      };
+    };
+    const detections = kept.map(toPhoto).sort((a, b) => b.confidence - a.confidence);
+    const below = !detections.length && strongest ? toPhoto(strongest) : null;
+    timing.decode_nms_ms = performance.now() - t;
+    const hasCam = Boolean(camSpec && outputs[camSpec.layers[0].feature]);
+    const geo = { r, left, top, ph, pw, rows: rgb.rows, cols: rgb.cols };
+    const computeCam = () => (hasCam ? gradCam(cv, outputs, camSpec, manifest, geo) : null);
+    if (options.deferCam) return { detections, below, computeCam, timing, input: [ph, pw] };
+    t = performance.now();
+    const cam = computeCam();
+    timing.gradcam_ms = cam ? performance.now() - t : 0;
+    return { detections, below, cam, timing, input: [ph, pw] };
   }
 
   // Per-class non-maximum suppression, as in Ultralytics (agnostic=False, iou 0.7, max_det 300).
@@ -728,18 +750,15 @@ const OnDevice = (() => {
     return url;
   }
 
-  // Image-level suggestion: class with the highest summed confidence.
+  // Top prediction = the class of the highest-confidence box (the detector's own label for it).
   function summarize(detections) {
-    const totals = {};
-    detections.forEach(d => { totals[d.label] = (totals[d.label] || 0) + d.confidence; });
-    const top = Object.keys(totals).sort((a, b) => totals[b] - totals[a])[0] || null;
-    const topConfidence = top ? Math.max(...detections.filter(d => d.label === top).map(d => d.confidence)) : null;
-    return { top, topConfidence };
+    const top = detections[0] || null;
+    return { top: top ? top.label : null, topConfidence: top ? top.confidence : null };
   }
 
   // ---------------------------------------------------------------- images
 
-  async function loadRgb(cv, source) {
+  async function loadRgb(cv, source, info = null) {
     const img = new Image();
     img.src = source;
     await img.decode();  // EXIF orientation is applied by the browser
@@ -754,6 +773,8 @@ const OnDevice = (() => {
     rgba.delete();
     const limited = resizeMax(cv, rgb, MAX_SIDE);
     rgb.delete();
+    if (info) Object.assign(info, { sourceWidth: img.naturalWidth, sourceHeight: img.naturalHeight,
+                                    width: limited.cols, height: limited.rows });
     return limited;
   }
 
@@ -791,38 +812,94 @@ const OnDevice = (() => {
 
   // ---------------------------------------------------------------- public API
 
-  // Same response shape as the former /detect server endpoint.
-  async function runDetect(source) {
-    const [cv, manifest] = await Promise.all([loadCv(), loadManifest()]);
-    const modelD = manifest.models.find(m => m.id === 'D');
-    const rgb = await loadRgb(cv, source);
+  // Let the page repaint (progress dialog) between the heavy synchronous steps.
+  const yieldToUi = () => new Promise(resolve => setTimeout(resolve, 0));
+
+  // Runs `fn` as a named step: reports 'active' and 'done' (with the measured time)
+  // through onStep, and records the time in `timings`.
+  async function step(id, onStep, timings, fn) {
+    if (onStep) onStep(id, 'active');
+    await yieldToUi();
+    const t = performance.now();
+    const value = await fn();
+    timings[id] = performance.now() - t;
+    if (onStep) onStep(id, 'done', timings[id]);
+    return value;
+  }
+
+  function settingsOf(manifest) {
+    return {
+      imgsz: manifest.imgsz, confidence: manifest.confidence, nms_iou: manifest.nms_iou || 0.7,
+      max_side: MAX_SIDE, ita_max_side: ITA_MAX_SIDE, tile_grid_size: manifest.tile_grid_size,
+      calibration: manifest.calibration, fixed_beta: manifest.fixed_beta,
+    };
+  }
+
+  function sessionLoaded(file) { return Boolean(sessions[file]); }
+
+  // Model D on one photo. options.onStep(id, state, ms) receives the progress of the steps
+  // load, ita, clahe, detect, gradcam, features.
+  async function runDetect(source, options = {}) {
+    const { onStep } = options;
+    const timings = {};
+    const tStart = performance.now();
+    const { cv, manifest, modelD, camSpec, rgb, imageInfo, firstLoad } = await step('load', onStep, timings, async () => {
+      const [cv, manifest] = await Promise.all([loadCv(), loadManifest()]);
+      const modelD = manifest.models.find(m => m.id === 'D');
+      const firstLoad = !sessionLoaded(modelD.file);
+      await getSession(modelD.file);
+      const camSpec = modelD.cam ? await loadCamSpec(modelD.cam).catch(() => null) : null;
+      const imageInfo = {};
+      const rgb = await loadRgb(cv, source, imageInfo);
+      return { cv, manifest, modelD, camSpec, rgb, imageInfo, firstLoad };
+    });
     try {
-      const itaResult = computeIta(cv, rgb, manifest.masking);
+      const itaResult = await step('ita', onStep, timings, () => computeIta(cv, rgb, manifest.masking));
       const { beta, source: betaSource } = betaForD(itaResult.ita, manifest.calibration);
-      const enhanced = lClahe(cv, rgb, beta, manifest.tile_grid_size);
+      const enhanced = await step('clahe', onStep, timings, () => lClahe(cv, rgb, beta, manifest.tile_grid_size));
       try {
-        const camSpec = modelD.cam ? await loadCamSpec(modelD.cam).catch(() => null) : null;
-        const { detections, cam } = await detect(cv, enhanced, modelD.file, manifest, camSpec);
-        const { top, topConfidence } = summarize(detections);
-        return {
-          enhanced_image: toDataUrl(cv, enhanced),
-          boxed_image: toDataUrl(cv, rgb, detections, 800),
-          gradcam_image: cam ? camToDataUrl(cv, rgb, cam, detections) : null,
-          gradcam_heatmap: cam ? camHeatmapUrl(cv, cam) : null,
-          gradcam_targets: cam ? cam.targets : [],
-          class_scores: cam ? cam.classScores : [],
+        const result = await step('detect', onStep, timings,
+          () => detect(cv, enhanced, modelD.file, manifest, camSpec, { deferCam: true }));
+        const { detections, below } = result;
+        let cam = null;
+        const images = await step('gradcam', onStep, timings, () => {
+          cam = result.computeCam();
+          return {
+            gradcam_image: cam ? camToDataUrl(cv, rgb, cam, detections) : null,
+            gradcam_heatmap: cam ? camHeatmapUrl(cv, cam) : null,
+          };
+        });
+        const features = await step('features', onStep, timings, () => ({
           lesion_measures: detections.length ? measureLesion(cv, rgb, detections, cam) : null,
           lesion_crops: detections.length ? lesionCrops(cv, rgb, detections) : [],
-          ita_inputs: itaResult.ita === null ? null : { meanL: itaResult.meanL, meanB: itaResult.meanB, k: itaResult.k },
+          enhanced_image: toDataUrl(cv, enhanced),
+          boxed_image: toDataUrl(cv, rgb, detections, 800),
+        }));
+        const { top, topConfidence } = summarize(detections);
+        timings.total = performance.now() - tStart;
+        return {
+          ...images,
+          ...features,
+          gradcam_targets: cam ? cam.targets : [],
+          ita_inputs: itaResult.ita === null ? null : {
+            meanL: itaResult.meanL, meanB: itaResult.meanB, k: itaResult.k,
+            maskPixels: itaResult.maskPixels, pixels: itaResult.pixels, width: itaResult.width, height: itaResult.height,
+          },
           top_label: top,
           top_confidence: topConfidence,
           detections,
+          below_cutoff: below,
           ita: itaResult.ita,
           bracket: itaResult.bracket,
           mask_status: itaResult.status,
           beta,
           beta_source: betaSource,
           weights: modelD.file,
+          model_input: result.input,
+          image: imageInfo,
+          settings: settingsOf(manifest),
+          timings: Object.fromEntries(Object.entries({ ...timings, ...result.timing }).map(([k, v]) => [k, Math.round(v * 10) / 10])),
+          first_load: firstLoad,
           calibration_status: manifest.calibration.status,
         };
       } finally {
@@ -833,35 +910,46 @@ const OnDevice = (() => {
     }
   }
 
-  // Same response shape as the former /compare server endpoint.
-  async function runCompare(source) {
+  // The same photo through every ablation model (A-D), each with its own preprocessing.
+  // options.onStep(id, state, ms) receives 'ita' and 'model-A' ... 'model-D'.
+  async function runCompare(source, options = {}) {
+    const { onStep } = options;
+    const timings = {};
     const [cv, manifest] = await Promise.all([loadCv(), loadManifest()]);
     const rgb = await loadRgb(cv, source);
     try {
-      const itaResult = computeIta(cv, rgb, manifest.masking);
+      const itaResult = await step('ita', onStep, timings, () => computeIta(cv, rgb, manifest.masking));
       const { beta: betaD, source: betaSource } = betaForD(itaResult.ita, manifest.calibration);
       const models = [];
       for (const model of manifest.models) {
-        const { image, beta } = preprocess(cv, rgb, model.preprocessing, manifest, itaResult);
-        try {
-          const camSpec = model.cam ? await loadCamSpec(model.cam).catch(() => null) : null;
-          const { detections, cam } = await detect(cv, image, model.file, manifest, camSpec);
-          const { top, topConfidence } = summarize(detections);
-          models.push({
-            id: model.id, description: model.description, available: true, beta,
-            top_label: top, top_confidence: topConfidence, boxes: detections.length,
-            image: toDataUrl(cv, image, detections, 640),
-            gradcam_image: cam ? camToDataUrl(cv, rgb, cam, null) : null,
-          });
-        } finally {
-          image.delete();
-        }
+        const entry = await step(`model-${model.id}`, onStep, timings, async () => {
+          const { image, beta } = preprocess(cv, rgb, model.preprocessing, manifest, itaResult);
+          try {
+            const camSpec = model.cam ? await loadCamSpec(model.cam).catch(() => null) : null;
+            const { detections, below, cam, timing } = await detect(cv, image, model.file, manifest, camSpec);
+            const { top, topConfidence } = summarize(detections);
+            return {
+              id: model.id, description: model.description, preprocessing: model.preprocessing, available: true, beta,
+              top_label: top, top_confidence: topConfidence, boxes: detections.length,
+              detections, below_cutoff: below,
+              image: toDataUrl(cv, image, detections, 640),
+              gradcam_image: cam ? camToDataUrl(cv, rgb, cam, null) : null,
+              inference_ms: Math.round(timing.inference_ms * 10) / 10,
+            };
+          } finally {
+            image.delete();
+          }
+        });
+        entry.total_ms = Math.round(timings[`model-${model.id}`] * 10) / 10;
+        models.push(entry);
       }
-      return { ita: itaResult.ita, bracket: itaResult.bracket, mask_status: itaResult.status, beta_d: betaD, beta_source: betaSource, models };
+      return { ita: itaResult.ita, bracket: itaResult.bracket, mask_status: itaResult.status, beta_d: betaD,
+               beta_source: betaSource, models, settings: settingsOf(manifest) };
     } finally {
       rgb.delete();
     }
   }
 
-  return { runDetect, runCompare, _internal: { loadCv, loadManifest, computeIta, lClahe, rgbClahe, letterbox, detect, loadRgb } };
+  return { runDetect, runCompare, bracketOf,
+           _internal: { loadCv, loadManifest, computeIta, lClahe, rgbClahe, letterbox, detect, loadRgb, camToDataUrl, toDataUrl } };
 })();
