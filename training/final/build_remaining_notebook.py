@@ -33,12 +33,11 @@ ROOT = HERE.parent
 DATASETS = ROOT / 'datasets' / 'ablation_yolov26'
 WEIGHTS_ROOT = ROOT / 'weights' / 'ablation_split'
 RUNS = ROOT / 'runs' / 'ablation_split' / 'training'
-CHECKPOINT = ROOT / 'daniel' / 'yolo26n.pt'   # same pretrained start as every other model
+CHECKPOINT = ROOT / 'daniel' / 'yolo26n.pt'
 
 EPOCHS, PATIENCE, BATCH, IMG_SIZE = 300, 50, 8, 640
 FOCAL_ALPHA, FOCAL_GAMMA = 0.25, 2.0
 
-# (run name, dataset folder, Focal Loss?, seed), in training order.
 RUNS_TODO = [
     ('ModelC_focal', 'ModelA_raw', True, 42),
     ('ModelA_raw', 'ModelA_raw', False, 43),
@@ -58,8 +57,7 @@ for _, folder, _, _ in RUNS_TODO:
 print('Ready:', len(RUNS_TODO), 'runs')
 """
 
-FOCAL = r"""# Focal Loss for Model C only: switched on per run with USE_FOCAL.
-import torch.nn as nn
+FOCAL = r"""import torch.nn as nn
 import torch.nn.functional as F
 from ultralytics.utils import loss as uloss
 
@@ -91,7 +89,6 @@ def _init_maybe_focal(self, *args, **kwargs):
 
 uloss.v8DetectionLoss.__init__ = _init_maybe_focal
 
-# Check: identical to Ultralytics' own FocalLoss.
 pred, label = torch.randn(4, 50, 8), torch.rand(4, 50, 8)
 ours = ElementwiseFocalLoss(FOCAL_GAMMA, FOCAL_ALPHA)(pred, label).mean(1).sum()
 assert torch.allclose(ours, uloss.FocalLoss(gamma=FOCAL_GAMMA, alpha=FOCAL_ALPHA)(pred, label), atol=1e-6)
@@ -115,7 +112,7 @@ def train_one(name: str, folder: str, focal: bool, seed: int) -> Path:
     if destination.is_file():
         print(f'{name} seed {seed}: already finished')
         return destination
-    USE_FOCAL = focal   # read when the trainer builds the loss
+    USE_FOCAL = focal
     run = RUNS / f'{name}_seed{seed}'
     last = run / 'weights' / 'last.pt'
     state = checkpoint_state(last) if last.is_file() else 'missing'

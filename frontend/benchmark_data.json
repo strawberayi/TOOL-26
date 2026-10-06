@@ -1,6 +1,6 @@
 {
   "status": "final",
-  "generated": "2026-10-04T05:05",
+  "generated": "2026-10-06T21:49",
   "testImages": 200,
   "seed": 42,
   "note": "Held-out test set (200 images), YOLO26n, seed 42, the same images for every model. mAP, P, R: official Ultralytics evaluation (P and R at the confidence that maximizes F1, averaged over the 8 diseases). Within-cluster rates and confusion matrices: boxes with confidence ≥ 0.25 matched to labels at IoU ≥ 0.5.",
@@ -348,112 +348,112 @@
       "id": "D",
       "short": "Proposed",
       "name": "ITA-guided adaptive L*-CLAHE + two-stage decoupled training + Focal Loss",
-      "map50": 41.4,
-      "map5095": 19.8,
-      "precision": 50.8,
-      "recall": 44.2,
+      "map50": 42.5,
+      "map5095": 19.9,
+      "precision": 51.5,
+      "recall": 43.8,
       "f1": 0.473,
-      "withinEruptive": 5.5,
-      "withinScaly": 2.8,
+      "withinEruptive": 4.7,
+      "withinScaly": 1.8,
       "exact": {
-        "mAP50": 0.4142,
-        "mAP50_95": 0.1981,
-        "precision": 0.5081,
-        "recall": 0.4417,
-        "F1": 0.4726
+        "mAP50": 0.4247,
+        "mAP50_95": 0.1992,
+        "precision": 0.5149,
+        "recall": 0.4377,
+        "F1": 0.4731
       },
       "perClass": [
         {
           "class": "Warts",
           "instances": 110,
-          "precision": 0.4967,
-          "recall": 0.4576,
-          "F1": 0.4763,
-          "AP50": 0.4279,
-          "AP50_95": 0.1984
+          "precision": 0.5125,
+          "recall": 0.4636,
+          "F1": 0.4869,
+          "AP50": 0.4604,
+          "AP50_95": 0.2045
         },
         {
           "class": "Molluscum",
           "instances": 213,
-          "precision": 0.5169,
-          "recall": 0.7324,
-          "F1": 0.6061,
-          "AP50": 0.6294,
-          "AP50_95": 0.2537
+          "precision": 0.5513,
+          "recall": 0.6761,
+          "F1": 0.6073,
+          "AP50": 0.5835,
+          "AP50_95": 0.2348
         },
         {
           "class": "Varicella",
           "instances": 329,
-          "precision": 0.4453,
-          "recall": 0.3465,
-          "F1": 0.3897,
-          "AP50": 0.3117,
-          "AP50_95": 0.1048
+          "precision": 0.5002,
+          "recall": 0.3009,
+          "F1": 0.3758,
+          "AP50": 0.3292,
+          "AP50_95": 0.1142
         },
         {
           "class": "HFMD",
           "instances": 368,
-          "precision": 0.4616,
-          "recall": 0.3052,
-          "F1": 0.3675,
-          "AP50": 0.2596,
-          "AP50_95": 0.0877
+          "precision": 0.4409,
+          "recall": 0.25,
+          "F1": 0.3191,
+          "AP50": 0.2521,
+          "AP50_95": 0.0875
         },
         {
           "class": "Tinea versicolor",
           "instances": 233,
-          "precision": 0.3555,
-          "recall": 0.1459,
-          "F1": 0.2069,
-          "AP50": 0.1401,
-          "AP50_95": 0.0572
+          "precision": 0.391,
+          "recall": 0.1488,
+          "F1": 0.2156,
+          "AP50": 0.1538,
+          "AP50_95": 0.0624
         },
         {
           "class": "Tinea corporis",
           "instances": 42,
-          "precision": 0.5359,
-          "recall": 0.5952,
-          "F1": 0.564,
-          "AP50": 0.6318,
-          "AP50_95": 0.3755
+          "precision": 0.5879,
+          "recall": 0.6429,
+          "F1": 0.6141,
+          "AP50": 0.6046,
+          "AP50_95": 0.3435
         },
         {
           "class": "Tinea pedis",
           "instances": 8,
-          "precision": 0.8313,
-          "recall": 0.6172,
-          "F1": 0.7084,
-          "AP50": 0.6033,
-          "AP50_95": 0.3938
+          "precision": 0.6517,
+          "recall": 0.625,
+          "F1": 0.6381,
+          "AP50": 0.6457,
+          "AP50_95": 0.4245
         },
         {
           "class": "Impetigo",
           "instances": 132,
-          "precision": 0.4214,
-          "recall": 0.3333,
-          "F1": 0.3722,
-          "AP50": 0.3102,
-          "AP50_95": 0.1136
+          "precision": 0.4834,
+          "recall": 0.3939,
+          "F1": 0.4341,
+          "AP50": 0.3684,
+          "AP50_95": 0.1222
         }
       ],
       "clusters": [
         {
           "cluster": "Vesiculopapular/Eruptive",
           "gt": 1042,
-          "detected": 362,
-          "correct": 332,
-          "within": 20,
-          "cross": 10,
-          "missed": 680
+          "detected": 338,
+          "correct": 315,
+          "within": 16,
+          "cross": 7,
+          "missed": 704
         },
         {
           "cluster": "Papulosquamous/Verrucous",
           "gt": 393,
-          "detected": 108,
-          "correct": 97,
-          "within": 3,
-          "cross": 8,
-          "missed": 285
+          "detected": 111,
+          "correct": 104,
+          "within": 2,
+          "cross": 5,
+          "missed": 282
         }
       ]
     }
@@ -737,19 +737,9 @@
     ],
     "D": [
       [
-        44,
-        2,
-        0,
-        0,
-        1,
-        0,
-        0,
-        2
-      ],
-      [
+        46,
         3,
-        143,
-        1,
+        0,
         0,
         0,
         0,
@@ -757,64 +747,74 @@
         1
       ],
       [
-        0,
-        3,
-        76,
-        0,
-        0,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        1,
-        1,
-        77,
-        0,
-        0,
-        0,
-        0
-      ],
-      [
-        1,
         2,
+        139,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        64,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        2,
+        2,
+        65,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        1,
+        27,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
         0,
         0,
         26,
         0,
-        0,
-        1
-      ],
-      [
-        0,
-        0,
-        0,
-        0,
-        1,
-        23,
-        0,
-        1
-      ],
-      [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        4,
         0
       ],
       [
-        7,
-        13,
         0,
         0,
         0,
         0,
         0,
-        36
+        0,
+        5,
+        0
+      ],
+      [
+        5,
+        11,
+        0,
+        0,
+        0,
+        0,
+        0,
+        47
       ]
     ]
   },
@@ -829,10 +829,10 @@
         "A": 50.7,
         "B": 48.8,
         "C": 38.5,
-        "D": 46.6
+        "D": 48.9
       },
-      "dAP50": -0.0411,
-      "meanPerImageDAP50": -0.0638,
+      "dAP50": -0.018,
+      "meanPerImageDAP50": -0.0181,
       "medianPerImageDAP50": 0.0
     },
     {
@@ -844,10 +844,10 @@
         "A": 37.6,
         "B": 33.7,
         "C": 34.3,
-        "D": 38.0
+        "D": 38.3
       },
-      "dAP50": 0.004,
-      "meanPerImageDAP50": -0.0116,
+      "dAP50": 0.0073,
+      "meanPerImageDAP50": -0.0203,
       "medianPerImageDAP50": 0.0
     }
   ],
@@ -855,11 +855,11 @@
     "test": "Mann-Whitney U on per-image ΔAP50 (D − A), III–V vs I–II",
     "n1": 85,
     "n2": 102,
-    "U": 5192.0,
-    "p": 0.0181,
-    "r": 0.198,
-    "ciLow": -0.0237,
-    "ciHigh": 0.1381,
+    "U": 4565.0,
+    "p": 0.5262,
+    "r": 0.053,
+    "ciLow": -0.0508,
+    "ciHigh": 0.1231,
     "excludedVI": 11,
     "excludedNoIta": 2
   },
@@ -867,170 +867,170 @@
     {
       "metric": "AP@50",
       "n": 200,
-      "friedmanChi2": 4.571,
-      "friedmanP": 0.206,
+      "friedmanChi2": 5.766,
+      "friedmanP": 0.1236,
       "means": {
         "A": 0.6284,
         "B": 0.5827,
         "C": 0.5805,
-        "D": 0.5899
+        "D": 0.6065
       },
       "pairs": [
         {
           "vs": "A",
-          "p": 0.0249,
-          "pBonf": 0.0747,
-          "r": -0.223
+          "p": 0.1495,
+          "pBonf": 0.4486,
+          "r": -0.145
         },
         {
           "vs": "B",
-          "p": 0.8558,
-          "pBonf": 1.0,
-          "r": -0.018
+          "p": 0.2285,
+          "pBonf": 0.6855,
+          "r": 0.119
         },
         {
           "vs": "C",
-          "p": 0.5745,
+          "p": 0.4785,
           "pBonf": 1.0,
-          "r": -0.054
+          "r": 0.07
         }
       ]
     },
     {
       "metric": "AP@50–95",
       "n": 200,
-      "friedmanChi2": 2.184,
-      "friedmanP": 0.5352,
+      "friedmanChi2": 0.846,
+      "friedmanP": 0.8385,
       "means": {
         "A": 0.3116,
         "B": 0.3141,
         "C": 0.3028,
-        "D": 0.3037
+        "D": 0.3117
       },
       "pairs": [
         {
           "vs": "A",
-          "p": 0.7113,
+          "p": 0.9606,
           "pBonf": 1.0,
-          "r": -0.031
+          "r": -0.004
         },
         {
           "vs": "B",
-          "p": 0.635,
+          "p": 0.9103,
           "pBonf": 1.0,
-          "r": -0.04
+          "r": -0.01
         },
         {
           "vs": "C",
-          "p": 0.3094,
-          "pBonf": 0.9283,
-          "r": -0.084
+          "p": 0.8854,
+          "pBonf": 1.0,
+          "r": -0.012
         }
       ]
     },
     {
       "metric": "Precision",
       "n": 200,
-      "friedmanChi2": 13.407,
-      "friedmanP": 0.0038,
+      "friedmanChi2": 14.722,
+      "friedmanP": 0.0021,
       "means": {
         "A": 0.4979,
         "B": 0.5149,
         "C": 0.4333,
-        "D": 0.4862
+        "D": 0.528
       },
       "pairs": [
         {
           "vs": "A",
-          "p": 0.7371,
-          "pBonf": 1.0,
-          "r": -0.037
+          "p": 0.2606,
+          "pBonf": 0.7817,
+          "r": 0.12
         },
         {
           "vs": "B",
-          "p": 0.3389,
+          "p": 0.6038,
           "pBonf": 1.0,
-          "r": -0.105
+          "r": 0.056
         },
         {
           "vs": "C",
-          "p": 0.0409,
-          "pBonf": 0.1226,
-          "r": 0.224
+          "p": 0.0018,
+          "pBonf": 0.0053,
+          "r": 0.326
         }
       ]
     },
     {
       "metric": "Recall",
       "n": 200,
-      "friedmanChi2": 14.888,
-      "friedmanP": 0.0019,
+      "friedmanChi2": 15.927,
+      "friedmanP": 0.0012,
       "means": {
         "A": 0.4679,
         "B": 0.4499,
         "C": 0.3793,
-        "D": 0.445
+        "D": 0.4652
       },
       "pairs": [
         {
           "vs": "A",
-          "p": 0.0859,
-          "pBonf": 0.2578,
-          "r": -0.225
+          "p": 0.4428,
+          "pBonf": 1.0,
+          "r": -0.1
         },
         {
           "vs": "B",
-          "p": 0.8682,
-          "pBonf": 1.0,
-          "r": -0.02
+          "p": 0.3289,
+          "pBonf": 0.9868,
+          "r": 0.124
         },
         {
           "vs": "C",
-          "p": 0.0179,
-          "pBonf": 0.0537,
-          "r": 0.279
+          "p": 0.0022,
+          "pBonf": 0.0066,
+          "r": 0.358
         }
       ]
     },
     {
       "metric": "F1",
       "n": 200,
-      "friedmanChi2": 14.658,
-      "friedmanP": 0.0021,
+      "friedmanChi2": 16.775,
+      "friedmanP": 0.0008,
       "means": {
         "A": 0.4476,
         "B": 0.4467,
         "C": 0.3657,
-        "D": 0.4369
+        "D": 0.4618
       },
       "pairs": [
         {
           "vs": "A",
-          "p": 0.3437,
+          "p": 0.9882,
           "pBonf": 1.0,
-          "r": -0.103
+          "r": -0.002
         },
         {
           "vs": "B",
-          "p": 0.5806,
+          "p": 0.4026,
           "pBonf": 1.0,
-          "r": -0.059
+          "r": 0.088
         },
         {
           "vs": "C",
-          "p": 0.0023,
-          "pBonf": 0.0068,
-          "r": 0.325
+          "p": 0.0001,
+          "pBonf": 0.0003,
+          "r": 0.395
         }
       ]
     }
   ],
   "friedman": {
-    "AP50": 0.206,
-    "AP50_95": 0.5352,
-    "precision": 0.0038,
-    "recall": 0.0019,
-    "F1": 0.0021
+    "AP50": 0.1236,
+    "AP50_95": 0.8385,
+    "precision": 0.0021,
+    "recall": 0.0012,
+    "F1": 0.0008
   },
   "runtime": {
     "hardware": {
@@ -1051,48 +1051,48 @@
         "gflops_640": 5.91,
         "params_million": 2.507,
         "images_timed": 190,
-        "preprocess_ms": 0.98,
-        "inference_ms_mean": 8.5,
-        "inference_ms_sd": 2.01,
-        "postprocess_ms": 0.9,
-        "total_ms_mean": 10.38,
-        "total_ms_sd": 2.11
+        "preprocess_ms": 0.84,
+        "inference_ms_mean": 7.35,
+        "inference_ms_sd": 1.47,
+        "postprocess_ms": 0.74,
+        "total_ms_mean": 8.93,
+        "total_ms_sd": 1.52
       },
       "B": {
         "weights": "best_ModelC_fixed_l_clahe_seed42.pt",
         "gflops_640": 5.91,
         "params_million": 2.507,
         "images_timed": 190,
-        "preprocess_ms": 1.02,
-        "inference_ms_mean": 8.2,
-        "inference_ms_sd": 0.83,
-        "postprocess_ms": 0.92,
-        "total_ms_mean": 10.14,
-        "total_ms_sd": 1.07
+        "preprocess_ms": 0.86,
+        "inference_ms_mean": 7.17,
+        "inference_ms_sd": 0.45,
+        "postprocess_ms": 0.76,
+        "total_ms_mean": 8.8,
+        "total_ms_sd": 0.6
       },
       "C": {
         "weights": "best_ModelC_focal_seed42.pt",
         "gflops_640": 5.91,
         "params_million": 2.507,
         "images_timed": 190,
-        "preprocess_ms": 0.91,
-        "inference_ms_mean": 7.45,
-        "inference_ms_sd": 0.33,
-        "postprocess_ms": 0.77,
-        "total_ms_mean": 9.13,
-        "total_ms_sd": 0.48
+        "preprocess_ms": 0.86,
+        "inference_ms_mean": 7.35,
+        "inference_ms_sd": 0.41,
+        "postprocess_ms": 0.73,
+        "total_ms_mean": 8.94,
+        "total_ms_sd": 0.61
       },
       "D": {
-        "weights": "best_ModelD_g1.0_f11_seed42.pt",
+        "weights": "best_ModelD_r2_unfreeze_seed42.pt",
         "gflops_640": 5.91,
         "params_million": 2.507,
         "images_timed": 190,
-        "preprocess_ms": 0.94,
-        "inference_ms_mean": 7.72,
-        "inference_ms_sd": 0.78,
-        "postprocess_ms": 0.84,
-        "total_ms_mean": 9.51,
-        "total_ms_sd": 0.98
+        "preprocess_ms": 0.86,
+        "inference_ms_mean": 7.05,
+        "inference_ms_sd": 0.43,
+        "postprocess_ms": 0.73,
+        "total_ms_mean": 8.64,
+        "total_ms_sd": 0.63
       }
     }
   }

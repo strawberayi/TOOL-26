@@ -2,7 +2,7 @@
  "method": "Grad-CAM at the last feature layer of the class head (cv3, one-to-many; P3/P4/P5), targets = detections with confidence >= 0.25",
  "iou_threshold": 0.15,
  "seed": 42,
- "d_weights": "ModelD_g1.0_f11",
+ "d_weights": "ModelD_r2_unfreeze",
  "summary": {
   "A": {
    "iou_mean": 0.299,
@@ -23,30 +23,30 @@
    "iou_III_V": 0.215
   },
   "D": {
-   "iou_mean": 0.247,
-   "energy_mean": 0.377,
-   "iou_I_II": 0.232,
-   "iou_III_V": 0.258
+   "iou_mean": 0.236,
+   "energy_mean": 0.338,
+   "iou_I_II": 0.214,
+   "iou_III_V": 0.254
   }
  },
  "statistics": {
   "gradcam_iou": {
    "friedman_p": 0.0,
-   "D_vs_A_p_bonf": 0.0001,
-   "D_vs_B_p_bonf": 0.0041,
+   "D_vs_A_p_bonf": 0.0,
+   "D_vs_B_p_bonf": 0.0002,
    "D_vs_C_p_bonf": 0.0,
-   "D_vs_A_r": -0.347,
-   "D_vs_B_r": -0.261,
-   "D_vs_C_r": 0.635
+   "D_vs_A_r": -0.373,
+   "D_vs_B_r": -0.329,
+   "D_vs_C_r": 0.668
   },
   "energy_in_boxes": {
    "friedman_p": 0.0,
    "D_vs_A_p_bonf": 0.0,
    "D_vs_B_p_bonf": 0.0,
    "D_vs_C_p_bonf": 0.0,
-   "D_vs_A_r": -0.937,
-   "D_vs_B_r": -0.853,
-   "D_vs_C_r": 0.966
+   "D_vs_A_r": -0.971,
+   "D_vs_B_r": -0.914,
+   "D_vs_C_r": 0.908
   }
  },
  "examples": [
@@ -67,8 +67,8 @@
      "energy": 0.026
     },
     "D": {
-     "iou": 0.159,
-     "energy": 0.181
+     "iou": 0.086,
+     "energy": 0.098
     }
    }
   },
@@ -89,8 +89,8 @@
      "energy": 0.14
     },
     "D": {
-     "iou": 0.267,
-     "energy": 0.393
+     "iou": 0.251,
+     "energy": 0.37
     }
    }
   },
@@ -111,8 +111,8 @@
      "energy": 0.114
     },
     "D": {
-     "iou": 0.213,
-     "energy": 0.259
+     "iou": 0.114,
+     "energy": 0.14
     }
    }
   },
@@ -133,8 +133,8 @@
      "energy": 0.346
     },
     "D": {
-     "iou": 0.428,
-     "energy": 0.517
+     "iou": 0.349,
+     "energy": 0.433
     }
    }
   },
@@ -155,8 +155,8 @@
      "energy": 0.108
     },
     "D": {
-     "iou": 0.107,
-     "energy": 0.143
+     "iou": 0.104,
+     "energy": 0.124
     }
    }
   },
@@ -177,8 +177,8 @@
      "energy": 0.162
     },
     "D": {
-     "iou": 0.173,
-     "energy": 0.226
+     "iou": 0.145,
+     "energy": 0.197
     }
    }
   },
@@ -199,8 +199,8 @@
      "energy": 0.931
     },
     "D": {
-     "iou": 0.243,
-     "energy": 0.983
+     "iou": 0.233,
+     "energy": 0.985
     }
    }
   },
@@ -221,8 +221,8 @@
      "energy": 0.106
     },
     "D": {
-     "iou": 0.447,
-     "energy": 0.508
+     "iou": 0.305,
+     "energy": 0.307
     }
    }
   }

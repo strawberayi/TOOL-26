@@ -34,14 +34,13 @@ DATA_YAML = ROOT / 'datasets' / 'ablation_yolov26' / 'ModelD2_lesion_ita' / 'dat
 WEIGHTS_ROOT = ROOT / 'weights' / 'ablation_split'
 RUNS = ROOT / 'runs' / 'ablation_split' / 'training'
 
-# ---- Stage 2 settings (from the paper; do not change between seeds)
 SEEDS = (42, 43, 44)
-FOCAL_ALPHA = 0.25   # paper: alpha = 0.25
-FOCAL_GAMMA = 2.0    # paper: gamma = 2.0
-FREEZE = 11          # freeze layers 0-10 = the YOLO26n backbone (Conv ... SPPF, C2PSA)
-EPOCHS = 150         # Stage 2 is fine-tuning; early stopping usually ends it sooner
-PATIENCE = 50        # same patience as every other model
-LR0 = 0.0002         # lower than Stage 1 (AdamW 0.000833) so the localization features are not disturbed
+FOCAL_ALPHA = 0.25
+FOCAL_GAMMA = 2.0
+FREEZE = 11
+EPOCHS = 150
+PATIENCE = 50
+LR0 = 0.0002
 BATCH, IMG_SIZE = 8, 640
 
 import torch
@@ -54,9 +53,7 @@ for seed in SEEDS:
 print('Stage 1 weights found for seeds', SEEDS)
 """
 
-FOCAL = r"""# Focal Loss replaces the BCE class loss of YOLO26 (both the one-to-many and one-to-one heads).
-# Ultralytics sums the element-wise class loss itself, so the focal term must stay element-wise.
-import torch.nn as nn
+FOCAL = r"""import torch.nn as nn
 import torch.nn.functional as F
 from ultralytics.utils import loss as uloss
 
@@ -85,13 +82,11 @@ def _init_with_focal(self, *args, **kwargs):
 
 uloss.v8DetectionLoss.__init__ = _init_with_focal
 
-# Check 1: same values as Ultralytics' own FocalLoss.
 pred, label = torch.randn(4, 50, 8), torch.rand(4, 50, 8)
 ours = ElementwiseFocalLoss(FOCAL_GAMMA, FOCAL_ALPHA)(pred, label).mean(1).sum()
 ref = uloss.FocalLoss(gamma=FOCAL_GAMMA, alpha=FOCAL_ALPHA)(pred, label)
 assert torch.allclose(ours, ref, atol=1e-6), (ours, ref)
 
-# Check 2: the YOLO26 criterion really uses Focal Loss in both heads.
 from ultralytics import YOLO
 from ultralytics.cfg import get_cfg
 m = YOLO(str(WEIGHTS_ROOT / 'best_ModelD2_lesion_ita_seed42.pt')).model
@@ -146,8 +141,7 @@ for seed in SEEDS:
 print('Stage 2 finished for seeds', SEEDS)
 """
 
-VALIDATE = r"""# Decide on VALIDATION: does Stage 2 + Focal Loss improve over Stage 1 (D2)?
-import pandas as pd
+VALIDATE = r"""import pandas as pd
 rows = []
 for seed in SEEDS:
     for label, weights in (('D2 (Stage 1 only)', f'best_ModelD2_lesion_ita_seed{seed}.pt'),
@@ -162,8 +156,7 @@ summary = val.groupby('model')[['mAP50', 'mAP50_95', 'precision', 'recall']].agg
 print(summary.to_string())
 """
 
-TEST = r"""# Final report on the TEST set: A, B, C and the full D, all SOP tables and statistical tests.
-import importlib
+TEST = r"""import importlib
 os.environ['SOP_MODEL_D'] = 'full'
 sys.path.insert(0, str(HERE))
 import sop_analysis

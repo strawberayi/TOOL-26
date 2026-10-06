@@ -7,11 +7,11 @@ Heatmap threshold 0.15; IoU against the union of ground-truth lesion boxes. High
 | A Baseline | 0.299 | 0.263 | 0.557 | 0.297 | 0.296 |
 | B Fixed L*-CLAHE (β=2.0) | 0.294 | 0.264 | 0.540 | 0.286 | 0.302 |
 | C Focal Loss | 0.191 | 0.103 | 0.236 | 0.168 | 0.215 |
-| D Proposed (ITA L*-CLAHE + two-stage + Focal) | 0.247 | 0.227 | 0.377 | 0.232 | 0.258 |
+| D Proposed (ITA L*-CLAHE + two-stage + Focal) | 0.236 | 0.193 | 0.338 | 0.214 | 0.254 |
 
 | Metric | Friedman p | D vs A p (r) | D vs B p (r) | D vs C p (r) |
 |---|---|---|---|---|
-| gradcam_iou | 0.000 | 0.000 (-0.35) | 0.004 (-0.26) | 0.000 (+0.63) |
-| energy_in_boxes | 0.000 | 0.000 (-0.94) | 0.000 (-0.85) | 0.000 (+0.97) |
+| gradcam_iou | 0.000 | 0.000 (-0.37) | 0.000 (-0.33) | 0.000 (+0.67) |
+| energy_in_boxes | 0.000 | 0.000 (-0.97) | 0.000 (-0.91) | 0.000 (+0.91) |
 
 Figure: figures/gradcam_examples_A_B_C_D.png (first single-disease test image of each class).
