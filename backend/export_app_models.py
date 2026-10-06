@@ -16,7 +16,7 @@ MODELS = [
     ("A", "best_ModelA_raw_seed42.pt", "raw", "Baseline (raw images)"),
     ("B", "best_ModelC_fixed_l_clahe_seed42.pt", "l_clahe_fixed", "Fixed L*-CLAHE, β=2.0"),
     ("C", "best_ModelC_focal_seed42.pt", "raw", "Focal Loss (raw images)"),
-    ("D", "best_ModelD_g1.0_f11_seed42.pt", "l_clahe_ita", "Proposed: ITA L*-CLAHE + two-stage + Focal Loss"),
+    ("D", "best_ModelD_r2_unfreeze_seed42.pt", "l_clahe_ita", "Proposed: ITA L*-CLAHE + two-stage + Focal Loss"),
 ]
 
 

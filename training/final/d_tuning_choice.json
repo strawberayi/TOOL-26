@@ -1,6 +1,8 @@
 {
-  "winner": "ModelD_g1.0_f11",
+  "winner": "ModelD_r2_unfreeze",
   "gamma": 1.0,
-  "freeze": 11,
-  "selection": "mean of val mAP50 and mAP50-95, seed 42"
+  "freeze": 0,
+  "lr0": 5e-05,
+  "selection": "round 2: mean of val mAP50 and mAP50-95, seed 42 (34.07 vs round-1 winner ModelD_g1.0_f11 33.43)",
+  "round1": "d_tuning_choice_round1.json"
 }

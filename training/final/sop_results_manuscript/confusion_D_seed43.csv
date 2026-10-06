@@ -1,10 +1,10 @@
 ,Warts,Molluscum,Varicella,HFMD,Tinea versicolor,Tinea corporis,Tinea pedis,Impetigo,background (FP)
-pred Warts,43,7,0,0,7,0,0,0,26
-pred Molluscum,7,146,4,2,0,0,0,9,79
-pred Varicella,0,0,48,1,0,0,0,0,44
-pred HFMD,0,0,0,66,0,0,0,0,65
-pred Tinea versicolor,1,0,0,0,20,1,0,1,39
-pred Tinea corporis,0,0,0,0,0,20,0,2,13
+pred Warts,44,8,0,0,13,0,0,1,30
+pred Molluscum,4,131,6,2,0,0,0,10,71
+pred Varicella,0,2,61,1,0,0,0,0,63
+pred HFMD,0,0,0,76,0,0,0,0,72
+pred Tinea versicolor,1,0,0,0,20,0,0,1,41
+pred Tinea corporis,0,0,0,0,0,25,0,2,15
 pred Tinea pedis,0,0,0,0,0,0,5,0,1
-pred Impetigo,2,3,0,0,1,0,0,48,46
-pred background,57,57,277,299,205,21,3,72,0
+pred Impetigo,3,3,0,0,1,1,0,45,39
+pred background,58,69,262,289,199,16,3,73,0

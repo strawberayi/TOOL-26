@@ -599,7 +599,7 @@ function calculationCard(r) {
         phase0_calibration_d2.json. Measured on this device in ${ms(r.timings.total)}.</p>
     </details>`;
 }
-const BENCH_D_WEIGHTS = 'best_ModelD_g1.0_f11_seed42.pt';
+const BENCH_D_WEIGHTS = 'best_ModelD_r2_unfreeze_seed42.pt';
 const PLAIN_METRIC = { 'AP@50': 'Box accuracy', 'AP@50–95': 'Strict box accuracy', Precision: 'Precision', Recall: 'Recall', F1: 'F1' };
 
 function sopCard(r) {
