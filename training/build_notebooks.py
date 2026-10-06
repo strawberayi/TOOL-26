@@ -41,11 +41,6 @@ def config(train_models=None) -> str:
 
 
 GPU_SETUP = r"""
-# Setup in one run: checks the NVIDIA driver, then installs PyTorch with CUDA and
-# the pinned packages into THIS kernel's Python if they are missing, and continues.
-# Nothing is downloaded when everything is already correct. If this Python does not
-# allow installs (e.g. Ubuntu's system Python), it builds ablation_training/.venv
-# and registers the "TOOL-26 (.venv)" kernel instead.
 import importlib
 import json
 import os
@@ -87,8 +82,6 @@ def torch_status(python):
     return out.strip().splitlines()[-1] if code == 0 and out.strip() else 'not installed'
 
 def install(python, *args):
-    # uv-made environments have no pip; use uv there, otherwise pip.
-    # Long timeouts and retries: the PyTorch CUDA files are large (~2-3 GB in total).
     env = dict(os.environ, UV_HTTP_TIMEOUT='600', UV_HTTP_RETRIES='5')
     if shutil.which('uv'):
         cmd = ['uv', 'pip', 'install', '--python', python, *args]
@@ -103,14 +96,12 @@ def install(python, *args):
         code, out = run(cmd, env)
         if code == 0:
             return
-        # PEP 668 "externally managed" system Pythons refuse installs.
         if 'externally' in out.lower() or 'permission' in out.lower() or 'ensurepip' in out.lower():
             raise PermissionError(out[-800:])
         print(f'  attempt {attempt} failed; retrying...' if attempt < 3 else '  attempt 3 failed.')
     raise RuntimeError('Installing failed (check the internet connection), then Run All again:\n' + out[-1500:])
 
 def ensure_packages(python, cuda_tag):
-    # Returns the set of distributions it installed.
     changed = set()
     status = torch_status(python)
     torch_ok = status.startswith(TORCH) and status.endswith('True')
@@ -127,7 +118,6 @@ def ensure_packages(python, cuda_tag):
         changed |= {m.split('==')[0] for m in missing}
     return changed
 
-# 1. NVIDIA driver (cannot be installed from a notebook).
 smi = shutil.which('nvidia-smi')
 match = re.search(r'CUDA Version:\s*(\d+)\.(\d+)', run([smi])[1] if smi else '')
 if not match:
@@ -142,11 +132,9 @@ if cuda_tag is None:
     raise RuntimeError(f'The driver only supports CUDA {driver_cuda[0]}.{driver_cuda[1]}; update the NVIDIA driver (CUDA 12.6 or newer).')
 print(f'NVIDIA driver OK, supports CUDA {driver_cuda[0]}.{driver_cuda[1]} -> PyTorch build {cuda_tag}')
 
-# 2. Packages in this kernel's Python (the PyTorch wheels include the CUDA runtime).
 try:
     changed = ensure_packages(sys.executable, cuda_tag)
 except PermissionError:
-    # 3. This Python refuses installs: build ablation_training/.venv and a kernel for it.
     print(f'\nThis Python ({sys.executable}) does not allow installing packages.')
     print(f'Creating {VENV} and a "TOOL-26 (.venv)" kernel instead...')
     code, out = run([sys.executable, '-m', 'venv', str(VENV)])
@@ -168,7 +156,6 @@ except PermissionError:
                        'VS Code if it is not listed) and click Run All again. This is needed only once.')
 
 if changed:
-    # Make freshly installed packages importable in this same session.
     importlib.invalidate_caches()
     user_site = site.getusersitepackages()
     if Path(user_site).is_dir() and user_site not in sys.path:
@@ -197,8 +184,6 @@ split_utils.compare('Inputs', split_utils.input_fingerprint(), split_utils.refer
 """
 
 ITA = r"""
-# ITA per image comes from the shared ita_table.csv (in the data kit), so every
-# machine uses exactly the same Model D clip limits.
 ITA_CACHE = ABLATION_ROOT / 'ita_table.csv'
 assert ITA_CACHE.is_file(), 'Missing datasets/ablation_yolov26/ita_table.csv: the ablation_training folder is incomplete.'
 member1_config = json.loads(MEMBER1_CONFIG_JSON.read_text(encoding='utf-8'))
@@ -294,8 +279,6 @@ print(package)
 
 
 IMPORT = r"""
-# Unpack results_izzy.zip (results/) and results_daniel.zip (results/incoming/),
-# checking every machine used identical data.
 metas = split_utils.import_packages(MODELS)
 trained_by = pd.DataFrame([
     {'model': m, 'trainer': meta['trainer'], 'gpu': meta['gpu'], 'epochs': meta['epochs_trained'].get(m),
@@ -308,7 +291,6 @@ trained_by
 """
 
 COLLECT = r"""
-# No training here: gather the validation-selected weights of every model.
 best_weights = {
     (model_name, seed): WEIGHTS_ROOT / f'best_{model_name}_seed{seed}.pt'
     for model_name in MODELS for seed in SEEDS
@@ -320,20 +302,18 @@ assert not missing, f'Missing weights (put results_daniel.zip in results/incomin
 def run_dir(model_name: str, seed: int) -> Path:
     return RUNS_ROOT / 'training' / f'{model_name}_seed{seed}'
 
-# Stable names used by the app export: best_ModelA_raw.pt ... best_ModelD_proposed.pt
 for model_name in MODELS:
     shutil.copy2(best_weights[(model_name, PRIMARY_SEED)], WEIGHTS_ROOT / f'best_{model_name}.pt')
 print(f'{len(best_weights)} models ready:', sorted(m for m, _ in best_weights))
 """
 
 APP = r"""
-# Optional: put these models and their test results into the app.
-UPDATE_APP = False  # set True to replace the app's models and Ablation Benchmark with this round
+UPDATE_APP = False
 
 if UPDATE_APP:
     import os
     import subprocess
-    TOOL26 = PROJECT_ROOT.parent / 'TOOL-26'  # the app project next to ablation_training/
+    TOOL26 = PROJECT_ROOT.parent / 'TOOL-26'
     assert (TOOL26 / 'backend' / 'export_app_models.py').is_file(), f'TOOL-26 not found at {TOOL26}'
     env = dict(os.environ, ABLATION_RUNS=str(RUNS_ROOT), ABLATION_WEIGHTS=str(WEIGHTS_ROOT))
     for script in ('export_app_models.py', 'export_app_benchmark.py'):

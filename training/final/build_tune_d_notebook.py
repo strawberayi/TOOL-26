@@ -40,7 +40,6 @@ CHOICE_FILE = HERE / 'd_tuning_choice.json'
 
 FOCAL_ALPHA = 0.25
 EPOCHS, PATIENCE, LR0, BATCH, IMG_SIZE = 150, 50, 0.0002, 8, 640
-# name -> (gamma, freeze). 'ModelD_full' is the existing run (gamma 2.0, freeze 11).
 CANDIDATES = {
     'ModelD_full': (2.0, 11),
     'ModelD_g1.0_f11': (1.0, 11),
@@ -62,7 +61,7 @@ FOCAL = r"""import torch.nn as nn
 import torch.nn.functional as F
 from ultralytics.utils import loss as uloss
 
-FOCAL_GAMMA = 2.0   # set per run before training
+FOCAL_GAMMA = 2.0
 
 
 class ElementwiseFocalLoss(nn.Module):
@@ -114,7 +113,7 @@ def train_stage2(name: str, seed: int) -> Path:
     if destination.is_file():
         print(f'{name} seed {seed}: already finished')
         return destination
-    FOCAL_GAMMA = gamma   # read when the trainer builds the loss
+    FOCAL_GAMMA = gamma
     run = RUNS / f'{name}_seed{seed}'
     last = run / 'weights' / 'last.pt'
     state = checkpoint_state(last) if last.is_file() else 'missing'
@@ -137,7 +136,6 @@ def train_stage2(name: str, seed: int) -> Path:
 
 
 def best_validation(name: str, seed: int) -> dict:
-    # Validation scores at the epoch Ultralytics kept as best.pt (max fitness = 0.9 mAP50-95 + 0.1 mAP50).
     rows = list(csv.DictReader(open(RUNS / f'{name}_seed{seed}' / 'results.csv')))
     fit = lambda r: 0.9 * float(r['metrics/mAP50-95(B)']) + 0.1 * float(r['metrics/mAP50(B)'])
     b = max(rows, key=fit)
@@ -160,15 +158,14 @@ print(f'\nWinner on validation: {winner}')
 """
 
 WINNER_SEEDS = r"""for seed in (43, 44):
-    train_stage2(winner, seed)   # skipped when the winner is the existing full D
+    train_stage2(winner, seed)
 CHOICE_FILE.write_text(json.dumps({'winner': winner, 'gamma': CANDIDATES[winner][0],
                                    'freeze': CANDIDATES[winner][1], 'selection': 'mean of val mAP50 and mAP50-95, seed 42'},
                                   indent=2), encoding='utf-8')
 print('Saved', CHOICE_FILE)
 """
 
-TEST = r"""# Test set, once: SOP tables with the chosen Model D.
-import importlib
+TEST = r"""import importlib
 os.environ['SOP_MODELS'] = 'manuscript'
 sys.path.insert(0, str(HERE))
 import sop_analysis
