@@ -352,7 +352,7 @@ function renderWorkspace() {
   const below = r.below_cutoff;
   $('heatmap-note').textContent = !r.gradcam_heatmap ? 'Grad-CAM is not available for this photo.'
     : r.detections.length
-      ? `Grad-CAM (same as in Research): red and yellow are where Model D found the evidence for the ${r.detections.length} detected box(es). It shows where the model focused, not whether it is correct. Move the slider left to compare with the enhanced photo.`
+      ? `Grad-CAM: red and yellow are where Model D found the evidence for the ${r.detections.length} detected box(es). It shows where the model focused, not whether it is correct. Move the slider left to compare with the enhanced photo.`
       : `No box reached the ${pct(r.settings.confidence, 0)} cutoff, so nothing is counted as a lesion. The warm areas are where the model saw weak signs of ${below ? below.label : 'a disease'}; the strongest one (dashed box, ${below ? pct(below.confidence) : '—'}) was still below the cutoff.`;
 
   const svg = $('viewer-boxes');
@@ -772,9 +772,9 @@ function renderBenchmark() {
         <p><b>F1</b> = 2PR / (P + R) = 2 × ${ex.precision.toFixed(4)} × ${ex.recall.toFixed(4)} / (${ex.precision.toFixed(4)} + ${ex.recall.toFixed(4)}) = ${ex.F1.toFixed(4)}</p>
         <p><b>Within-cluster misclassification rate</b> = boxes given another disease of the same cluster ÷ detected boxes of that cluster
           (confidence ≥ 0.25, IoU ≥ 0.5):</p>
-        <table class="data-table"><thead><tr><th>Cluster</th><th>Labelled</th><th>Detected</th><th>Correct</th><th>Within</th><th>Cross</th><th>Rate</th></tr></thead><tbody>
+        <div class="table-scroll"><table class="data-table"><thead><tr><th>Cluster</th><th>Labelled</th><th>Detected</th><th>Correct</th><th>Within</th><th>Cross</th><th>Rate</th></tr></thead><tbody>
           ${cl.map(c => `<tr><td>${esc(c.cluster)}</td><td>${c.gt}</td><td>${c.detected}</td><td>${c.correct}</td><td>${c.within}</td><td>${c.cross}</td><td class="mono">${c.within} / ${c.detected} = ${(100 * c.within / c.detected).toFixed(1)}%</td></tr>`).join('')}
-        </tbody></table>
+        </tbody></table></div>
       </details>
       <h3>Which diseases get mixed up (confusion matrix), Model ${sel.id}</h3>
       ${confusionMatrix(sel)}
@@ -786,9 +786,10 @@ function renderBenchmark() {
       <div class="card-head"><h2>3 · Lighter vs darker skin (SOP 3)</h2></div>
       <p class="note">Box accuracy (mAP@50) of each model for lighter and darker skin, and how much Model D changed it compared with the baseline (Model A).
         Skin tone comes from the ITA of each test image (very dark, type VI, excluded: ${ft.excludedVI} images; no ITA: ${ft.excludedNoIta}).</p>
-      <table class="data-table center"><thead><tr><th>Group</th><th>Images</th>${models.map(m => `<th>${m.id}</th>`).join('')}<th>Change, D vs A</th></tr></thead><tbody>
-        ${BENCH.fairness.map(g => `<tr><td>${esc(g.group)}<small>${esc(g.range)}</small></td><td>${g.images}</td>${models.map(m => `<td>${g.scores[m.id].toFixed(1)}%</td>`).join('')}<td class="mono">${g.dAP50 >= 0 ? '+' : ''}${(g.dAP50 * 100).toFixed(1)} pts</td></tr>`).join('')}
-      </tbody></table>
+      <div class="table-scroll"><table class="data-table center compact"><thead><tr><th>Skin group</th>${models.map(m => `<th>${m.id}</th>`).join('')}<th>D − A</th></tr></thead><tbody>
+        ${BENCH.fairness.map(g => `<tr><td>${g.key === 'I-II' ? 'Lighter' : 'Darker'} (${esc(g.key.replace('-', '–'))})<small>${g.images} images · ${esc(g.range)}</small></td>${models.map(m => `<td>${g.scores[m.id].toFixed(1)}</td>`).join('')}<td class="mono">${g.dAP50 >= 0 ? '+' : ''}${(g.dAP50 * 100).toFixed(1)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">Values are mAP@50 in %; "D − A" is the change in percentage points.</p>
       <p class="explain">${ft.p < 0.05
         ? `Model D's change compared with Model A was significantly different between the two groups (${pText(ft.p)}): ${BENCH.fairness.map(g => `${g.dAP50 >= 0 ? '+' : ''}${(g.dAP50 * 100).toFixed(1)} points for ${g.group.replace(' (ITA proxy)', '')}`).join(', ')}. H02 is rejected. The effect is small (r = ${ft.r.toFixed(2)}, and the bootstrap interval includes 0).`
         : `No significant difference between the two skin groups (${pText(ft.p)}). H02 is not rejected.`}</p>
@@ -826,7 +827,7 @@ function renderBenchmark() {
       <p class="note">How long one photo takes. GFLOPs = amount of computation per photo (same for all four models).</p>
       ${rt ? `
       <h3>On the training computer (${esc(rt.hardware.device)})</h3>
-      <table class="data-table center"><thead><tr><th>Model</th><th>GFLOPs</th><th>Parameters (millions)</th><th>Model time (ms)</th><th>Total time (ms)</th></tr></thead><tbody>
+      <table class="data-table center"><thead><tr><th>Model</th><th>GFLOPs</th><th>Params (M)</th><th>Model (ms)</th><th>Total (ms)</th></tr></thead><tbody>
         ${Object.entries(rt.models).map(([id, m]) => `<tr><td>${id}</td><td>${m.gflops_640}</td><td>${m.params_million}</td><td>${m.inference_ms_mean} ± ${m.inference_ms_sd}</td><td>${m.total_ms_mean} ± ${m.total_ms_sd}</td></tr>`).join('')}
       </tbody></table>
       <p class="note">${esc(rt.hardware.framework)}; batch ${rt.hardware.batch}, input ${rt.hardware.imgsz} px (${esc(rt.hardware.letterbox)}), ${rt.models.D.images_timed} test images after ${rt.hardware.warmup_images} warm-up images; mean ± SD.

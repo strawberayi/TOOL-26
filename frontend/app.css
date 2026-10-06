@@ -324,3 +324,8 @@ details.calc p { margin: 6px 0; overflow-wrap: anywhere; }
 .feature-ref { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
 .calc-list { padding-left: 18px; font-size: 0.74rem; }
 .calc-list li { margin: 4px 0; overflow-wrap: anywhere; }
+.data-table.compact th, .data-table.compact td { padding: 6px 4px; }
+.card p, .card li { overflow-wrap: anywhere; }
+.data-table th { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.data-table { table-layout: auto; }
+.table-scroll { max-width: 100%; }
