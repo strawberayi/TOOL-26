@@ -1,0 +1,30 @@
+{
+  "rule": "mean of validation mAP50 and mAP50-95 at the best epoch, seed 42 (fixed before training)",
+  "candidates": [
+    {
+      "model": "ModelD_g1.0_f11",
+      "best_epoch": 16,
+      "val_mAP50": 45.43,
+      "val_mAP50_95": 21.43,
+      "score": 33.431,
+      "val_P": 54.75,
+      "val_R": 46.17,
+      "varicella_as_molluscum": 0,
+      "molluscum_as_varicella": 0,
+      "varicella_correct": 0
+    },
+    {
+      "model": "ModelD_dark2",
+      "best_epoch": 45,
+      "val_mAP50": 44.81,
+      "val_mAP50_95": 21.29,
+      "score": 33.047,
+      "val_P": 57.81,
+      "val_R": 42.49,
+      "varicella_as_molluscum": 0,
+      "molluscum_as_varicella": 0,
+      "varicella_correct": 0
+    }
+  ],
+  "winner": "ModelD_g1.0_f11"
+}
