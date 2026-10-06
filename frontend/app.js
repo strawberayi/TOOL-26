@@ -64,13 +64,14 @@ const State = {
   sessionTimings: [],
   benchModel: 'D',
   gradcamExample: 0,
-  split: 50,
+  split: 100,
   showBoxes: true,
   showHeatmap: true,
-  heatmapOpacity: 70,
+  heatmapOpacity: 100,
 };
 let BENCH = null;
 let GRADCAM = null;
+let MORPH_REF = null;
 
 
 const $ = id => document.getElementById(id);
@@ -351,7 +352,7 @@ function renderWorkspace() {
   const below = r.below_cutoff;
   $('heatmap-note').textContent = !r.gradcam_heatmap ? 'Grad-CAM is not available for this photo.'
     : r.detections.length
-      ? `Grad-CAM: where Model D found the evidence for the ${r.detections.length} detected box(es). It shows where the model focused, not whether it is correct.`
+      ? `Grad-CAM (same as in Research): red and yellow are where Model D found the evidence for the ${r.detections.length} detected box(es). It shows where the model focused, not whether it is correct. Move the slider left to compare with the enhanced photo.`
       : `No box reached the ${pct(r.settings.confidence, 0)} cutoff, so nothing is counted as a lesion. The warm areas are where the model saw weak signs of ${below ? below.label : 'a disease'}; the strongest one (dashed box, ${below ? pct(below.confidence) : '—'}) was still below the cutoff.`;
 
   const svg = $('viewer-boxes');
@@ -375,7 +376,7 @@ function renderWorkspace() {
 
   const top = r.detections[0];
   $('workspace-morph').innerHTML = top
-    ? morphologyCard(top.label, true)
+    ? morphologyCard(top, r, true)
     : '<p class="note">Morphological features are shown when a lesion is detected.</p>';
 }
 
@@ -498,20 +499,73 @@ function featureCard(r) {
     </div>`;
 }
 
-function morphologyCard(label, embedded = false) {
-  const m = MORPHOLOGY[label];
+function percentile(feature, x) {
+  const ref = MORPH_REF && MORPH_REF.features[feature];
+  if (!ref || x === null || x === undefined || !Number.isFinite(x)) return null;
+  const q = ref.q;
+  if (x <= q[0]) return 0;
+  if (x >= q[100]) return 100;
+  let i = 0;
+  while (i < 99 && q[i + 1] < x) i++;
+  const span = q[i + 1] - q[i];
+  return i + (span > 0 ? (x - q[i]) / span : 0);
+}
+
+function morphologyRows(det, r) {
+  const m = r.morphology;
+  const cluster = clusterOf(det.label);
+  const s = l => det.scores[CLASSES.indexOf(l)];
+  const runner = cluster.classes.filter(c => c !== det.label).sort((a, b) => s(b) - s(a))[0];
+  const margin = s(det.label) - s(runner);
+  const r1 = v => (Math.round(v * 100) / 100).toFixed(2);
+  const rows = [
+    { key: 'texture', name: 'Surface texture', ref: 'texture', value: m && m.texture,
+      shown: m && m.texture !== null ? `roughness ${r1(m.texture)}× the surrounding skin` : '—',
+      how: m ? `σ of the Laplacian (local light-dark changes) inside the lesion boxes ÷ in the skin around them = ${r1(m.lesion_rough)} ÷ ${r1(m.skin_rough)} = ${r1(m.texture)}` : '' },
+    { key: 'crust', name: 'Crust and exudate', ref: 'crust', value: m && m.crust,
+      shown: m ? `yellowness Δb* ${m.crust >= 0 ? '+' : ''}${r1(m.crust)} versus the skin` : '—',
+      how: m ? `Δb* = b* of the lesions − b* of the skin = ${r1(m.lesion_lab[2])} − ${r1(m.skin_lab[2])} = ${r1(m.crust)} (crusts and exudate are yellow to brown, so they raise b*)` : '' },
+    { key: 'edge', name: 'Boundary / edge', ref: 'border', value: m && m.edge,
+      shown: m ? `colour contrast ΔE ${r1(m.edge)} with the skin` : '—',
+      how: m ? `ΔE*ab = √(ΔL*² + Δa*² + Δb*²) between the lesions (${m.lesion_lab.map(r1).join(', ')}) and the skin (${m.skin_lab.map(r1).join(', ')}) = ${r1(m.edge)}; a sharper, clearer edge gives a larger contrast` : '' },
+    { key: 'differential', name: 'Differential key', ref: 'apart', value: margin,
+      shown: `${esc(det.label)} ahead of ${esc(runner)} by ${(margin * 100).toFixed(1)} points`,
+      how: `model score of ${esc(det.label)} − score of its closest look-alike ${esc(runner)} = ${pctS(s(det.label))} − ${pctS(s(runner))} = ${(margin * 100).toFixed(1)} percentage points` },
+  ];
+  rows.forEach(row => { row.strength = percentile(row.key, row.value); });
+  const total = rows.reduce((a, row) => a + (row.strength || 0), 0);
+  rows.forEach(row => { row.split = total > 0 && row.strength !== null ? 100 * row.strength / total : null; });
+  return rows;
+}
+
+function morphologyCard(det, r, embedded = false) {
+  const ref = MORPHOLOGY[det.label];
+  const rows = morphologyRows(det, r);
+  const hasSplit = rows.some(row => row.split !== null);
   return `
     <div class="${embedded ? 'morphology embedded' : 'card morphology'}">
-      <div class="card-head"><h2>Morphological view</h2><span class="tag">Reference</span></div>
-      <p class="note">Typical appearance of <b>${esc(DISPLAY_NAME[label])}</b> from the literature, to compare with the photo.
-        <b>Not measured from your photo</b> and not used by the model.</p>
-      <table class="kv">
-        <tr><td>Surface texture</td><td>${esc(m.texture)}</td></tr>
-        <tr><td>Crust and exudate</td><td>${esc(m.crust)}</td></tr>
-        <tr><td>Border and distribution</td><td>${esc(m.border)}</td></tr>
-        <tr><td>How to tell apart</td><td>${esc(m.apart)}</td></tr>
-      </table>
-      <p class="note">Sources cited in the study: Chauhan et al. (2023); Leung et al. (2022); Rahim et al. (2025).</p>
+      <div class="card-head"><h2>Morphological features</h2><span class="tag">Whole photo</span></div>
+      <p class="note">The four features, measured over all detected lesions in the photo. The split shows which features stand out most in this photo.</p>
+      ${hasSplit ? `
+      <div class="split-bar" aria-label="Feature split">${rows.map(row => row.split ? `<span class="f-${row.key}" style="width:${row.split.toFixed(1)}%" title="${row.name} ${row.split.toFixed(1)}%"></span>` : '').join('')}</div>` : ''}
+      ${rows.map(row => `
+        <div class="feature-row">
+          <div class="feature-head"><span><i class="dot f-${row.key}"></i>${row.name}</span><b>${row.split === null ? '—' : `${row.split.toFixed(1)}%`}</b></div>
+          <div class="feature-measure">${row.shown}${row.strength === null ? '' : ` · stronger than ${Math.round(row.strength)}% of training lesions`}</div>
+          <div class="feature-ref">Typical for ${esc(DISPLAY_NAME[det.label])}: ${esc(ref[row.ref])}</div>
+        </div>`).join('')}
+      <details class="calc">
+        <summary>How the feature percentages are computed</summary>
+        <p>1. Each feature is measured on the photo, inside the lesion boxes and in the ring of skin around them (each box enlarged by 50%):</p>
+        <ul class="calc-list">${rows.map(row => `<li><b>${row.name}:</b> ${row.how}.</li>`).join('')}</ul>
+        <p>2. <b>Strength</b> = the percentile of that value among the ${MORPH_REF ? MORPH_REF.features.texture.n : ''} training images
+          (for example 80 means stronger than 80% of the labelled training lesions; for the differential key, Model D's own top boxes on the training images).</p>
+        <p>3. <b>Split</b> = strength of the feature ÷ sum of the four strengths × 100, so the four add up to 100%:
+          ${rows.map(row => row.strength === null ? '' : `${row.name} ${Math.round(row.strength)}`).filter(Boolean).join(' + ')} = ${Math.round(rows.reduce((a, row) => a + (row.strength || 0), 0))};
+          ${rows.map(row => row.split === null ? '' : `${row.name} ${Math.round(row.strength)} ÷ ${Math.round(rows.reduce((a, x) => a + (x.strength || 0), 0))} = ${row.split.toFixed(1)}%`).filter(Boolean).join('; ')}.</p>
+        <p>These measurements describe the lesions; the model's decision comes from its own scores. "Typical" lines are reference text from the literature
+          (Chauhan et al., 2023; Leung et al., 2022; Rahim et al., 2025).</p>
+      </details>
     </div>`;
 }
 
@@ -548,6 +602,23 @@ function calculationCard(r) {
 const BENCH_D_WEIGHTS = 'best_ModelD_g1.0_f11_seed42.pt';
 const PLAIN_METRIC = { 'AP@50': 'Box accuracy', 'AP@50–95': 'Strict box accuracy', Precision: 'Precision', Recall: 'Recall', F1: 'F1' };
 
+function sopCard(r) {
+  const top = r.detections[0];
+  const cluster = top && clusterOf(top.label);
+  const s = l => top.scores[CLASSES.indexOf(l)];
+  const runner = top && cluster.classes.filter(c => c !== top.label).sort((a, b) => s(b) - s(a))[0];
+  return `
+    <div class="card clinician-only">
+      <div class="card-head"><h2>This photo and the SOPs</h2></div>
+      <table class="kv">
+        <tr><td><b>SOP 1</b> Localization</td><td>${r.detections.length} lesion box(es) found by Model D; the top box covers ${top ? `${(100 * (top.box[2] - top.box[0]) * (top.box[3] - top.box[1])).toFixed(1)}% of the photo` : '—'} (see Workspace).</td></tr>
+        <tr><td><b>SOP 2</b> Classification</td><td>${top ? `${esc(top.label)} (${pct(top.confidence)}) in the ${esc(cluster.name)} cluster; closest look-alike ${esc(runner)} (${pctS(s(runner))}).` : 'No box above the cutoff.'}</td></tr>
+        <tr><td><b>SOP 3</b> Skin tone</td><td>${r.ita === null ? 'ITA not available.' : `ITA ${r.ita.toFixed(1)}° → ${itaGroup(r.ita)}; L*-CLAHE clip limit β = ${r.beta}.`}</td></tr>
+      </table>
+      <p class="note">Test-set results for each SOP (200 images, Models A–D) are in the Benchmark tab.</p>
+    </div>`;
+}
+
 function renderResults() {
   const cur = State.current;
   $('results-empty').hidden = Boolean(cur);
@@ -564,9 +635,20 @@ function renderResults() {
         <div class="muted">Top prediction</div>
         <h2>${esc(DISPLAY_NAME[top.label])}</h2>
         <div class="confidence"><span>Model confidence</span><b>${pct(top.confidence)}</b></div>
-        <p class="note">The detector's score for this disease in its highest-confidence box (sigmoid output, 0–100%). It is not the
-          probability that you have the disease. Group: ${esc(cluster.name)} (analysis grouping used in the study).</p>
+        <div class="remaining">
+          <div class="remaining-bar"><span class="yes" style="width:${(top.confidence * 100).toFixed(1)}%">${pct(top.confidence, 0)} "yes, ${esc(top.label)}"</span><span class="no">${pct(1 - top.confidence, 0)} doubt</span></div>
+          <p><b>Where is the remaining ${pct(1 - top.confidence)}?</b> The model answers one yes-or-no question per disease. For "Is this ${esc(DISPLAY_NAME[top.label])}?"
+            it is ${pct(top.confidence)} sure the answer is yes, so ${pct(1 - top.confidence)} is its doubt about that answer (the chance it is not ${esc(DISPLAY_NAME[top.label])}).
+            The remaining ${pct(1 - top.confidence)} is not given to another disease: each of the other diseases got its own separate score
+            (shown below), and they are all low, which means "no".</p>
+          <p class="note">Formula: score = 1 / (1 + e<sup>−z</sup>) (sigmoid), where z is the model's raw output for that disease; here z = ${logit(top.confidence).toFixed(2)}.
+            Doubt = 1 − score = ${pct(1 - top.confidence)}.</p>
+        </div>
+        <p class="note">This is the detector's score in its highest-confidence box, not a medical probability that you have the disease.
+          Group: ${esc(cluster.name)} (analysis grouping used in the study).</p>
+        ${r.ita !== null && r.ita <= -30 ? `<p class="note warn">This skin is very dark (ITA ${r.ita.toFixed(1)}°, Fitzpatrick VI range). The study did not test this range, so the result may be less reliable.</p>` : ''}
       </div>`;
+    html += sopCard(r);
     html += candidateCard(top, true);
     if (r.detections.length > 1) {
       html += `
@@ -588,9 +670,10 @@ function renderResults() {
         <p class="note">Retake the photo closer to the lesion, in focus and in natural light, without filters.</p>
       </div>`;
     if (r.below_cutoff) html += candidateCard(r.below_cutoff, false);
+    html += sopCard(r);
   }
   html += featureCard(r);
-  if (top) html += morphologyCard(top.label);
+  if (top) html += morphologyCard(top, r);
   html += calculationCard(r);
   html += `<button type="button" class="btn wide" onclick="openReport()">Print / save report</button>`;
   $('results-body').innerHTML = html;
@@ -1032,6 +1115,10 @@ async function loadData() {
     const res = await fetch('assets/gradcam/gradcam.json', { cache: 'no-store' });
     if (res.ok) GRADCAM = await res.json();
   } catch (err) { GRADCAM = null; }
+  try {
+    const res = await fetch('assets/morphology_reference.json', { cache: 'no-store' });
+    if (res.ok) MORPH_REF = await res.json();
+  } catch (err) { MORPH_REF = null; }
   renderAll();
 }
 
@@ -1041,8 +1128,13 @@ document.addEventListener('DOMContentLoaded', () => {
   $('camera-input').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
   $('split-slider').addEventListener('input', e => setSplit(+e.target.value));
   $('toggle-boxes').addEventListener('change', e => { State.showBoxes = e.target.checked; renderWorkspace(); });
-  $('toggle-heatmap').addEventListener('change', e => { State.showHeatmap = e.target.checked; renderWorkspace(); });
+  $('toggle-heatmap').addEventListener('change', e => {
+    State.showHeatmap = e.target.checked;
+    if (State.showHeatmap) { State.split = 100; $('split-slider').value = 100; }
+    renderWorkspace();
+  });
   $('heatmap-opacity').addEventListener('input', e => { State.heatmapOpacity = +e.target.value; $('viewer-heatmap').style.opacity = State.heatmapOpacity / 100; });
+  $('split-slider').value = State.split;
   renderAll();
   loadData();
   const hash = window.location.hash.replace('#', '');

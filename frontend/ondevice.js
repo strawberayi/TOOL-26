@@ -565,6 +565,48 @@ const OnDevice = (() => {
   }
 
 
+  function morphologyMeasures(cv, rgb, detections) {
+    const W = rgb.cols, H = rgb.rows, n = W * H;
+    const inside = new Uint8Array(n), outer = new Uint8Array(n);
+    const fill = (mask, x1, y1, x2, y2) => {
+      for (let y = Math.max(0, y1); y < Math.min(H, y2); y++) mask.fill(1, y * W + Math.max(0, x1), y * W + Math.min(W, x2));
+    };
+    detections.forEach(d => {
+      const [x1, y1, x2, y2] = [d.box[0] * W, d.box[1] * H, d.box[2] * W, d.box[3] * H].map(pyRound);
+      const bw = Math.max(1, x2 - x1), bh = Math.max(1, y2 - y1);
+      fill(inside, x1, y1, x2, y2);
+      fill(outer, pyRound(x1 - bw / 4), pyRound(y1 - bh / 4), pyRound(x2 + bw / 4), pyRound(y2 + bh / 4));
+    });
+    const lab = new cv.Mat(), gray = new cv.Mat(), lap = new cv.Mat();
+    cv.cvtColor(rgb, lab, cv.COLOR_RGB2Lab);
+    cv.cvtColor(rgb, gray, cv.COLOR_RGB2GRAY);
+    cv.Laplacian(gray, lap, cv.CV_32F);
+    const L = lab.data, P = lap.data32F;
+    const acc = () => ({ n: 0, l: 0, a: 0, b: 0, t: 0, t2: 0 });
+    const tin = acc(), tring = acc();
+    for (let i = 0; i < n; i++) {
+      const t = inside[i] ? tin : outer[i] ? tring : null;
+      if (!t) continue;
+      t.n++; t.l += L[3 * i] * 100 / 255; t.a += L[3 * i + 1] - 128; t.b += L[3 * i + 2] - 128;
+      t.t += P[i]; t.t2 += P[i] * P[i];
+    }
+    lab.delete(); gray.delete(); lap.delete();
+    if (!tin.n || !tring.n) return null;
+    const mean = (r, k) => r[k] / r.n;
+    const sdv = r => Math.sqrt(Math.max(0, r.t2 / r.n - (r.t / r.n) ** 2));
+    const dL = mean(tin, 'l') - mean(tring, 'l'), da = mean(tin, 'a') - mean(tring, 'a'), db = mean(tin, 'b') - mean(tring, 'b');
+    return {
+      boxes: detections.length,
+      lesion_pixels: tin.n, skin_pixels: tring.n,
+      lesion_lab: [mean(tin, 'l'), mean(tin, 'a'), mean(tin, 'b')],
+      skin_lab: [mean(tring, 'l'), mean(tring, 'a'), mean(tring, 'b')],
+      lesion_rough: sdv(tin), skin_rough: sdv(tring),
+      texture: sdv(tring) > 0 ? sdv(tin) / sdv(tring) : null,
+      crust: db,
+      edge: Math.sqrt(dL * dL + da * da + db * db),
+    };
+  }
+
   function measureLesion(cv, rgb, detections, cam) {
     const detection = detections[0], count = detections.length;
     const W = rgb.cols, H = rgb.rows;
@@ -824,6 +866,7 @@ const OnDevice = (() => {
         });
         const features = await step('features', onStep, timings, () => ({
           lesion_measures: detections.length ? measureLesion(cv, rgb, detections, cam) : null,
+          morphology: detections.length ? morphologyMeasures(cv, rgb, detections) : null,
           lesion_crops: detections.length ? lesionCrops(cv, rgb, detections) : [],
           enhanced_image: toDataUrl(cv, enhanced),
           boxed_image: toDataUrl(cv, rgb, detections, 800),
@@ -903,5 +946,5 @@ const OnDevice = (() => {
   }
 
   return { runDetect, runCompare, bracketOf,
-           _internal: { loadCv, loadManifest, computeIta, lClahe, rgbClahe, letterbox, detect, loadRgb, camToDataUrl, toDataUrl } };
+           _internal: { morphologyMeasures, loadCv, loadManifest, computeIta, lClahe, rgbClahe, letterbox, detect, loadRgb, camToDataUrl, toDataUrl } };
 })();
