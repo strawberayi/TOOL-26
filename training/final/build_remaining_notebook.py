@@ -1,8 +1,3 @@
-"""Write train_remaining.ipynb: manuscript Model C (raw + Focal Loss) and the extra seeds for A and B.
-
-    ../TOOL-26/.venv/bin/python final/build_remaining_notebook.py
-"""
-
 import json
 from pathlib import Path
 

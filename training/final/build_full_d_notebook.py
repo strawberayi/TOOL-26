@@ -1,8 +1,3 @@
-"""Write train_model_D_full.ipynb (the paper's full Model D: Stage 2 with frozen backbone + Focal Loss).
-
-    ../TOOL-26/.venv/bin/python final/build_full_d_notebook.py
-"""
-
 import json
 from pathlib import Path
 

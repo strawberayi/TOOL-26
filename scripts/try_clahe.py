@@ -1,21 +1,9 @@
 #!/usr/bin/env python3
-"""
-try_clahe.py - Quick Interactive CLI & Demo for Testing ITA-Guided L*-CLAHE
-
-Features:
-  - Measures skin ITA (Individual Typology Angle) & classifies skin bracket
-  - Applies L*-channel CLAHE enhancement (preserving chromatic channels A* and B*)
-  - Computes Local Contrast Variance and Enhancement Shift / Noise
-  - Generates side-by-side comparison images (Original vs CLAHE vs Difference Heatmap)
-  - Supports custom image paths and custom beta (clip limit)
-"""
 
 import argparse
 import sys
 from pathlib import Path
 
-# Add the project backend directory to sys.path.
-# This script lives in scripts/, while the importable modules live in backend/.
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
@@ -44,7 +32,6 @@ def process_and_compare(
     print(f"Testing CLAHE on: {image_path.name}")
     print("=" * 60)
 
-    # 1. Read input image (OpenCV loads BGR)
     img_bgr = cv2.imread(str(image_path))
     if img_bgr is None:
         print(f"Error: Unable to load image at {image_path}")
@@ -52,7 +39,6 @@ def process_and_compare(
 
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-    # 2. Run Masking + ITA calculation
     processor = MaskingITAProcessor()
     ita_res = processor.process_image(img_rgb, filename=image_path.name)
 
@@ -63,8 +49,6 @@ def process_and_compare(
     print(f"Skin Mean L*       : {ita_res.mean_l:.2f}")
     print(f"Skin Mean b*       : {ita_res.mean_b:.2f}")
 
-    # 3. Determine Beta (clipLimit)
-    # Default provisional values from research framework: High=4.0, Mid=3.0, Low=2.0
     beta_high, beta_mid, beta_low = 4.0, 3.0, 2.0
     adaptive_beta = ita_to_beta(ita_res.ita, beta_high=beta_high, beta_mid=beta_mid, beta_low=beta_low)
 
@@ -75,7 +59,6 @@ def process_and_compare(
         effective_beta = adaptive_beta
         print(f"Applied Beta (ITA) : {effective_beta:.2f} (clipLimit for {ita_res.bracket} bracket)")
 
-    # 4. Apply CLAHE on L* channel
     enhanced_rgb = apply_clahe(
         image_rgb=img_rgb,
         beta=effective_beta,
@@ -83,7 +66,6 @@ def process_and_compare(
     )
     enhanced_bgr = cv2.cvtColor(enhanced_rgb, cv2.COLOR_RGB2BGR)
 
-    # 5. Calculate Metrics
     h, w, _ = img_rgb.shape
     full_mask = np.ones((h, w), dtype=bool)
 
@@ -96,10 +78,8 @@ def process_and_compare(
     print(f"CLAHE Contrast Var : {enhanced_contrast:.2f} (+{contrast_gain:.1f}%)")
     print(f"Enhancement Shift  : {noise_score:.4f}")
 
-    # 6. Create Side-by-Side Comparison Visualization
     diff_rgb = cv2.absdiff(img_rgb, enhanced_rgb)
     diff_gray = cv2.cvtColor(diff_rgb, cv2.COLOR_RGB2GRAY)
-    # Scale difference for visibility heatmap
     diff_colored = cv2.applyColorMap(cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX), cv2.COLORMAP_VIRIDIS)
     diff_rgb_vis = cv2.cvtColor(diff_colored, cv2.COLOR_BGR2RGB)
 
@@ -109,20 +89,15 @@ def process_and_compare(
     canvas_h = h + banner_height
 
     canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
-    # Background banner
-    canvas[:banner_height, :] = (24, 28, 36)  # Dark slate
-    # Paste panels
+    canvas[:banner_height, :] = (24, 28, 36)
     canvas[banner_height:, :w] = img_rgb
     canvas[banner_height:, w : w * 2] = enhanced_rgb
     canvas[banner_height:, w * 2 :] = diff_rgb_vis
 
-    # Add text labels on panels
     font = cv2.FONT_HERSHEY_SIMPLEX
-    # Banner title
     title_text = f"ITA-Guided L*-CLAHE | {image_path.name} | ITA: {ita_res.ita:.1f} deg ({ita_res.bracket}) | Beta: {effective_beta:.1f} | Gain: +{contrast_gain:.1f}%"
     cv2.putText(canvas, title_text, (20, 48), font, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
 
-    # Sub-labels
     panel_y = banner_height + 30
     cv2.rectangle(canvas, (10, banner_height + 5), (220, banner_height + 40), (0, 0, 0), -1)
     cv2.putText(canvas, "1. ORIGINAL (RAW)", (15, panel_y), font, 0.65, (0, 220, 255), 2, cv2.LINE_AA)
@@ -133,12 +108,10 @@ def process_and_compare(
     cv2.rectangle(canvas, (w * 2 + 10, banner_height + 5), (w * 2 + 280, banner_height + 40), (0, 0, 0), -1)
     cv2.putText(canvas, "3. CONTRAST BOOST HEATMAP", (w * 2 + 15, panel_y), font, 0.65, (255, 150, 50), 2, cv2.LINE_AA)
 
-    # Save output
     output_dir.mkdir(parents=True, exist_ok=True)
     out_comparison = output_dir / f"comparison_{image_path.stem}.jpg"
     out_enhanced = output_dir / f"clahe_{image_path.stem}.jpg"
 
-    # Save as BGR for cv2.imwrite
     cv2.imwrite(str(out_comparison), cv2.cvtColor(canvas, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 95])
     cv2.imwrite(str(out_enhanced), enhanced_bgr, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
@@ -191,7 +164,6 @@ def main():
             sys.exit(1)
         process_and_compare(image_path, output_dir, custom_beta=args.beta)
     else:
-        # Run on available sample images in frontend/assets
         assets_dir = SCRIPT_DIR / "frontend" / "assets"
         sample_images = sorted(assets_dir.glob("sample_*.jpg"))
         if not sample_images:

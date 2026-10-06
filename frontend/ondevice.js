@@ -1,21 +1,6 @@
-/**
- * On-device inference: the Python pipeline (backend/masking_ita.py,
- * backend/clahe_calibration.py, the ablation notebook) ported to the browser.
- *
- *   photo -> K-means skin mask + ITA -> bracket beta -> L*-CLAHE -> YOLO26 (ONNX)
- *
- * OpenCV.js (same OpenCV 5.0 as Python) performs colour conversion, resizing
- * and CLAHE, so those steps match the training data exactly. K-means and the
- * silhouette score are re-implemented here; they follow scikit-learn's
- * algorithm (k-means++, Lloyd, n_init restarts) but use a different random
- * stream, so ITA can differ slightly from Python on ambiguous images.
- *
- * Models and parameters come from models/manifest.json
- * (backend/export_app_models.py).
- */
 const OnDevice = (() => {
-  // Phone photos are reduced before processing; ITA is a mean skin colour
-  // and the detector works at 640 px.
+
+
   const MAX_SIDE = 1280;
   const ITA_MAX_SIDE = 256;
 
@@ -33,13 +18,13 @@ const OnDevice = (() => {
     return manifestPromise;
   }
 
-  // The runtimes are large (OpenCV.js ~13 MB), so load them on first use.
+
   const scripts = {};
   function loadScript(src) {
     if (!scripts[src]) {
       scripts[src] = new Promise((resolve, reject) => {
         const el = document.createElement('script');
-        el.charset = 'utf-8';  // opencv.js embeds its WebAssembly as UTF-8 text
+        el.charset = 'utf-8';
         el.src = src;
         el.onload = resolve;
         el.onerror = () => reject(new Error(`Failed to load ${src}`));
@@ -66,25 +51,22 @@ const OnDevice = (() => {
   async function getSession(file) {
     if (!window.ort) await loadScript('vendor/ort.wasm.min.js');
     if (!sessions[file]) {
-      // Must be a full URL: the loader is imported as an ES module.
+
       ort.env.wasm.wasmPaths = new URL('vendor/', document.baseURI).href;
-      ort.env.wasm.numThreads = 1;  // WebViews are not cross-origin isolated.
+      ort.env.wasm.numThreads = 1;
       sessions[file] = ort.InferenceSession.create(`models/${file}`, { executionProviders: ['wasm'] });
     }
     return sessions[file];
   }
 
-  // ---------------------------------------------------------------- helpers
 
-  // Deep copy. In this OpenCV.js build Mat.clone() shares the pixel buffer, so
-  // writing into a "clone" changed the original photo.
   function copyMat(cv, mat) {
     const out = new cv.Mat();
     mat.copyTo(out);
     return out;
   }
 
-  // Python's round(): half to even (used by the Ultralytics letterbox).
+
   function pyRound(x) {
     const r = Math.round(x);
     return Math.abs(x % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r;
@@ -105,7 +87,7 @@ const OnDevice = (() => {
     if (n <= count) return Array.from({ length: n }, (_, i) => i);
     const rand = mulberry32(seed);
     const idx = Array.from({ length: n }, (_, i) => i);
-    for (let i = 0; i < count; i++) {  // partial Fisher-Yates
+    for (let i = 0; i < count; i++) {
       const j = i + Math.floor(rand() * (n - i));
       [idx[i], idx[j]] = [idx[j], idx[i]];
     }
@@ -120,7 +102,7 @@ const OnDevice = (() => {
     return out;
   }
 
-  // RGB (CV_8UC3) -> corrected CIELAB as Float32Array [L*, a*, b*] per pixel.
+
   function correctedLab(cv, rgb) {
     const lab = new cv.Mat();
     cv.cvtColor(rgb, lab, cv.COLOR_RGB2Lab);
@@ -144,10 +126,7 @@ const OnDevice = (() => {
     return seen.size;
   }
 
-  // ---------------------------------------------------------------- K-means
 
-  // Lloyd's K-means with k-means++ seeding and n_init restarts (lowest inertia wins),
-  // mirroring sklearn.cluster.KMeans(algorithm="lloyd", max_iter=300, tol=1e-4).
   function kmeans(points, n, k, nInit, seed) {
     const rand = mulberry32(seed);
     let variance = 0;
@@ -163,7 +142,7 @@ const OnDevice = (() => {
     const dist = new Float64Array(n);
 
     for (let run = 0; run < nInit; run++) {
-      // k-means++ (greedy, 2 + log(k) local trials, as scikit-learn)
+
       const centers = new Float64Array(3 * k);
       const first = Math.floor(rand() * n);
       for (let d = 0; d < 3; d++) centers[d] = points[3 * first + d];
@@ -192,7 +171,7 @@ const OnDevice = (() => {
         }
       }
 
-      // Lloyd iterations
+
       let inertia = 0;
       for (let iter = 0; iter < 300; iter++) {
         inertia = 0;
@@ -213,7 +192,7 @@ const OnDevice = (() => {
         }
         let shift = 0;
         for (let c = 0; c < k; c++) {
-          if (!counts[c]) continue;  // keep an empty cluster's centre
+          if (!counts[c]) continue;
           for (let d = 0; d < 3; d++) {
             const v = sums[3 * c + d] / counts[c];
             shift += (v - centers[3 * c + d]) ** 2;
@@ -241,7 +220,7 @@ const OnDevice = (() => {
         sums[labels[b]] += Math.sqrt((points[pa] - points[pb]) ** 2 + (points[pa + 1] - points[pb + 1]) ** 2 + (points[pa + 2] - points[pb + 2]) ** 2);
       }
       const own = labels[a];
-      if (counts[own] <= 1) continue;  // sklearn: silhouette 0 for singletons
+      if (counts[own] <= 1) continue;
       const intra = sums[own] / (counts[own] - 1);
       let nearest = Infinity;
       for (let c = 0; c < k; c++) if (c !== own && counts[c]) nearest = Math.min(nearest, sums[c] / counts[c]);
@@ -250,7 +229,6 @@ const OnDevice = (() => {
     return total / m;
   }
 
-  // ---------------------------------------------------------------- masking + ITA
 
   function rankK(points, n, cfg) {
     const sample = sampleIndices(n, cfg.max_k_selection_pixels, cfg.random_state);
@@ -325,7 +303,7 @@ const OnDevice = (() => {
     return 'Lightest';
   }
 
-  // Primary attempt, then the centred 60% x 60% crop, else MASK_FAILED (no ITA).
+
   function computeIta(cv, rgb, cfg) {
     const small = resizeMax(cv, rgb, ITA_MAX_SIDE);
     try {
@@ -347,7 +325,6 @@ const OnDevice = (() => {
     }
   }
 
-  // ---------------------------------------------------------------- preprocessing
 
   function lClahe(cv, rgb, beta, grid) {
     const lab = new cv.Mat();
@@ -409,11 +386,7 @@ const OnDevice = (() => {
     }
   }
 
-  // ---------------------------------------------------------------- YOLO
 
-  // Ultralytics LetterBox (auto=False, center=True, pad 114, INTER_LINEAR).
-  // Ultralytics LetterBox(auto=True, stride=32), as in model.predict and the test-set
-  // evaluation (rectangular input): scale to fit 640, pad only to a multiple of 32.
   function letterbox(cv, rgb, size, stride = 32) {
     const r = Math.min(size / rgb.rows, size / rgb.cols);
     const newW = pyRound(rgb.cols * r), newH = pyRound(rgb.rows * r);
@@ -449,13 +422,7 @@ const OnDevice = (() => {
     return camSpecs[file];
   }
 
-  // Returns { detections, below, cam, timing, input }.
-  // detections: boxes with confidence >= manifest.confidence after per-class NMS; each keeps
-  //   the 8 sigmoid class scores of its anchor (scores), so the ranking of the candidate
-  //   diseases comes straight from the model output.
-  // below: the strongest anchor under the cutoff (not counted as a detection), or null.
-  // cam (Float32Array, rgb.rows x rgb.cols, 0..1): Grad-CAM, computed when camSpec is given.
-  // With options.deferCam the Grad-CAM is not computed; computeCam() is returned instead.
+
   async function detect(cv, rgb, modelFile, manifest, camSpec = null, options = {}) {
     const session = await getSession(modelFile);
     const size = manifest.imgsz;
@@ -466,7 +433,7 @@ const OnDevice = (() => {
     const outputs = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, ph, pw]) });
     timing.inference_ms = performance.now() - t;
     t = performance.now();
-    // [1, 4 + nc, N]: cx cy w h (input pixels) and sigmoid class scores, one-to-many head.
+
     const out0 = outputs[session.outputNames[0]];
     const raw = out0.data, nc = out0.dims[1] - 4, N = out0.dims[2];
     const scoresOf = j => Array.from({ length: nc }, (_, k) => raw[(4 + k) * N + j]);
@@ -491,7 +458,7 @@ const OnDevice = (() => {
       const x2 = clamp((k.x2 - left) / r, rgb.cols), y2 = clamp((k.y2 - top) / r, rgb.rows);
       return {
         label: manifest.classes[k.c],
-        confidence: k.score,  // full float32 precision (z = logit(confidence) is shown in the app)
+        confidence: k.score,
         box: [x1 / rgb.cols, y1 / rgb.rows, x2 / rgb.cols, y2 / rgb.rows].map(round4),
         box_px: [x1, y1, x2, y2].map(Math.round),
         scores: scoresOf(k.j),
@@ -510,7 +477,7 @@ const OnDevice = (() => {
     return { detections, below, cam, timing, input: [ph, pw] };
   }
 
-  // Per-class non-maximum suppression, as in Ultralytics (agnostic=False, iou 0.7, max_det 300).
+
   function nms(boxes, iouThr, maxDet) {
     boxes.sort((a, b) => b.score - a.score);
     const kept = [];
@@ -527,14 +494,7 @@ const OnDevice = (() => {
     return kept;
   }
 
-  // ---------------------------------------------------------------- Grad-CAM
 
-  // Grad-CAM at the last feature layer of the class head (cv3, one-to-many; 64 channels
-  // per scale). That layer feeds a linear 1x1 convolution, so d(logit_c)/d(feature_k)
-  // is the weight W[c][k]: the gradient is exact, no backpropagation needed.
-  // Targets: detections with sigmoid(logit) >= confidence (up to max_targets), else
-  // the single strongest; per scale, alpha_k = mean gradient, cam = ReLU(sum alpha_k A_k),
-  // normalized, upsampled to the padded input size, averaged over scales, then mapped to the photo.
   function gradCam(cv, outputs, camSpec, manifest, geo) {
     const settings = manifest.gradcam || { confidence: 0.25, max_targets: 10 };
     const size = manifest.imgsz;
@@ -594,7 +554,7 @@ const OnDevice = (() => {
     let max = 0;
     for (let i = 0; i < data.length; i++) if (data[i] > max) max = data[i];
     if (max > 0) for (let i = 0; i < data.length; i++) data[i] /= max;
-    // All 8 class scores (sigmoid) of the strongest lesion candidate, for the disease split.
+
     const main = targets[0], ML = layers[main.j], mHW = ML.H * ML.W;
     const classScores = manifest.classes.map((label, k) => {
       const z = ML.logits[k * mHW + main.p];
@@ -604,8 +564,7 @@ const OnDevice = (() => {
              targets: targets.map(t => ({ label: manifest.classes[t.c], score: Math.round(t.prob * 1000) / 1000 })) };
   }
 
-  // Measured from the photo inside the strongest lesion box, compared with the skin ring
-  // around it (box enlarged by 50%). Descriptive only: the detector does not use these.
+
   function measureLesion(cv, rgb, detections, cam) {
     const detection = detections[0], count = detections.length;
     const W = rgb.cols, H = rgb.rows;
@@ -629,7 +588,7 @@ const OnDevice = (() => {
       }
     }
     if (cam) {
-      // Share of the Grad-CAM heatmap that falls inside any detected lesion box.
+
       const inBox = new Uint8Array(W * H);
       detections.forEach(d => {
         const [bx1, by1, bx2, by2] = [d.box[0] * W, d.box[1] * H, d.box[2] * W, d.box[3] * H].map(Math.round);
@@ -659,8 +618,7 @@ const OnDevice = (() => {
     };
   }
 
-  // Feature extraction: every detected lesion cropped from the photo, with its own
-  // confidence and colour/texture measurements versus the skin ring around it.
+
   function lesionCrops(cv, rgb, detections, maxCrops = 6) {
     const W = rgb.cols, H = rgb.rows;
     const lab = new cv.Mat(), gray = new cv.Mat(), lap = new cv.Mat();
@@ -704,13 +662,13 @@ const OnDevice = (() => {
     return crops;
   }
 
-  // Heatmap alone (transparent where the model does not look), for the Workspace overlay.
+
   function camHeatmapUrl(cv, cam, maxSide = 640) {
     const f32 = cv.matFromArray(cam.rows, cam.cols, cv.CV_32F, cam.data);
     const u8 = new cv.Mat();
     f32.convertTo(u8, cv.CV_8U, 255);
     const heat = new cv.Mat();
-    cv.applyColorMap(u8, heat, cv.COLORMAP_JET);  // BGR
+    cv.applyColorMap(u8, heat, cv.COLORMAP_JET);
     const n = cam.rows * cam.cols, rgba = new Uint8ClampedArray(4 * n), hp = heat.data;
     for (let i = 0; i < n; i++) {
       rgba[4 * i] = hp[3 * i + 2];
@@ -729,14 +687,14 @@ const OnDevice = (() => {
     return canvas.toDataURL('image/png');
   }
 
-  // Heatmap over the photo: JET colours blended by heatmap strength (as in the paper figures).
+
   function camToDataUrl(cv, rgb, cam, detections, maxSide = 640) {
     const f32 = cv.matFromArray(cam.rows, cam.cols, cv.CV_32F, cam.data);
     const u8 = new cv.Mat();
     f32.convertTo(u8, cv.CV_8U, 255);
     f32.delete();
     const heat = new cv.Mat();
-    cv.applyColorMap(u8, heat, cv.COLORMAP_JET);  // BGR
+    cv.applyColorMap(u8, heat, cv.COLORMAP_JET);
     const out = copyMat(cv, rgb);
     const px = out.data, hp = heat.data, n = cam.rows * cam.cols;
     for (let i = 0; i < n; i++) {
@@ -750,18 +708,17 @@ const OnDevice = (() => {
     return url;
   }
 
-  // Top prediction = the class of the highest-confidence box (the detector's own label for it).
+
   function summarize(detections) {
     const top = detections[0] || null;
     return { top: top ? top.label : null, topConfidence: top ? top.confidence : null };
   }
 
-  // ---------------------------------------------------------------- images
 
   async function loadRgb(cv, source, info = null) {
     const img = new Image();
     img.src = source;
-    await img.decode();  // EXIF orientation is applied by the browser
+    await img.decode();
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
@@ -810,13 +767,10 @@ const OnDevice = (() => {
     return canvas.toDataURL('image/jpeg', 0.85);
   }
 
-  // ---------------------------------------------------------------- public API
 
-  // Let the page repaint (progress dialog) between the heavy synchronous steps.
   const yieldToUi = () => new Promise(resolve => setTimeout(resolve, 0));
 
-  // Runs `fn` as a named step: reports 'active' and 'done' (with the measured time)
-  // through onStep, and records the time in `timings`.
+
   async function step(id, onStep, timings, fn) {
     if (onStep) onStep(id, 'active');
     await yieldToUi();
@@ -837,8 +791,7 @@ const OnDevice = (() => {
 
   function sessionLoaded(file) { return Boolean(sessions[file]); }
 
-  // Model D on one photo. options.onStep(id, state, ms) receives the progress of the steps
-  // load, ita, clahe, detect, gradcam, features.
+
   async function runDetect(source, options = {}) {
     const { onStep } = options;
     const timings = {};
@@ -910,8 +863,7 @@ const OnDevice = (() => {
     }
   }
 
-  // The same photo through every ablation model (A-D), each with its own preprocessing.
-  // options.onStep(id, state, ms) receives 'ita' and 'model-A' ... 'model-D'.
+
   async function runCompare(source, options = {}) {
     const { onStep } = options;
     const timings = {};

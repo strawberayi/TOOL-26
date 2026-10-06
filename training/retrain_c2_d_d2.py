@@ -1,23 +1,3 @@
-"""
-Daniel's re-training, in one run (from ablation_training/daniel/):
-
-    python retrain_c2_d_d2.py
-
-1. D2 calibration ("lesion-visibility equalization", TRAIN images only):
-   for each ITA bracket, choose the CLAHE clip limit (beta) that makes lesions
-   as visible against healthy skin (CIELAB delta-E, lesion boxes vs skin mask)
-   as they are on the lightest skin without CLAHE. If a bracket cannot reach
-   that target within the noise limit, take the beta with the highest visibility.
-2. Train C' and D with seeds 43 and 44 (seed 42 is already trained).
-3. Train D2 (ITA + the new betas) with seeds 42, 43, 44.
-4. Evaluate C', D, D2 for every seed on validation and test, overall and per
-   skin tone, and write mean +/- SD tables.
-
-Decide about D2 with the VALIDATION table; the test table is the final report.
-If it stops, run it again: finished runs are skipped, an interrupted one resumes.
-Everything goes to ../runs/ablation_split/d2_seeds/ (log: run_log.txt).
-"""
-
 from __future__ import annotations
 
 import json
@@ -27,9 +7,9 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent  # ablation_training/
+ROOT = HERE.parent
 NOTEBOOK = HERE / "daniel_train_C2_D.ipynb"
-CAL = ROOT / "calibration_d2"  # masks + inputs for the D2 calibration
+CAL = ROOT / "calibration_d2"
 D2_CONFIG = ROOT / "backend" / "phase0_calibration_d2.json"
 OUT = ROOT / "runs" / "ablation_split" / "d2_seeds"
 
@@ -57,10 +37,7 @@ def banner(text):
     print("\n" + "=" * 72 + f"\n  {text}\n" + "=" * 72, flush=True)
 
 
-# ------------------------------------------------------------------ 1. D2 calibration
-
 def lesion_visibility():
-    """Lesion-vs-healthy-skin delta-E per train image, bracket and beta."""
     import cv2
     import numpy as np
     import pandas as pd
@@ -110,8 +87,6 @@ def calibrate_d2() -> dict:
     median.round(3).to_csv(OUT / "d2_lesion_visibility_median.csv")
     counts = {k: int(v) for k, v in curves[curves.beta == 0].bracket.value_counts().items()}
 
-    # Noise limit from the original calibration (acceptance >= 0.80); betas below 2.0
-    # add less noise than 2.0 and are admissible.
     noise = pd.read_csv(CAL / "beta_search_summary.csv")
     admissible = {b: set(noise[(noise.bracket == b) & (noise.acceptance_rate >= 0.8)].beta.round(2))
                   | {x for x in BETA_GRID if x < 2.0} for b in BRACKETS}
@@ -154,8 +129,6 @@ def calibrate_d2() -> dict:
     return config
 
 
-# ------------------------------------------------------------------ 2-3. training
-
 def notebook_namespace(d2_betas: dict) -> dict:
     cells = ["".join(c["source"]) for c in json.loads(NOTEBOOK.read_text())["cells"] if c["cell_type"] == "code"]
 
@@ -167,14 +140,13 @@ def notebook_namespace(d2_betas: dict) -> dict:
     def set_line(source, prefix, line):
         return "\n".join(line if l.startswith(prefix) else l for l in source.splitlines())
 
-    os.chdir(HERE)  # yolo26n.pt and the notebook paths are relative to this folder
+    os.chdir(HERE)
     ns = {"__name__": "__notebook__"}
     config = set_line(cell("MODEL_CHECKPOINT = "), "SEEDS = ", f"SEEDS = {SEEDS}")
     config = set_line(config, "TRAIN_MODELS = ", f"TRAIN_MODELS = {(C2, D, D2)!r}")
     for source in (config, cell("IMAGE_SUFFIXES = "), cell("ITA_CACHE = ")):
         exec(compile(source, "notebook", "exec"), ns)
 
-    # make_dataset() and write_data_yaml() definitions, without the notebook's build loop.
     dataset_cell = cell("def make_dataset(")
     exec(compile(dataset_cell[: dataset_cell.index("for model_name in TRAIN_MODELS:")], "notebook", "exec"), ns)
 
@@ -182,7 +154,6 @@ def notebook_namespace(d2_betas: dict) -> dict:
     original_transform = ns["transform"]
 
     def transform(model_name, rgb, image_id):
-        # D2 = same pipeline as D (ITA bracket per image), with the lesion-visibility betas.
         if model_name != D2:
             return original_transform(model_name, rgb, image_id)
         bracket = ns["ITA_BY_ID"].loc[image_id, "bracket"]
@@ -195,14 +166,12 @@ def notebook_namespace(d2_betas: dict) -> dict:
     for model in ns["TRAIN_MODELS"]:
         print(f"Preparing {model}...", flush=True)
         ns["make_dataset"](model)
-    exec(compile(cell("def write_data_yaml("), "notebook", "exec"), ns)  # yamls for TRAIN_MODELS
+    exec(compile(cell("def write_data_yaml("), "notebook", "exec"), ns)
 
     training = set_line(cell("def train_one("), "TRAIN_ONLY = ", "TRAIN_ONLY = TRAIN_MODELS")
     ns["_training_source"] = training
     return ns
 
-
-# ------------------------------------------------------------------ 4. evaluation
 
 def evaluate_all(ns) -> None:
     import pandas as pd
@@ -251,7 +220,7 @@ def main() -> None:
     sys.stdout = Tee(sys.__stdout__, log)
     sys.stderr = Tee(sys.__stderr__, log)
     os.environ.setdefault("MPLBACKEND", "Agg")
-    epochs = os.environ.get("ABLATION_SMOKE_EPOCHS")  # testing only
+    epochs = os.environ.get("ABLATION_SMOKE_EPOCHS")
     start = time.time()
 
     d2 = calibrate_d2()

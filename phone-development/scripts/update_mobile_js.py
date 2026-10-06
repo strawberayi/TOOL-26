@@ -177,11 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 '''
 
-# Check if selectPreset already calls updateMobileView
 with open('app.js', 'r', encoding='utf-8') as f:
     code = f.read()
 
-# Make selectPreset call updateMobileView
 if 'updateMobileView();' not in code:
     code = code.replace('updateTelemetryUI(data);', 'updateTelemetryUI(data);\n  if (typeof updateMobileView === "function") updateMobileView();')
 

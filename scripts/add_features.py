@@ -3,7 +3,6 @@ import sys
 with open('index.html', 'r', encoding='utf-8') as f:
     html = f.read()
 
-# 1. Add user profile / login button in global header
 header_user_btn = '''
         <!-- Header Actions -->
         <div class="header-actions">
@@ -25,7 +24,6 @@ header_user_btn = '''
           </button>
         </div>'''
 
-# Replace header-actions
 old_actions_start = '<div class="header-actions">'
 old_actions_end = '</div>\n      </div>\n    </header>'
 pos1 = html.find(old_actions_start)
@@ -34,10 +32,6 @@ if pos1 != -1 and pos2 != -1:
     html = html[:pos1] + header_user_btn + html[pos2 + len(old_actions_end) - len('</div>\n    </header>'):]
     print("Updated global header actions!")
 
-# 2. Add Modals before </body>:
-# - Auth Modal (Login / Sign Up / Role selection / Demo accounts)
-# - Printable Clinical Report Modal
-# - Symptoms Triage Questionnaire Modal
 modals_html = '''
     <!-- ====================================================================
          MODAL 1: AUTHENTICATION (LOGIN & REGISTRATION)
@@ -326,7 +320,6 @@ modals_html = '''
     </div>
 '''
 
-# Insert before </body>
 pos_body = html.rfind('</body>')
 if pos_body != -1:
     html = html[:pos_body] + modals_html + '\n' + html[pos_body:]

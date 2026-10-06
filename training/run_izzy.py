@@ -1,19 +1,3 @@
-"""
-Izzy's one-step run (Windows or Linux): double-click RUN_ME_IZZY.bat, or run
-
-    py -3.14 run_izzy.py
-
-It does everything, in order:
-  1. checks Python and the NVIDIA driver,
-  2. installs PyTorch with CUDA and the pinned packages (only if missing),
-  3. trains Models A, B, C (izzy/izzy_train_A_B_C.ipynb),
-  4. combines them with Daniel's C' and D (results/incoming/results_daniel.zip)
-     and evaluates all five (izzy/combine_and_evaluate.ipynb).
-
-If it stops (power loss, window closed), run it again: finished models are
-skipped and an interrupted one resumes. Everything is logged to run_izzy_log.txt.
-"""
-
 from __future__ import annotations
 
 import json
@@ -39,7 +23,6 @@ EXTRA = ["pandas", "pyyaml", "matplotlib", "jinja2"]
 
 
 class Tee:
-    """Print to the console and to run_izzy_log.txt."""
 
     def __init__(self, *streams):
         self.streams = streams
@@ -68,8 +51,6 @@ def fail(message: str) -> None:
     sys.exit(1)
 
 
-# --------------------------------------------------------------------- stage 1: setup
-
 def installed_versions(python: str) -> dict:
     code, out = run([python, "-c", (
         "import json, importlib.metadata as m\n"
@@ -86,7 +67,6 @@ def torch_status(python: str) -> str:
 
 
 def pip_install(python: str, *args: str) -> None:
-    # Long timeouts and retries: the PyTorch CUDA files are large (~2-3 GB in total).
     env = dict(os.environ, UV_HTTP_TIMEOUT="600", UV_HTTP_RETRIES="5")
     if shutil.which("uv"):
         cmd = ["uv", "pip", "install", "--python", python, *args]
@@ -113,7 +93,6 @@ def ensure_packages(python: str, cuda_tag: str) -> None:
     torch_ok = status.startswith(TORCH) and status.endswith("True")
     print(f"PyTorch: {status}" + ("  -> GPU ready" if torch_ok else "  -> installing the CUDA build"), flush=True)
     if not torch_ok:
-        # The PyTorch wheels include the CUDA runtime; only the NVIDIA driver is needed.
         pip_install(python, f"torch=={TORCH}+{cuda_tag}", f"torchvision=={TORCHVISION}+{cuda_tag}",
                     "--index-url", f"https://download.pytorch.org/whl/{cuda_tag}")
         status = torch_status(python)
@@ -128,7 +107,6 @@ def ensure_packages(python: str, cuda_tag: str) -> None:
 
 
 def setup() -> str:
-    """Return the Python interpreter to train with."""
     banner("Step 1/3: Checking Python, the NVIDIA driver and packages")
     if sys.version_info[:2] != (3, 14):
         print(f"Note: Python {sys.version.split()[0]}; Daniel used 3.14. Install Python 3.14 if packages fail.")
@@ -149,7 +127,7 @@ def setup() -> str:
     python = sys.executable
     venv_python = VENV / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
     if venv_python.is_file():
-        python = str(venv_python)  # a previous run already made the .venv
+        python = str(venv_python)
     try:
         ensure_packages(python, cuda_tag)
     except PermissionError:
@@ -162,20 +140,17 @@ def setup() -> str:
     return python
 
 
-# --------------------------------------------------------------------- stage 2: train + combine
-
 def notebook_code(path: Path) -> list[str]:
     cells = json.loads(path.read_text(encoding="utf-8"))["cells"]
     code = ["".join(c["source"]) for c in cells if c["cell_type"] == "code"]
-    # The notebook's own install cell is replaced by stage 1.
     return [c for c in code if "Setup in one run" not in c and "GPU setup:" not in c]
 
 
 def execute(path: Path, title: str) -> None:
     banner(title)
-    os.chdir(path.parent)  # the notebooks expect to run from their own folder
+    os.chdir(path.parent)
     namespace = {"__name__": "__notebook__"}
-    epochs = os.environ.get("ABLATION_SMOKE_EPOCHS")  # testing only
+    epochs = os.environ.get("ABLATION_SMOKE_EPOCHS")
     for index, source in enumerate(notebook_code(path), 1):
         if epochs:
             source = source.replace("EPOCHS = 300", f"EPOCHS = {epochs}")
@@ -191,7 +166,6 @@ def execute(path: Path, title: str) -> None:
 
 
 def keep_awake() -> None:
-    # Stop Windows from sleeping while training (the screen may still turn off).
     if sys.platform == "win32":
         import ctypes
         ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
@@ -199,7 +173,7 @@ def keep_awake() -> None:
 
 def stage_two() -> None:
     keep_awake()
-    os.environ.setdefault("MPLBACKEND", "Agg")  # save figures to files, no windows
+    os.environ.setdefault("MPLBACKEND", "Agg")
     start = time.time()
     execute(TRAIN_NOTEBOOK, "Step 2/3: Training Models A, B, C (about 2.5-3.5 hours)")
     execute(COMBINE_NOTEBOOK, "Step 3/3: Combining with Daniel's C' and D, evaluating all five")
@@ -223,7 +197,6 @@ def main() -> None:
         stage_two()
         return
     python = setup()
-    # Train in a fresh process so newly installed packages load cleanly.
     code = subprocess.call([python, str(Path(__file__).resolve()), "--stage2"])
     sys.exit(code)
 

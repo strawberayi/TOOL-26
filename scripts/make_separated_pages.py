@@ -1,4 +1,3 @@
-# 1. WELCOME.HTML (Exact 1st Page from reference)
 welcome_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -235,7 +234,6 @@ welcome_html = '''<!DOCTYPE html>
 </html>
 '''
 
-# 2. LOGIN.HTML (Pure Dedicated Sign In Page)
 pure_login_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -489,7 +487,6 @@ pure_login_html = '''<!DOCTYPE html>
 </html>
 '''
 
-# 3. REGISTER.HTML (Pure Dedicated Create Account Page)
 pure_register_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>

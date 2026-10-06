@@ -1,11 +1,3 @@
-"""
-Generate the split-training notebooks from notebooks/ablation_study_yolov26.ipynb,
-so they use exactly the same preprocessing, training and evaluation code.
-
-Called by build_package.py, which writes them into the separate
-ablation_training/ folder.
-"""
-
 from __future__ import annotations
 
 import json
@@ -41,7 +33,6 @@ def config(train_models=None) -> str:
     src = main_cell("MODEL_CHECKPOINT = ")
     src = replace_line(src, "SEEDS = ", "SEEDS = (42,)                    # Same seed as the original protocol.")
     src = replace_line(src, "PRIMARY_SEED = ", "PRIMARY_SEED = 42")
-    # This split round keeps its own runs and weights; the first run stays untouched.
     src = replace_line(src, "RUNS_ROOT = ", "RUNS_ROOT = PROJECT_ROOT / 'runs' / 'ablation_split'")
     src = replace_line(src, "WEIGHTS_ROOT = ", "WEIGHTS_ROOT = PROJECT_ROOT / 'weights' / 'ablation_split'")
     if train_models:
@@ -252,7 +243,6 @@ def yaml_cell(only_trainer_models: bool) -> str:
 def training_cell() -> str:
     src = main_cell("def train_one(")
     src = replace_line(src, "TRAIN_ONLY = ", "TRAIN_ONLY = TRAIN_MODELS")
-    # Stable best_<model>.pt copies are made by the combine notebook.
     src = src[: src.index("# Stable names for the primary seed")].rstrip()
     return src.replace("print('Still to train:', missing or 'none')",
                        "print('Still to train here:', [m for m in missing if m.split(' seed')[0] in TRAIN_MODELS] or 'none')")

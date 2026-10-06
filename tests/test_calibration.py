@@ -8,7 +8,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from clahe_calibration import CLAHECalibrationConfig, select_beta  # noqa: E402
+from clahe_calibration import CLAHECalibrationConfig, select_beta
 
 
 def summary(betas, gains, acceptance):
@@ -25,13 +25,11 @@ class BetaSelectionTests(unittest.TestCase):
     BETAS = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]
 
     def test_max_gain_picks_largest_admissible_beta(self):
-        # Monotonic gain: the legacy rule always lands on the noise ceiling.
         frame = summary(self.BETAS, [1, 2, 3, 4, 5, 6, 7, 8], [1] * 7 + [0.5])
         config = CLAHECalibrationConfig(selection_rule="max_gain")
         self.assertEqual(select_beta(frame, config), 5.0)
 
     def test_knee_finds_diminishing_returns(self):
-        # Gain saturates after beta 3.0.
         gains = [0.0, 6.0, 9.0, 9.5, 9.8, 9.9, 10.0, 10.0]
         frame = summary(self.BETAS, gains, [1] * 8)
         config = CLAHECalibrationConfig(selection_rule="knee")

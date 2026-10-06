@@ -1,13 +1,3 @@
-"""
-Helpers for training the ablation on two machines (each trainer trains some
-of the models) and combining the results. Used by the notebooks in this folder.
-
-Fairness rules enforced here:
-- same package versions on every machine (check_environment)
-- identical inputs: data, ITA table, calibration (input_fingerprint)
-- identical preprocessed datasets for A, B, C, C', D (dataset_fingerprint)
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -20,11 +10,9 @@ from pathlib import Path
 
 SPLIT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SPLIT_DIR.parent
-# Result zips: results/ for the trainer's own, results/incoming/ for the other's.
 SHARE_DIR = PROJECT_ROOT / "results"
 FINGERPRINTS = SPLIT_DIR / "fingerprints.json"
 
-# Versions used for the seed-42 run. Every trainer must match them.
 EXPECTED_VERSIONS = {
     "ultralytics": "8.4.163",
     "torch": "2.14",
@@ -88,7 +76,6 @@ def _hash_tree(root: Path, suffixes: set[str] | None = None) -> str:
 
 
 def input_fingerprint() -> dict:
-    """Hashes of everything the training depends on, before preprocessing."""
     prints = {}
     for rel in INPUT_FILES:
         path = PROJECT_ROOT / rel
@@ -99,9 +86,6 @@ def input_fingerprint() -> dict:
 
 
 def dataset_fingerprint(models) -> dict:
-    """Hashes of the preprocessed training/validation/test images and labels per model."""
-    # Only images/ and labels/: data.yaml and the test_<bracket>.txt lists hold
-    # machine-specific absolute paths.
     root = PROJECT_ROOT / "datasets" / "ablation_yolov26"
     return {
         m: hashlib.sha256((_hash_tree(root / m / "images", {".png"}) + _hash_tree(root / m / "labels", {".txt"})).encode()).hexdigest()
@@ -125,7 +109,6 @@ def compare(label: str, have: dict, want: dict, strict: bool = True) -> None:
 
 
 def package_results(trainer: str, seed: int, models, weights_root: Path, runs_root: Path) -> Path:
-    """Zip the validation-selected weights and training logs of this trainer's models."""
     SHARE_DIR.mkdir(parents=True, exist_ok=True)
     package = SHARE_DIR / f"results_{trainer.lower()}.zip"
     missing = [m for m in models if not (weights_root / f"best_{m}_seed{seed}.pt").is_file()]
@@ -160,7 +143,6 @@ def package_results(trainer: str, seed: int, models, weights_root: Path, runs_ro
 
 
 def import_packages(models, strict: bool = True) -> list[dict]:
-    """Unpack every results_*.zip found in share/ and share/incoming/."""
     packages = sorted(set(SHARE_DIR.glob("results_*.zip")) | set((SHARE_DIR / "incoming").glob("results_*.zip")))
     ref = reference()
     metas = []
@@ -182,7 +164,6 @@ def import_packages(models, strict: bool = True) -> list[dict]:
 
 
 def write_reference(models) -> None:
-    """Record the reference fingerprints (run once on the seed-42 machine)."""
     FINGERPRINTS.write_text(json.dumps({
         "created": datetime.now().isoformat(timespec="minutes"),
         "versions": versions(),

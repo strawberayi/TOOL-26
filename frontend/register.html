@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Create Account | IDENTI-SKIN</title>
   <link rel="stylesheet" href="styles.css">
-  <style>
-    body, html {
+  <style>    body, html {
       margin: 0;
       padding: 0;
       width: 100vw;
@@ -102,13 +101,13 @@
 <body>
   <div class="auth-page-box">
     <div>
-      <!-- Back button to Sign In -->
+
       <a href="login.html" class="auth-back-link">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         <span>Back to Sign In</span>
       </a>
 
-      <!-- Header with mini brand -->
+
       <div class="auth-header-row">
         <div class="auth-brand-badge">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -124,7 +123,7 @@
         </div>
       </div>
 
-      <!-- Registration Form -->
+
       <form id="pure-register-form" onsubmit="handlePureRegister(event)">
         <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label">Full Name</label>
@@ -161,13 +160,13 @@
         </button>
       </form>
 
-      <!-- Switch to Sign In -->
+
       <div style="text-align:center; margin-top:14px; font-size:0.75rem; color:var(--text-muted);">
         Already have an account? <a href="login.html" style="color:var(--brand-primary); font-weight:700; text-decoration:none;">Sign In here</a>
       </div>
     </div>
 
-    <!-- Security Compliance Footer -->
+
     <div style="display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:var(--text-muted); margin-top:24px;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -177,8 +176,7 @@
     </div>
   </div>
 
-  <script>
-    function handlePureRegister(e) {
+  <script>    function handlePureRegister(e) {
       e.preventDefault();
       const name = document.getElementById('r-name').value;
       const email = document.getElementById('r-email').value;

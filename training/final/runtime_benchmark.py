@@ -1,11 +1,3 @@
-"""Inference time and GFLOPs of Models A-D on the 200 test images (each model's own preprocessed images).
-
-    ../TOOL-26/.venv/bin/python final/runtime_benchmark.py
-
-Batch 1, imgsz 640 (rectangular letterbox, as in the evaluation), confidence 0.25, NMS IoU 0.7.
-The first 10 images are a warm-up and are not timed. Writes runtime_results/runtime.json and .csv.
-"""
-
 import json
 import platform
 from pathlib import Path

@@ -1,27 +1,21 @@
-/* ==========================================================================
-   IDENTI-SKIN - Design System & Styles
-   ITA-Guided Adaptive L*-CLAHE & YOLOv26 Skin Infection Analysis
-   Optimized for Laptop/PC Desktop and Mobile/Phone
-   ========================================================================== */
-
 :root {
   --bg-app: #FFF7F2;
   --bg-surface: #FFFFFF;
   --bg-card: #FFFFFF;
   --bg-subtle: #FDF1EA;
   --bg-subtle-2: #F6E5DC;
-  
+
   --brand-primary: #D45B28;
   --brand-primary-hover: #BC4E1E;
   --brand-primary-light: #FFEFE7;
   --brand-border: #F0C4AD;
   --brand-border-dashed: #E29B76;
-  
+
   --text-title: #2A1A14;
   --text-body: #4A3830;
   --text-muted: #846F65;
   --text-light: #A59288;
-  
+
   --status-green: #15803D;
   --status-green-bg: #E7F6EC;
   --status-gold: #B45309;
@@ -30,23 +24,23 @@
   --status-purple-bg: #EDE9FE;
   --status-rose: #BE123C;
   --status-rose-bg: #FFE4E6;
-  
+
   --shadow-sm: 0 1px 3px rgba(42, 26, 20, 0.06);
   --shadow-md: 0 4px 14px rgba(42, 26, 20, 0.08);
   --shadow-lg: 0 10px 25px rgba(42, 26, 20, 0.12);
   --shadow-phone: 0 20px 45px rgba(42, 26, 20, 0.22);
-  
+
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-xl: 28px;
   --radius-phone: 46px;
-  
+
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
-/* Reset and base */
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -64,7 +58,7 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbars */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -80,14 +74,14 @@ html, body {
   background: rgba(212, 91, 40, 0.45);
 }
 
-/* Application Wrapper */
+
 .app-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-/* Global Top Navigation Bar */
+
 .global-header {
   position: sticky;
   top: 0;
@@ -158,7 +152,7 @@ html, body {
   font-weight: 500;
 }
 
-/* Desktop View Switcher Controls */
+
 .view-mode-selector {
   display: flex;
   align-items: center;
@@ -196,7 +190,7 @@ html, body {
   box-shadow: 0 2px 6px rgba(212, 91, 40, 0.35);
 }
 
-/* Header Utilities (Compliance Pill, Thesis Link, Notifications) */
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -251,7 +245,7 @@ html, body {
   border-color: var(--brand-primary);
 }
 
-/* Main Content Area */
+
 .main-viewport {
   flex: 1;
   padding: 20px;
@@ -260,9 +254,7 @@ html, body {
   width: 100%;
 }
 
-/* ==========================================================================
-   VIEW 1: DESKTOP CLINICAL WORKSTATION (PC / LAPTOP VIEW)
-   ========================================================================== */
+
 .desktop-workstation {
   display: grid;
   grid-template-columns: 330px minmax(380px, 1fr) 420px;
@@ -285,7 +277,7 @@ html, body {
   }
 }
 
-/* Card System */
+
 .med-card {
   background: var(--bg-card);
   border-radius: var(--radius-lg);
@@ -344,7 +336,7 @@ html, body {
   border: 1px solid #FDE68A;
 }
 
-/* Upload Dropzone */
+
 .upload-dropzone {
   border: 2px dashed var(--brand-border-dashed);
   background: var(--bg-subtle);
@@ -423,7 +415,7 @@ html, body {
   background: var(--brand-primary-light);
 }
 
-/* Presets List */
+
 .preset-section-title {
   font-size: 0.75rem;
   font-weight: 800;
@@ -510,7 +502,7 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Center Image Workspace */
+
 .workspace-viewport {
   background: #FFF;
   border-radius: var(--radius-lg);
@@ -581,7 +573,7 @@ html, body {
   pointer-events: none;
 }
 
-/* Split Comparison Drag Handle */
+
 .split-slider-line {
   position: absolute;
   top: 0;
@@ -635,7 +627,7 @@ html, body {
   right: 12px;
 }
 
-/* Controls Under Workspace */
+
 .workspace-controls {
   display: flex;
   flex-direction: column;
@@ -702,7 +694,7 @@ html, body {
   text-align: right;
 }
 
-/* Toggle Checkboxes (Matching 3rd Page in Reference Image) */
+
 .toggle-group {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -753,7 +745,7 @@ html, body {
   color: #FFF;
 }
 
-/* Right Tabs / Output Views */
+
 .output-tab-bar {
   display: flex;
   background: var(--bg-subtle);
@@ -788,7 +780,7 @@ html, body {
   box-shadow: var(--shadow-sm);
 }
 
-/* Patient View Details */
+
 .patient-card {
   background: #FFF;
   border-radius: var(--radius-lg);
@@ -893,7 +885,7 @@ html, body {
   font-family: var(--font-mono);
 }
 
-/* Morphological Cues List (Page 5 Reference) */
+
 .features-container {
   display: flex;
   flex-direction: column;
@@ -924,7 +916,7 @@ html, body {
   line-height: 1.35;
 }
 
-/* Compliance Disclaimer Box (Page 6 Reference) */
+
 .compliance-box {
   background: #FFF1F2;
   border: 1px solid #FECDD3;
@@ -951,7 +943,7 @@ html, body {
   line-height: 1.4;
 }
 
-/* Clinician Technical Panel Metrics (Pages 7 & 8) */
+
 .telemetry-grid-4 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -988,7 +980,7 @@ html, body {
   color: var(--text-muted);
 }
 
-/* Training Status Section */
+
 .stage-status-card {
   border: 1px solid var(--brand-border);
   border-radius: 10px;
@@ -1050,7 +1042,7 @@ html, body {
   line-height: 1.35;
 }
 
-/* Overlap Profiler Progress Bars */
+
 .profiler-bars {
   display: flex;
   flex-direction: column;
@@ -1085,7 +1077,7 @@ html, body {
   transition: width 0.4s ease;
 }
 
-/* Evaluation Metrics 5-Grid */
+
 .metrics-5-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1121,7 +1113,7 @@ html, body {
   color: var(--text-muted);
 }
 
-/* Spatial BBox Coordinates Display */
+
 .bbox-coords-box {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1159,7 +1151,7 @@ html, body {
   color: var(--text-title);
 }
 
-/* Mobile SOP evidence dashboard */
+
 .panel-subview { display: none; }
 .panel-subview.active { display: block; }
 
@@ -1561,7 +1553,7 @@ html, body {
   text-align: center;
 }
 
-/* Raw Conv Gradients Array (14x14 Tensor Grid - Page 9 Reference) */
+
 .gradients-section {
   background: #FFF;
   border-radius: var(--radius-lg);
@@ -1636,9 +1628,7 @@ html, body {
   font-weight: 800;
 }
 
-/* ==========================================================================
-   VIEW 2: MOBILE PHONE SIMULATOR (AUTHENTIC DEVICE BEZEL FOR PC/LAPTOP)
-   ========================================================================== */
+
 .simulator-container {
   display: flex;
   flex-direction: column;
@@ -1686,7 +1676,7 @@ html, body {
   box-shadow: 0 2px 6px rgba(212, 91, 40, 0.3);
 }
 
-/* Smartphone Mockup Bezel */
+
 .phone-bezel {
   width: 380px;
   height: 760px;
@@ -1699,7 +1689,7 @@ html, body {
   flex-direction: column;
 }
 
-/* Dynamic Island / Speaker */
+
 .phone-island {
   position: absolute;
   top: 18px;
@@ -1725,7 +1715,7 @@ html, body {
   box-shadow: inset 0 0 2px #38BDF8;
 }
 
-/* Phone Screen Area */
+
 .phone-screen {
   flex: 1;
   background: var(--bg-app);
@@ -1737,7 +1727,7 @@ html, body {
   flex-direction: column;
 }
 
-/* Mobile Header Inside Phone */
+
 .phone-header {
   position: sticky;
   top: 0;
@@ -1780,7 +1770,7 @@ html, body {
   padding: 14px 16px 70px;
 }
 
-/* Fixed Mobile Bottom Navigation Bar */
+
 .phone-bottom-nav {
   position: absolute;
   bottom: 0;
@@ -1822,7 +1812,7 @@ html, body {
   color: var(--brand-primary);
 }
 
-/* Phone Home Indicator Bar */
+
 .phone-home-indicator {
   position: absolute;
   bottom: 5px;
@@ -1835,9 +1825,7 @@ html, body {
   z-index: 45;
 }
 
-/* ==========================================================================
-   VIEW 3: 9-SCREEN POSTER OVERVIEW (REFERENCE IMAGE MATCH)
-   ========================================================================== */
+
 .poster-container {
   display: flex;
   flex-direction: column;
@@ -1924,9 +1912,7 @@ html, body {
   border-radius: 26px;
 }
 
-/* ==========================================================================
-   VIEW 4: SYSTEM ARCHITECTURE INTERACTIVE EXPLORER (THESIS FIG 8)
-   ========================================================================== */
+
 .architecture-explorer {
   background: #FFF;
   border-radius: var(--radius-lg);
@@ -2074,7 +2060,7 @@ html, body {
   display: block;
 }
 
-/* Ablation Comparison Table */
+
 .ablation-table-container {
   overflow-x: auto;
   margin-top: 14px;
@@ -2107,35 +2093,33 @@ html, body {
   color: var(--brand-primary);
 }
 
-/* ==========================================================================
-   MOBILE VIEWPORT (< 768px)
-   ========================================================================== */
+
 @media (max-width: 768px) {
   .global-header {
     padding: 8px 12px;
   }
-  
+
   .view-mode-selector {
     display: none !important;
   }
-  
+
   .main-viewport {
     padding: 10px;
     padding-bottom: 74px;
   }
-  
+
   .desktop-workstation {
     display: flex;
     flex-direction: column;
     gap: 14px;
   }
-  
+
   .desktop-left-col,
   .desktop-center-col,
   .desktop-right-col {
     width: 100%;
   }
-  
+
   .phone-bezel {
     width: 100%;
     max-width: 100%;
@@ -2145,19 +2129,19 @@ html, body {
     background: transparent;
     box-shadow: none;
   }
-  
+
   .phone-screen {
     border-radius: 0;
   }
-  
+
   .phone-island {
     display: none;
   }
-  
+
   .phone-home-indicator {
     display: none;
   }
-  
+
   .mobile-persistent-nav {
     display: flex !important;
     position: fixed;
@@ -2175,7 +2159,7 @@ html, body {
   }
 }
 
-/* Utility Helpers */
+
 .hidden { display: none !important; }
 .text-center { text-align: center; }
 .text-mono { font-family: var(--font-mono); }
@@ -2187,9 +2171,6 @@ html, body {
 .mb-4 { margin-bottom: 16px; }
 
 
-/* ==========================================================================
-   DEDICATED FULL-SCREEN NATIVE MOBILE EXPERIENCE (< 768px)
-   ========================================================================== */
 #mobile-native-view {
   display: none;
 }
@@ -2480,9 +2461,6 @@ html, body {
 }
 
 
-/* ==========================================================================
-   AUTHENTICATION, FORMS, REPORT & TRIAGE STYLING
-   ========================================================================== */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -2560,7 +2538,7 @@ html, body {
   }
 }
 
-/* Visual model comparison (server /compare) */
+
 .compare-run-btn {
   width: 100%;
   margin-bottom: 8px;
@@ -2629,7 +2607,7 @@ html, body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
-/* Selectable models in the Ablation Benchmark */
+
 button.model-key-item {
   width: 100%;
   font: inherit;
@@ -2659,7 +2637,7 @@ button.model-key-item {
   color: #B91C1C;
 }
 
-/* Lesion features in the mobile patient tab */
+
 .patient-features {
   margin-bottom: 12px;
   padding: 10px 12px;
@@ -2700,7 +2678,7 @@ button.model-key-item {
   font-size: 0.72rem;
 }
 
-/* Role separation: patients see Home and Patient only */
+
 body.role-patient .mob-nav-btn[data-mobtab="panel"],
 body.role-patient .mob-nav-btn[data-mobtab="xai"],
 body.role-patient .output-tab-btn[data-tab="clinician"],
@@ -2727,7 +2705,7 @@ body.role-patient .clinician-only {
   text-align: left;
 }
 
-/* Real Grad-CAM gallery (replaces the simulated tensor grid) */
+
 .tensor-grid-container.gradcam-gallery {
   display: block;
   aspect-ratio: auto;

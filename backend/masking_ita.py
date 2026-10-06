@@ -1,17 +1,3 @@
-"""Reproducible healthy-skin masking and ITA computation.
-
-The module is shared by offline Phase 0 calibration and the inference API. It
-never applies CLAHE or trains a model. OpenCV LAB values are converted to the
-standard CIELAB ranges before clustering or ITA computation.
-
-Revision:
-- Keeps the frozen K values: 2, 3, 4, 5.
-- Uses silhouette score for the normal K selection.
-- If the best-silhouette K has no plausible skin cluster, tries the remaining
-  K values in descending silhouette-score order before using the center crop.
-- Keeps the existing mask-quality rules unchanged.
-"""
-
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -145,7 +131,6 @@ class MaskingITAProcessor:
         image = ImageOps.exif_transpose(source)
 
         if image.mode in {"RGBA", "LA"} or "transparency" in image.info:
-            # Protocol: transparent images are rejected, not composited.
             alpha = image.convert("RGBA").getchannel("A")
             if alpha.getextrema()[0] < 255:
                 raise ValueError("NON_OPAQUE_IMAGE")
@@ -169,7 +154,6 @@ class MaskingITAProcessor:
 
     @staticmethod
     def load_image(path: str | Path) -> np.ndarray:
-        """Decode a single-frame image, apply EXIF orientation, and return sRGB."""
         try:
             with Image.open(Path(path)) as source:
                 return MaskingITAProcessor._pil_to_rgb(source)
@@ -214,12 +198,6 @@ class MaskingITAProcessor:
     def _rank_k_candidates(
         self, image_rgb: np.ndarray
     ) -> tuple[list[tuple[float, int]], dict[str, Optional[float]], str]:
-        """Rank k=2,3,4,5 by silhouette score.
-
-        The returned order is highest silhouette score first. This lets the
-        masking stage try another tested K if the best-silhouette K does not
-        contain a plausible skin cluster.
-        """
         features = self._selection_lab(image_rgb).reshape(-1, 3)
         features = self._deterministic_sample(
             features, self.config.max_k_selection_pixels
@@ -455,10 +433,6 @@ class MaskingITAProcessor:
 
             lab = self.rgb_to_opencv_lab(image_rgb)
 
-            # Try K values in descending silhouette-score order.
-            # This preserves silhouette as the primary selection criterion,
-            # but prevents a single unsuitable best-K from causing an
-            # unnecessary MASK_FAILED result.
             attempted_failures: list[dict] = []
 
             for score, selected_k in candidates:
@@ -555,8 +529,6 @@ class MaskingITAProcessor:
                         }
                     )
 
-            # All tested K values failed the plausibility/ITA checks.
-            # Keep the audit trail from the best-silhouette attempt.
             best_failure = (
                 attempted_failures[0]
                 if attempted_failures
@@ -594,9 +566,6 @@ class MaskingITAProcessor:
                 user_message="Invalid image; please retake image.",
             )
 
-        # Keep the quality check and record failures, but do not hard-stop
-        # Member 1. This guarantees a Member 1 output/ITA for every
-        # readable training image while preserving quality information.
         quality_failure = self._image_quality_failure(image_rgb)
         quality_note = f"QUALITY_FAIL:{quality_failure}" if quality_failure else None
 
@@ -655,8 +624,6 @@ class MaskingITAProcessor:
 
             return fallback
 
-        # Protocol: when both attempts fail the image is MASK_FAILED and no
-        # ITA is calculated. Never substitute an unvalidated region.
         return MaskingITAResult(
             filename=filename,
             status=ProcessingStatus.MASK_FAILED.value,

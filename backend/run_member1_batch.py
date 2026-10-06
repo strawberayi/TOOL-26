@@ -1,5 +1,3 @@
-"""Member 1 manifest preparation and Phase 0 batch commands."""
-
 from __future__ import annotations
 
 import argparse
@@ -178,7 +176,6 @@ def safe_extract(archive_path: Path, destination: Path) -> None:
 
 
 def archive_lineage_id(filename: str) -> str:
-    """Group Roboflow-style derivatives of the same source image."""
     stem = Path(filename).stem
     stem = re.sub(r"\.rf\.[0-9a-f]+$", "", stem, flags=re.IGNORECASE)
     stem = re.sub(r"_(?:jpg|jpeg|png)$", "", stem, flags=re.IGNORECASE)
@@ -186,7 +183,6 @@ def archive_lineage_id(filename: str) -> str:
 
 
 def build_archive_manifest(images_zip: Path, annotations_zip: Path, output_dir: Path) -> Path:
-    """Extract the supplied archives safely and create a source inventory CSV."""
     extracted = output_dir / "archive_contents"
     images_root, annotations_root = extracted / "images", extracted / "annotations"
     safe_extract(images_zip, images_root)
@@ -243,7 +239,6 @@ def build_supplemental_manifest(
     base_manifest_path: Path,
     output_dir: Path,
 ) -> Path:
-    """Add actual images found inside an annotated-folder archive to a source manifest."""
     extracted_root = output_dir / "supplemental_archive_contents"
     safe_extract(archive_path, extracted_root)
     json_index: dict[str, list[Path]] = defaultdict(list)
@@ -308,24 +303,6 @@ def build_supplemental_manifest(
 def prepare_split_manifest(
     input_path: Path, output_dir: Path, config_path: Path, quality_scope: str = "dataset"
 ) -> Path:
-    """
-    Protocol preparation: quality screening, exact/near-duplicate removal,
-    then a seed-42, lineage-aware 70/20/10 split (train/validation/test_a)
-    within disease and proxy-tone strata. Duplicates are removed before
-    splitting, so no image or near-copy can appear in two splits.
-
-    Use this for a dataset that has not been split yet. prepare_manifest
-    (below) keeps an existing split and marks every record as train.
-
-    quality_scope:
-        "dataset"     (protocol default) quality-rejected images are removed
-                      from every split.
-        "calibration" every readable image is deduplicated and split; the
-                      quality gate only decides calibration_eligible for
-                      train images. Use this when the same split also feeds
-                      detector training, so the detector is not deprived of
-                      realistic low-resolution or softer images.
-    """
     if quality_scope not in {"dataset", "calibration"}:
         raise ValueError(f"Unknown quality_scope: {quality_scope}")
     config, config_hash = load_config(config_path)
@@ -401,8 +378,6 @@ def prepare_split_manifest(
         records.append(record)
 
     def in_scope(row: dict[str, Any]) -> bool:
-        # Readable = standardized PNG was written.
-        # Manual rejections (e.g. label conflicts) are excluded in both scopes.
         if quality_scope == "calibration":
             return bool(row["processed_image_path"]) and not str(row["quality_reason"]).startswith("MANUAL_")
         return row["image_quality_status"] == "PASS"
@@ -498,25 +473,9 @@ def prepare_split_manifest(
 
 
 def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> Path:
-    """
-    Prepare the existing TRAIN dataset for Member 1 masking.
-
-    IMPORTANT:
-    The input manifest is already the TRAIN dataset.
-    This function does NOT create a new 70/20/10 split.
-
-    Every input record is kept as:
-        split = "train"
-
-    Only images that PASS quality checking and are UNIQUE
-    are marked as calibration_eligible for masking/ITA.
-    """
 
     config, config_hash = load_config(config_path)
 
-    # ============================================================
-    # 1. READ INPUT MANIFEST
-    # ============================================================
     rows = read_csv(input_path)
 
     required = {
@@ -530,9 +489,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
             f"Input CSV must contain: {sorted(required)}"
         )
 
-    # ============================================================
-    # 2. VERIFY ALL 8 DISEASE CLASSES
-    # ============================================================
     present_classes = {
         row["disease_label"].strip()
         for row in rows
@@ -549,9 +505,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                 f"unexpected={sorted(unexpected)}"
             )
 
-    # ============================================================
-    # 3. CHECK IMAGE IDS
-    # ============================================================
     supplied_ids = [
         row.get("image_id", "").strip()
         for row in rows
@@ -563,9 +516,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
             "Input manifest contains duplicate image_id values."
         )
 
-    # ============================================================
-    # 4. STANDARDIZED IMAGE OUTPUT DIRECTORY
-    # ============================================================
     standardized_dir = output_dir / "standardized"
     standardized_dir.mkdir(
         parents=True,
@@ -577,9 +527,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
     phashes: list[int | None] = []
     signatures: list[np.ndarray | None] = []
 
-    # ============================================================
-    # 5. IMAGE STANDARDIZATION + QUALITY SCREENING
-    # ============================================================
     for source_row in rows:
 
         raw_path = (
@@ -608,8 +555,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
 
         record: dict[str, Any] = dict(source_row)
 
-        # IMPORTANT:
-        # This dataset is already TRAIN.
         record.update({
             "image_id": image_id,
             "unique_id": image_id,
@@ -628,9 +573,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
         })
 
         try:
-            # ----------------------------------------------------
-            # CHECK FORMAT
-            # ----------------------------------------------------
             with Image.open(raw_path) as probe:
                 source_format = (
                     probe.format or ""
@@ -642,16 +584,10 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                     f"{source_format or 'UNKNOWN'}"
                 )
 
-            # ----------------------------------------------------
-            # LOAD IMAGE
-            # ----------------------------------------------------
             rgb = MaskingITAProcessor.load_image(
                 raw_path
             )
 
-            # ----------------------------------------------------
-            # QUALITY CHECK
-            # ----------------------------------------------------
             status, reason, metrics = quality_metrics(
                 rgb,
                 config["quality"]
@@ -669,9 +605,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                 status = "REJECTED"
                 reason = f"MANUAL_{manual_status}"
 
-            # ----------------------------------------------------
-            # SAVE STANDARDIZED PNG
-            # ----------------------------------------------------
             processed_path = (
                 standardized_dir
                 / f"{image_id}.png"
@@ -683,9 +616,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                 optimize=False
             )
 
-            # ----------------------------------------------------
-            # IMAGE HASH
-            # ----------------------------------------------------
             normalized_hash = hashlib.sha256(
                 f"{rgb.shape}".encode("ascii")
                 + rgb.tobytes()
@@ -717,9 +647,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
 
         records.append(record)
 
-    # ============================================================
-    # 6. DUPLICATE DETECTION
-    # ============================================================
     candidates = [
         index
         for index, row in enumerate(records)
@@ -728,9 +655,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
 
     groups = DisjointSet(len(records))
 
-    # ------------------------------------------------------------
-    # EXACT DUPLICATES
-    # ------------------------------------------------------------
     exact_seen: dict[str, int] = {}
 
     for index in candidates:
@@ -745,9 +669,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
         else:
             exact_seen[digest] = index
 
-    # ------------------------------------------------------------
-    # NEAR DUPLICATES
-    # ------------------------------------------------------------
     for position, left in enumerate(candidates):
 
         for right in candidates[position + 1:]:
@@ -776,9 +697,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                         right
                     )
 
-    # ============================================================
-    # 7. BUILD DUPLICATE GROUPS
-    # ============================================================
     components: dict[
         int,
         list[int]
@@ -789,9 +707,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
             groups.find(index)
         ].append(index)
 
-    # ============================================================
-    # 8. SELECT CANONICAL IMAGE
-    # ============================================================
     for component in components.values():
 
         labels = {
@@ -854,9 +769,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                     "calibration_eligible"
                 ] = False
 
-    # ============================================================
-    # 9. MARK QUALITY-FAILED IMAGES
-    # ============================================================
     for record in records:
 
         if (
@@ -867,9 +779,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                 "duplicate_status"
             ] = "NOT_EVALUATED"
 
-    # ============================================================
-    # 10. BUILD ELIGIBLE TRAINING RECORDS
-    # ============================================================
     eligible = [
         row
         for row in records
@@ -882,9 +791,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
         )
     ]
 
-    # ============================================================
-    # 11. LINEAGE GROUPING
-    # ============================================================
     for row in eligible:
 
         supplied = (
@@ -910,9 +816,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
             row["lineage_group_id"]
         ].append(row)
 
-    # ============================================================
-    # 12. VALIDATE LINEAGES
-    # ============================================================
     for lineage, members in lineage_rows.items():
 
         if (
@@ -927,18 +830,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
                 "contains conflicting labels."
             )
 
-    # ============================================================
-    # 13. KEEP ALL PROVIDED DATA AS TRAIN
-    # ============================================================
-    #
-    # IMPORTANT:
-    # The old code created a new 70/20/10 split here.
-    # That behavior has been removed.
-    #
-    # Every record supplied to this function remains TRAIN.
-    #
-    # Only PASS + UNIQUE records are calibration/masking eligible.
-    # ============================================================
 
     for record in records:
 
@@ -952,9 +843,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
             == "UNIQUE"
         )
 
-    # ============================================================
-    # 14. WRITE CLEANED MANIFEST
-    # ============================================================
     output_dir.mkdir(
         parents=True,
         exist_ok=True
@@ -970,9 +858,6 @@ def prepare_manifest(input_path: Path, output_dir: Path, config_path: Path) -> P
         records
     )
 
-    # ============================================================
-    # 15. METADATA
-    # ============================================================
     metadata = {
         "created_at_utc":
             datetime.now(
@@ -1053,7 +938,6 @@ def runtime_metadata(config_hash: str, manifest_path: Path, random_seed: int) ->
 
 
 def balanced_take(rows: list[dict[str, str]], count: int, seed: int, salt: str) -> list[dict[str, str]]:
-    """Deterministically round-robin across repositories."""
     by_source: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in rows:
         by_source[row["source_repository"]].append(row)
@@ -1134,16 +1018,6 @@ def run_phase0(manifest_path: Path, output_dir: Path, config_path: Path, allow_p
     processor = MaskingITAProcessor(MaskingITAConfig(**config["masking"]))
     masks_dir, audits_dir = output_dir / "masks", output_dir / "audits"
     masks_dir.mkdir(parents=True, exist_ok=True); audits_dir.mkdir(parents=True, exist_ok=True)
-    # ============================================================
-    # PROCESS ALL TRAINING IMAGES
-    # ============================================================
-    # IMPORTANT:
-    # All records marked as TRAIN are sent to masking/ITA.
-    # Quality/duplicate status is kept as metadata, but it no longer
-    # removes an image from the TRAIN masking run.
-    #
-    # Images that cannot be processed are still recorded in the output
-    # with their failure status instead of silently being excluded.
     input_rows = [
         row for row in rows
         if (
