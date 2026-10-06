@@ -2,29 +2,6 @@ import json
 import shutil
 from pathlib import Path
 
-# ============================================================
-# YOLOv26 DRY-RUN MICRO DATASET BUILDER
-# ============================================================
-# Project:
-# C:\TOOL-26-main\
-#
-# Uses:
-#   SPLITTING\70% ...       -> training images
-#   ANNOTATED\...           -> AnyLabeling JSON annotations
-#
-# Creates:
-#   micro_dataset\
-#       images\
-#       labels\
-#
-# It selects 10 correctly matched image + JSON pairs per class.
-# It converts AnyLabeling rectangle points into YOLO .txt format.
-#
-# IMPORTANT:
-# - Original images and JSON files are NOT modified.
-# - Only the 70% training folders are used.
-# - No CLAHE, K-Means, ITA, beta search, or augmentation is done.
-# ============================================================
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
@@ -34,12 +11,6 @@ OUTPUT_DIR = PROJECT_DIR / "micro_dataset"
 
 IMAGES_PER_CLASS = 10
 
-# YOLO class IDs for the 5-class dry run
-# 0 = AF
-# 1 = AN-AN
-# 2 = HFMD
-# 3 = MOLLUSCUM
-# 4 = RINGWORM
 CLASSES = [
     {
         "split_folder": "70% AF",
@@ -83,13 +54,11 @@ LABEL_OUT.mkdir(parents=True, exist_ok=True)
 
 
 def load_json(json_path):
-    """Load AnyLabeling/LabelMe-style JSON."""
     with open(json_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def get_image_size(image_path):
-    """Get image width and height using OpenCV."""
     try:
         import cv2
     except ImportError:
@@ -106,18 +75,11 @@ def get_image_size(image_path):
 
 
 def find_matching_json(image_path, annotated_folder):
-    """
-    Match image stem to JSON stem.
-
-    Example:
-      HFMD(93).jpg -> HFMD(93).json
-    """
     json_path = annotated_folder / f"{image_path.stem}.json"
 
     if json_path.exists():
         return json_path
 
-    # Case-insensitive fallback
     target = image_path.stem.lower()
     for candidate in annotated_folder.rglob("*.json"):
         if candidate.stem.lower() == target:
@@ -127,14 +89,6 @@ def find_matching_json(image_path, annotated_folder):
 
 
 def rectangle_to_yolo(points, image_width, image_height, class_id):
-    """
-    Convert AnyLabeling rectangle:
-        [[x1,y1], [x2,y2]]
-    into YOLO:
-        class_id center_x center_y width height
-
-    Coordinates are normalized to 0-1.
-    """
 
     if len(points) < 2:
         return None
@@ -149,7 +103,6 @@ def rectangle_to_yolo(points, image_width, image_height, class_id):
     top = min(y1, y2)
     bottom = max(y1, y2)
 
-    # Clamp to image boundaries
     left = max(0.0, min(left, float(image_width)))
     right = max(0.0, min(right, float(image_width)))
     top = max(0.0, min(top, float(image_height)))
@@ -164,7 +117,6 @@ def rectangle_to_yolo(points, image_width, image_height, class_id):
     center_x = (left + right) / 2.0
     center_y = (top + bottom) / 2.0
 
-    # Normalize
     center_x /= image_width
     center_y /= image_height
     box_width /= image_width
@@ -180,7 +132,6 @@ def rectangle_to_yolo(points, image_width, image_height, class_id):
 
 
 def convert_json_to_yolo(json_path, image_width, image_height, class_id):
-    """Convert all rectangle shapes in one AnyLabeling JSON."""
     data = load_json(json_path)
 
     shapes = data.get("shapes", [])
@@ -193,7 +144,6 @@ def convert_json_to_yolo(json_path, image_width, image_height, class_id):
             shape.get("shape_type", "")
         ).lower()
 
-        # Your screenshot shows shape_type = rectangle.
         if shape_type != "rectangle":
             continue
 
@@ -235,9 +185,6 @@ total_missing_json = 0
 total_bad_json = 0
 class_counts = {}
 
-# ============================================================
-# PROCESS EACH CLASS
-# ============================================================
 
 for config in CLASSES:
 
@@ -357,10 +304,6 @@ for config in CLASSES:
     )
 
 
-# ============================================================
-# CREATE DATASET YAML
-# ============================================================
-
 yaml_path = OUTPUT_DIR / "data.yaml"
 
 yaml_text = f"""path: {OUTPUT_DIR.as_posix()}
@@ -382,10 +325,6 @@ with open(
 ) as f:
     f.write(yaml_text)
 
-
-# ============================================================
-# FINAL SUMMARY
-# ============================================================
 
 print("\n" + "=" * 70)
 print("FINAL RESULT")

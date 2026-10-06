@@ -1,25 +1,3 @@
-"""
-Answer the paper's Statement of the Problem with the trained models (no training).
-
-Paper models (all seed 42 for the paired tests; C and D also have seeds 43, 44):
-    A  Baseline YOLOv26                         ModelA_raw
-    B  RGB CLAHE                                ModelB_rgb_clahe
-    C  Fixed L*-CLAHE (global beta)             ModelC2_fixed_l_clahe_global   (C')
-    D  ITA-guided adaptive L*-CLAHE (proposed)  ModelD2_lesion_ita             (D2)
-       with SOP_MODEL_D=full: D2 + Stage 2 (frozen backbone) + Focal Loss, weights best_ModelD_full_seed*.pt
-
-SOP 1  mAP@50, mAP@50-95 (overall and per disease)
-SOP 2  Precision, Recall, F1 (overall and per disease), within-cluster misclassification rate
-SOP 3  dAP50 (D - A) for Fitzpatrick I-II (ITA > 41) vs III-V (-30 < ITA <= 41); VI (ITA <= -30) excluded
-H01    Friedman test (A, B, C, D) on the 200 matched test images, then Wilcoxon signed-rank
-       D vs A, B, C with Bonferroni correction (x3) and rank-biserial correlation
-H02    Mann-Whitney U on per-image dAP50 between the two skin-type groups, rank-biserial correlation
-
-    ../TOOL-26/.venv/bin/python final/sop_analysis.py      (from ablation_training/)
-
-Writes final/sop_results/*.csv and final/sop_results/SOP_RESULTS.md
-"""
-
 from __future__ import annotations
 
 import os
@@ -32,8 +10,6 @@ from scipy import stats
 ROOT = Path(__file__).resolve().parents[1]
 DATASETS = ROOT / "datasets" / "ablation_yolov26"
 WEIGHTS = ROOT / "weights" / "ablation_split"
-# SOP_MODELS=manuscript (default): the manuscript's A-D. SOP_MODELS=supplementary: RGB CLAHE, C', D2.
-# SOP_MODEL_D=full with supplementary: D = full D instead of D2.
 SET = os.environ.get("SOP_MODELS", "manuscript")
 FULL_D = os.environ.get("SOP_MODEL_D", "d2") == "full"
 OUT = Path(__file__).resolve().parent / ("sop_results_manuscript" if SET == "manuscript"
@@ -52,26 +28,22 @@ if SET == "manuscript":
         "C": ("Focal Loss Optimization", "ModelA_raw", "ModelC_focal"),
         "D": ("ITA-guided L*-CLAHE + two-stage + Focal Loss (proposed)", "ModelD2_lesion_ita", "ModelD_full"),
     }
-    # tune_model_D.ipynb writes the validation-selected Stage 2 setting here.
     _choice = Path(__file__).resolve().parent / "d_tuning_choice.json"
     if _choice.is_file():
         import json
         MODELS["D"] = (MODELS["D"][0], "ModelD2_lesion_ita", json.loads(_choice.read_text())["winner"])
 elif FULL_D:
     MODELS["D"] = ("ITA-guided L*-CLAHE + two-stage + Focal Loss (full D)", "ModelD2_lesion_ita", "ModelD_full")
-# Seeds with finished weights are used; paired tests always use seed 42.
 MULTI_SEED = {k: (42, 43, 44) for k in "ABCD"}
 NAMES = ["Warts", "Molluscum", "Varicella", "HFMD", "Tinea versicolor", "Tinea corporis", "Tinea pedis", "Impetigo"]
 CLUSTERS = {
     "Vesiculopapular/Eruptive": ["Varicella", "HFMD", "Molluscum", "Impetigo"],
     "Papulosquamous/Verrucous": ["Tinea corporis", "Tinea versicolor", "Warts", "Tinea pedis"],
 }
-CONF = 0.25  # threshold for per-image P, R, F1 and the confusion matrix (Ultralytics default)
+CONF = 0.25
 IOUS = np.linspace(0.5, 0.95, 10)
 ALPHA = 0.05
 
-
-# ------------------------------------------------------------------ geometry and AP
 
 def iou_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     if len(a) == 0 or len(b) == 0:
@@ -79,12 +51,11 @@ def iou_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     lt = np.maximum(a[:, None, :2], b[None, :, :2])
     rb = np.minimum(a[:, None, 2:], b[None, :, 2:])
     inter = np.clip(rb - lt, 0, None).prod(2)
-    area = lambda x: (x[:, 2] - x[:, 0]) * (x[:, 3] - x[:, 1])  # noqa: E731
+    area = lambda x: (x[:, 2] - x[:, 0]) * (x[:, 3] - x[:, 1])
     return inter / (area(a)[:, None] + area(b)[None, :] - inter + 1e-9)
 
 
 def average_precision(tp: np.ndarray, conf: np.ndarray, n_gt: int) -> np.ndarray:
-    """AP per IoU threshold, computed exactly as Ultralytics does (utils.metrics.compute_ap)."""
     from ultralytics.utils.metrics import compute_ap
     if n_gt == 0:
         return np.full(tp.shape[1], np.nan)
@@ -97,10 +68,7 @@ def average_precision(tp: np.ndarray, conf: np.ndarray, n_gt: int) -> np.ndarray
     return np.array([compute_ap(recall[:, t], precision[:, t])[0] for t in range(tp.shape[1])])
 
 
-# ------------------------------------------------------------------ predictions
-
 def run_validator(weights: Path, dataset: Path) -> tuple[dict, dict]:
-    """Run the official Ultralytics test evaluation and keep every image's matched predictions."""
     from ultralytics.models.yolo.detect import DetectionValidator
     records = {}
     validator = DetectionValidator(args=dict(model=str(weights), data=str(dataset / "data.yaml"), split="test",
@@ -125,7 +93,6 @@ def run_validator(weights: Path, dataset: Path) -> tuple[dict, dict]:
 
 
 def evaluate(records: dict, official: dict) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, dict]:
-    """Per-image metrics, per-class metrics (official), confusion matrix (pred x true, last = background)."""
     nc = len(NAMES)
     n_gt = np.zeros(nc, int)
     confusion = np.zeros((nc + 1, nc + 1), int)
@@ -134,7 +101,6 @@ def evaluate(records: dict, official: dict) -> tuple[pd.DataFrame, pd.DataFrame,
         cache[stem] = (tp[:, :1], pconf, pcls, gcls)
         n_gt += np.bincount(gcls, minlength=nc)
 
-        # Per-image AP: mean over the classes present in the image.
         aps = [average_precision(tp[pcls == c], pconf[pcls == c], int((gcls == c).sum())) for c in np.unique(gcls)]
         ap = np.nanmean(aps, 0) if aps else np.full(len(IOUS), np.nan)
 
@@ -147,7 +113,6 @@ def evaluate(records: dict, official: dict) -> tuple[pd.DataFrame, pd.DataFrame,
         per_image.append({"image_id": stem, "AP50": ap[0], "AP50_95": ap.mean(),
                           "precision": p, "recall": r, "F1": f1})
 
-        # Confusion at CONF, IoU >= 0.5 regardless of class (one-to-one, highest IoU first).
         kb, kc = pbox[keep], pcls[keep]
         ious = iou_matrix(gbox, kb)
         pairs = sorted(((ious[g, k], g, k) for g in range(len(gcls)) for k in range(len(kc)) if ious[g, k] >= 0.5),
@@ -168,7 +133,6 @@ def evaluate(records: dict, official: dict) -> tuple[pd.DataFrame, pd.DataFrame,
 
 
 def subset_map50(cache: dict, stems) -> float:
-    """Dataset-level mAP@50 on a subset of images (pooled over images, mean over classes present)."""
     tp = np.concatenate([cache[s][0] for s in stems])
     conf = np.concatenate([cache[s][1] for s in stems])
     cls = np.concatenate([cache[s][2] for s in stems])
@@ -177,8 +141,6 @@ def subset_map50(cache: dict, stems) -> float:
            for c in range(len(NAMES)) if n_gt[c]]
     return float(np.mean(aps))
 
-
-# ------------------------------------------------------------------ statistics
 
 def rank_biserial_paired(diff: np.ndarray) -> float:
     d = diff[diff != 0]
@@ -222,7 +184,6 @@ def main() -> None:
             results[(key, seed)] = {"cache": cache, "official": official, "per_image": per_image,
                                     "per_class": per_class, "confusion": confusion}
 
-    # ---------------- SOP 1 and 2: overall and per-disease metrics
     overall, per_class_rows, cluster_rows = [], [], []
     for (key, seed), r in results.items():
         pc, o = r["per_class"], r["official"]
@@ -244,7 +205,6 @@ def main() -> None:
     seed42 = overall[overall["seed"] == 42].set_index("model")[metrics]
     mean_sd = overall.groupby("model")[metrics].agg(["mean", "std"])
 
-    # ---------------- H01: Friedman + Wilcoxon on matched per-image metrics (seed 42)
     img = {k: results[(k, 42)]["per_image"].set_index("image_id") for k in MODELS}
     tests = []
     for metric in ["AP50", "AP50_95", "precision", "recall", "F1"]:
@@ -263,7 +223,6 @@ def main() -> None:
     tests = pd.DataFrame(tests)
     tests.to_csv(OUT / "h01_friedman_wilcoxon_per_image.csv", index=False)
 
-    # ---------------- SOP 3 / H02: dAP50 (D - A) by Fitzpatrick group (seed 42)
     groups = pd.Series(np.select([ita > 41, ita > -30], ["I-II", "III-V"], "VI"), index=ita.index)
     groups[ita.isna()] = "no ITA"
     delta = (img["D"]["AP50"] - img["A"]["AP50"]).rename("dAP50").to_frame()
@@ -273,8 +232,8 @@ def main() -> None:
     light = delta.loc[delta["group"] == "I-II", "dAP50"].dropna()
     dark = delta.loc[delta["group"] == "III-V", "dAP50"].dropna()
     u, p_u = stats.mannwhitneyu(dark, light, alternative="two-sided")
-    rb_u = 1 - 2 * u / (len(dark) * len(light))  # >0 means III-V improved less; sign flipped below
-    rb_u = -rb_u  # positive = III-V gained more than I-II
+    rb_u = 1 - 2 * u / (len(dark) * len(light))
+    rb_u = -rb_u
 
     rA, rD = results[("A", 42)], results[("D", 42)]
     group_rows = []
@@ -287,7 +246,6 @@ def main() -> None:
                            "mean_per_image_dAP50": vals.mean(), "median_per_image_dAP50": vals.median(),
                            "wilcoxon_D_vs_A_p": w, "rank_biserial_D_vs_A": rank_biserial_paired(vals.to_numpy())})
 
-    # Bootstrap 95% CI of (dmAP50 III-V) - (dmAP50 I-II) at dataset level.
     rng = np.random.default_rng(42)
     boot = []
     light_ids = delta.index[delta["group"] == "I-II"].to_numpy()
@@ -299,7 +257,6 @@ def main() -> None:
         boot.append(dd - dl)
     group_df = pd.DataFrame(group_rows)
     group_df.to_csv(OUT / "sop3_group_dAP50.csv", index=False)
-    # mAP@50 per skin-type group for every model (seed 42), for the app's Skin-Tone Comparison.
     all_groups = [{"model": k, "group": g, "n_images": int((delta["group"] == g).sum()),
                    "mAP50": subset_map50(results[(k, 42)]["cache"], delta.index[delta["group"] == g].tolist())}
                   for k in MODELS for g in ("I-II", "III-V")]
@@ -314,8 +271,6 @@ def main() -> None:
     write_report(seed42, mean_sd, overall.groupby("model")["seed"].count(), per_class, clusters, tests, group_df, h02)
     print(f"\nDone. Results in {OUT}")
 
-
-# ------------------------------------------------------------------ report
 
 def pct(x: float) -> str:
     return f"{100 * x:.1f}"

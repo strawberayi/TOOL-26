@@ -1,8 +1,3 @@
-"""Write tune_model_D.ipynb: validation-based tuning of Model D's Stage 2 (Focal γ and frozen layers).
-
-    ../TOOL-26/.venv/bin/python final/build_tune_d_notebook.py
-"""
-
 import json
 from pathlib import Path
 

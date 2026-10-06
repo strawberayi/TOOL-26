@@ -27,7 +27,7 @@
     </header>
 
     <main class="app-content" id="app-content">
-      <!-- ================================================================ HOME -->
+
       <section id="tab-home" class="tab-pane active" aria-labelledby="nav-home">
         <div class="greeting">
           <h1>Skin lesion analysis</h1>
@@ -55,7 +55,7 @@
         </div>
       </section>
 
-      <!-- =========================================================== WORKSPACE -->
+
       <section id="tab-workspace" class="tab-pane" aria-labelledby="nav-workspace">
         <div class="card">
           <div class="card-head"><h2>Image workspace</h2><span class="tag">Model D</span></div>
@@ -64,6 +64,7 @@
             <div id="viewer" class="viewer">
               <img id="viewer-original" alt="Original photo">
               <img id="viewer-enhanced" class="viewer-enhanced" alt="Photo after L*-CLAHE">
+              <img id="viewer-heatmap" class="viewer-heatmap" alt="Grad-CAM heatmap">
               <svg id="viewer-boxes" class="viewer-boxes" preserveAspectRatio="none"></svg>
               <div id="viewer-split" class="viewer-split"><span></span></div>
               <span class="viewer-tag left">Original</span>
@@ -74,7 +75,13 @@
               <input type="range" id="split-slider" min="0" max="100" value="50">
             </label>
             <label class="check-row"><input type="checkbox" id="toggle-boxes" checked> Show detection boxes and confidence</label>
-            <div id="workspace-boxes"></div>
+            <label class="check-row"><input type="checkbox" id="toggle-heatmap" checked> Show Grad-CAM heatmap</label>
+            <label class="slider-row">
+              <span>Heatmap opacity</span>
+              <input type="range" id="heatmap-opacity" min="0" max="100" value="70">
+            </label>
+            <p id="heatmap-note" class="note"></p>
+            <div id="workspace-morph"></div>
           </div>
         </div>
 
@@ -88,7 +95,7 @@
         </div>
       </section>
 
-      <!-- ============================================================= RESULTS -->
+
       <section id="tab-results" class="tab-pane" aria-labelledby="nav-results">
         <div id="results-empty" class="card empty-state">No photo analysed yet. Upload or take a photo on the Home tab.</div>
         <div id="results-body" hidden></div>
@@ -98,17 +105,17 @@
         </div>
       </section>
 
-      <!-- =========================================================== BENCHMARK -->
+
       <section id="tab-benchmark" class="tab-pane clinician-only" aria-labelledby="nav-benchmark">
         <div class="hero-card">
           <div class="eyebrow">Evaluation</div>
-          <h2>Test-set benchmark (SOP 1–3)</h2>
+          <h2>Model results (SOP 1–3)</h2>
           <p id="bench-note">Loading…</p>
         </div>
         <div id="bench-body"></div>
       </section>
 
-      <!-- ============================================================ RESEARCH -->
+
       <section id="tab-research" class="tab-pane clinician-only" aria-labelledby="nav-research">
         <div class="hero-card">
           <div class="eyebrow">Research view</div>
@@ -143,7 +150,7 @@
     </nav>
   </div>
 
-  <!-- Drawer -->
+
   <div id="drawer" class="drawer" hidden onclick="toggleDrawer(false)">
     <div class="drawer-panel" role="dialog" aria-label="Menu" onclick="event.stopPropagation()">
       <div class="drawer-head">
@@ -169,7 +176,7 @@
     </div>
   </div>
 
-  <!-- Analyzing on device: progress dialog -->
+
   <div id="progress-dialog" class="dialog-backdrop" hidden>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="progress-title" aria-describedby="progress-sub">
       <div class="dialog-photo">
@@ -188,7 +195,7 @@
     </div>
   </div>
 
-  <!-- Report (print view) -->
+
   <div id="report-dialog" class="dialog-backdrop" hidden onclick="closeReport()">
     <div class="dialog report" role="dialog" aria-modal="true" aria-label="Report" onclick="event.stopPropagation()">
       <div id="report-body"></div>

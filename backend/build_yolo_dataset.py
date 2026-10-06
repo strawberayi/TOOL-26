@@ -1,30 +1,3 @@
-"""
-Build the YOLO detection dataset used by the YOLOv26 ablation notebook.
-
-Source of truth is the leakage-safe cleaned split manifest produced by
-``run_member1_batch.py prepare-manifest``. The same split therefore feeds
-Phase 0 calibration (train only) and YOLO training/validation/testing.
-
-Images are the standardized lossless PNGs (EXIF orientation applied,
-ICC converted to sRGB). Every ablation model starts from these identical
-pixels, so preprocessing is the only experimental variable.
-
-AnyLabeling/LabelMe JSON files are matched to images by filename stem
-within the same disease. A match is accepted only when the JSON
-imageWidth/imageHeight equal the standardized image size; several
-archives reuse filenames such as ``An-an(14).jpg`` for different photos,
-so a name-only match is not trustworthy. Nothing is matched by image size
-alone.
-
-Usage:
-
-    python backend/build_yolo_dataset.py \\
-        --manifest phase0_work/prepared/cleaned_split_manifest.csv \\
-        --annotations phase0_work/archive_inventory/archive_contents/annotations/ANNOTATED \\
-        --annotations "phase0_work/combined_inventory/supplemental_archive_contents/2. Annotated" \\
-        --output datasets/source_yolo
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -36,8 +9,6 @@ from pathlib import Path
 
 from PIL import Image
 
-# Canonical thesis order. Class ids follow this order after empty classes
-# are removed.
 CLASS_ORDER = [
     "Warts",
     "Molluscum",
@@ -49,7 +20,6 @@ CLASS_ORDER = [
     "Impetigo",
 ]
 
-# Annotation shape labels accepted for each disease (lower-case).
 LABEL_ALIASES = {
     "Warts": {"warts", "wart"},
     "Molluscum": {"molluscum"},
@@ -82,7 +52,6 @@ def index_annotations(roots: list[Path]) -> dict[str, list[dict]]:
 
 
 def shapes_to_yolo(shapes: list[dict], width: int, height: int, disease: str, class_id: int):
-    """Return (yolo lines, number of shapes rejected for a foreign label)."""
     lines, foreign = [], 0
     for shape in shapes:
         if str(shape.get("label", "")).strip().lower() not in LABEL_ALIASES[disease]:
@@ -110,8 +79,6 @@ def load_annotation(path: Path) -> dict:
 
 
 def match_annotation(row: dict, index: dict[str, list[dict]]) -> tuple[str, dict | None]:
-    # A manifest that already pairs each image with its JSON (e.g. from
-    # build_team_source_manifest.py) is used directly; the size check still applies.
     supplied = row.get("annotation_path", "").strip()
     candidates = (
         [load_annotation(Path(supplied))] if supplied and Path(supplied).is_file()
@@ -137,8 +104,6 @@ def build(manifest: Path, annotation_roots: list[Path], output: Path, min_train_
     if not rows:
         raise ValueError(f"No train/validation/test_a rows in {manifest}")
 
-    # A stem shared by several retained images of one disease cannot be
-    # matched unambiguously.
     stem_counts = Counter(
         (row["disease_label"], Path(row["image_path"]).stem.lower()) for row in rows
     )

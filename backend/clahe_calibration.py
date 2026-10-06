@@ -1,55 +1,3 @@
-"""
-MEMBER 2 - CLAHE CALIBRATION AND EXPORT
-=======================================
-
-Responsibilities:
-    #9  ITA -> beta piecewise mapping
-    #10 CLAHE beta calibration
-    #11 Mask and CLAHE validation / QC sheet
-    #12 Final frozen phase0_calibration.json
-
-This module DOES NOT perform:
-    - CIELAB conversion for ITA
-    - K-Means masking
-    - Silhouette selection
-    - Skin-mask generation
-    - ITA calculation
-
-Those are handled by Member 1's masking_ita.py.
-
-INPUT:
-    A manifest CSV containing successfully processed images.
-
-Required manifest columns:
-    image_id
-    image_path
-    mask_path
-    ITA
-    bracket
-    calibration_eligible
-
-Recommended additional columns:
-    disease_label
-    mask_method
-    selected_k
-    silhouette_score
-    mask_area_percent
-
-OUTPUT:
-    phase0_outputs/
-        beta_search_results.csv
-        mask_clahe_validation.csv
-        image_ita_manifest.csv
-        phase0_calibration.json
-        clahe_all_manifest.csv
-        clahe_all/
-            Darkest/
-            Medium/
-            Lightest/
-        clahe_samples/
-"""
-
-
 from __future__ import annotations
 
 import json
@@ -65,114 +13,41 @@ import pandas as pd
 from PIL import Image
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 @dataclass
 class CLAHECalibrationConfig:
-    """
-    Configuration for Member 2.
 
-    NOTE:
-    The assignment specifies the beta search range 2.0-10.0,
-    but the final noise limit, contrast formula, and tile-grid
-    size must be agreed upon by the research team.
-
-    Therefore these values remain configurable.
-    """
-
-    # --------------------------------------------------------
-    # #10 BETA SEARCH
-    # --------------------------------------------------------
 
     beta_start: float = 2.0
     beta_end: float = 10.0
     beta_step: float = 0.5
 
-    # --------------------------------------------------------
-    # CLAHE TILE GRID
-    # --------------------------------------------------------
 
     tile_grid_width: int = 8
     tile_grid_height: int = 8
 
-    # --------------------------------------------------------
-    # NOISE LIMIT
-    # --------------------------------------------------------
-    #
-    # PROVISIONAL VALUE.
-    # Replace after team/adviser approval.
-    #
 
     noise_limit: float = 0.15
 
-    # --------------------------------------------------------
-    # CONTRAST REQUIREMENT
-    # --------------------------------------------------------
-    #
-    # PROVISIONAL VALUE.
-    # Replace after team/adviser approval.
-    #
 
     minimum_contrast_gain: float = 0.0
 
-    # --------------------------------------------------------
-    # ACCEPTANCE RATE
-    # --------------------------------------------------------
-    #
-    # A beta must pass the noise criterion on this proportion
-    # of images in the bracket.
-    #
 
     minimum_acceptance_rate: float = 0.80
 
-    # --------------------------------------------------------
-    # BETA SELECTION RULE
-    # --------------------------------------------------------
-    #
-    # "knee"     : point of diminishing contrast returns (default)
-    # "max_gain" : original rule, largest admissible contrast gain
-    #
 
     selection_rule: str = "knee"
 
-    # --------------------------------------------------------
-    # RANDOMNESS
-    # --------------------------------------------------------
 
     random_seed: int = 42
 
-    # --------------------------------------------------------
-    # VALIDATION SAMPLE
-    # --------------------------------------------------------
 
     validation_samples_per_stratum: int = 5
 
-    # --------------------------------------------------------
-    # DATASET VERSION
-    # --------------------------------------------------------
 
     calibration_dataset_version: str = "public_training_data"
 
 
-# ============================================================
-# #9 ITA BRACKET
-# ============================================================
-
 def assign_ita_bracket(ita: float) -> str:
-    """
-    Piecewise ITA bracket.
-
-    Darkest:
-        ITA < 28
-
-    Medium:
-        28 <= ITA <= 41
-
-    Lightest:
-        ITA > 41
-    """
 
     if ita < 28.0:
         return "Darkest"
@@ -184,23 +59,12 @@ def assign_ita_bracket(ita: float) -> str:
         return "Lightest"
 
 
-# ============================================================
-# #9 ITA -> BETA MAPPING
-# ============================================================
-
 def ita_to_beta(
     ita: float,
     beta_high: float,
     beta_mid: float,
     beta_low: float,
 ) -> float:
-    """
-    Piecewise mapping:
-
-        ITA < 28       -> beta_high
-        28 <= ITA <= 41 -> beta_mid
-        ITA > 41       -> beta_low
-    """
 
     bracket = assign_ita_bracket(ita)
 
@@ -218,25 +82,9 @@ def ita_to_beta(
     )
 
 
-# ============================================================
-# BETA GRID
-# ============================================================
-
 def generate_beta_grid(
     config: CLAHECalibrationConfig
 ) -> list[float]:
-    """
-    Generate beta values from 2.0 to 10.0.
-
-    Example with step 0.5:
-
-        2.0
-        2.5
-        3.0
-        ...
-        9.5
-        10.0
-    """
 
     values = np.arange(
         config.beta_start,
@@ -250,33 +98,12 @@ def generate_beta_grid(
     ]
 
 
-# ============================================================
-# IMAGE LOADING
-# ============================================================
-
 def load_rgb_image(
     image_path: str | Path
 ) -> np.ndarray:
-    """
-    Load image as RGB.
-
-    Primary loader:
-        OpenCV
-
-    Fallback loader:
-        Pillow (PIL)
-
-    Some valid JPEG files can be opened by Pillow but fail
-    with cv2.imread() because of decoder/encoding differences.
-    The Pillow fallback keeps those valid images in the same
-    CLAHE pipeline instead of marking them as failed.
-    """
 
     image_path = Path(image_path)
 
-    # --------------------------------------------------------
-    # PRIMARY: OpenCV
-    # --------------------------------------------------------
 
     image = cv2.imread(
         str(image_path),
@@ -289,9 +116,6 @@ def load_rgb_image(
             cv2.COLOR_BGR2RGB
         )
 
-    # --------------------------------------------------------
-    # FALLBACK: Pillow
-    # --------------------------------------------------------
 
     try:
         with Image.open(image_path) as pil_image:
@@ -301,7 +125,6 @@ def load_rgb_image(
                 dtype=np.uint8
             )
 
-        # Make sure the array is contiguous for OpenCV operations.
         image_rgb = np.ascontiguousarray(image_rgb)
 
         if (
@@ -322,18 +145,9 @@ def load_rgb_image(
         ) from exc
 
 
-# ============================================================
-# MASK LOADING
-# ============================================================
-
 def load_mask(
     mask_path: str | Path
 ) -> np.ndarray:
-    """
-    Load a binary mask.
-
-    Any non-zero pixel becomes True.
-    """
 
     mask = cv2.imread(
         str(mask_path),
@@ -348,32 +162,11 @@ def load_mask(
     return mask > 0
 
 
-# ============================================================
-# #10 CLAHE
-# ============================================================
-
 def apply_clahe(
     image_rgb: np.ndarray,
     beta: float,
     tile_grid_size: tuple[int, int],
 ) -> np.ndarray:
-    """
-    Apply CLAHE to the L channel only.
-
-    Pipeline:
-
-        RGB
-         ↓
-        OpenCV LAB
-         ↓
-        L / A / B
-         ↓
-        CLAHE on L
-         ↓
-        recombine A + B
-         ↓
-        RGB
-    """
 
     lab = cv2.cvtColor(
         image_rgb,
@@ -405,18 +198,9 @@ def apply_clahe(
     return enhanced_rgb
 
 
-# ============================================================
-# L CHANNEL
-# ============================================================
-
 def get_l_channel(
     image_rgb: np.ndarray
 ) -> np.ndarray:
-    """
-    Extract OpenCV LAB L channel.
-
-    This is used for contrast measurement.
-    """
 
     lab = cv2.cvtColor(
         image_rgb,
@@ -428,45 +212,19 @@ def get_l_channel(
     )
 
 
-# ============================================================
-# #10 LOCAL CONTRAST
-# ============================================================
-
 def calculate_local_contrast_variance(
     image_rgb: np.ndarray,
     mask: np.ndarray,
 ) -> float:
-    """
-    Calculate local contrast variance inside the valid skin mask.
-
-    Local contrast is defined here as:
-
-        C(x,y) = L(x,y) - GaussianBlur(L)(x,y)
-
-    Then:
-
-        Local Contrast Variance =
-            Var(C(x,y))
-
-    evaluated only inside the valid mask.
-
-    IMPORTANT:
-    The assignment requires the team to define/document the exact
-    local-contrast variance formula. This implementation provides
-    a transparent, configurable baseline rather than claiming that
-    this formula has already been approved by the research team.
-    """
 
     L = get_l_channel(image_rgb)
 
-    # Smooth luminance
     blurred = cv2.GaussianBlur(
         L,
         ksize=(5, 5),
         sigmaX=0
     )
 
-    # Local contrast
     local_contrast = (
         L - blurred
     )
@@ -483,27 +241,11 @@ def calculate_local_contrast_variance(
     )
 
 
-# ============================================================
-# #10 NOISE
-# ============================================================
-
 def calculate_noise(
     raw_image_rgb: np.ndarray,
     enhanced_image_rgb: np.ndarray,
     mask: np.ndarray,
 ) -> float:
-    """
-    Estimate enhancement-induced change inside the skin mask.
-
-    The metric is:
-
-        mean(|L_enhanced - L_raw|) / 255
-
-    This is a screening metric for the beta search.
-
-    The final noise definition must be documented/approved by
-    the research team.
-    """
 
     raw_L = get_l_channel(
         raw_image_rgb
@@ -529,19 +271,12 @@ def calculate_noise(
     )
 
 
-# ============================================================
-# #10 EVALUATE ONE BETA
-# ============================================================
-
 def evaluate_beta(
     image_rgb: np.ndarray,
     mask: np.ndarray,
     beta: float,
     config: CLAHECalibrationConfig,
 ) -> dict:
-    """
-    Evaluate one beta value for one image.
-    """
 
     enhanced = apply_clahe(
         image_rgb=image_rgb,
@@ -577,9 +312,6 @@ def evaluate_beta(
         - raw_contrast
     )
 
-    # --------------------------------------------------------
-    # ACCEPT / REJECT
-    # --------------------------------------------------------
 
     accepted = (
         np.isfinite(noise)
@@ -614,25 +346,11 @@ def evaluate_beta(
     }
 
 
-# ============================================================
-# #10 CALIBRATE ONE ITA BRACKET
-# ============================================================
-
 def calibrate_bracket(
     dataframe: pd.DataFrame,
     bracket: Optional[str],
     config: CLAHECalibrationConfig,
 ):
-    """
-    Search beta values for one ITA bracket.
-
-    bracket=None pools every calibration-eligible image regardless of
-    ITA. That pooled result is the single "global" beta used by the
-    fixed-beta ablation control, so the control and the proposed model
-    are calibrated by exactly the same procedure.
-
-    Each image and mask is loaded once and evaluated for every beta.
-    """
 
     eligible = dataframe["calibration_eligible"].astype(str).str.lower() == "true"
     if bracket is None:
@@ -727,18 +445,11 @@ def calibrate_bracket(
     )
 
 
-# ============================================================
-# #10 SUMMARIZE EACH BETA
-# ============================================================
-
 def summarize_beta_search(
     results_df: pd.DataFrame,
     label: str,
     config: CLAHECalibrationConfig,
 ) -> pd.DataFrame:
-    """
-    Aggregate per-image beta results into one row per beta.
-    """
 
     summaries = []
 
@@ -775,35 +486,10 @@ def summarize_beta_search(
     )
 
 
-# ============================================================
-# #10 SELECT BETA FROM A BRACKET SUMMARY
-# ============================================================
-
 def select_beta(
     summary_df: pd.DataFrame,
     config: CLAHECalibrationConfig,
 ) -> float:
-    """
-    Choose one beta from the admissible betas of a bracket.
-
-    Admissible: acceptance_rate >= minimum_acceptance_rate.
-
-    "knee" (default):
-        Local contrast rises monotonically with the clip limit, so
-        "highest contrast gain" always selects the largest admissible
-        beta, i.e. whatever beta the noise ceiling happens to allow.
-        That makes every bracket collapse to the same value.
-
-        Instead, locate the point of diminishing returns on the
-        admissible mean-contrast-gain curve (Kneedle: after scaling
-        beta and gain to [0, 1], maximise gain_norm - beta_norm).
-        Brackets whose contrast responds differently to CLAHE get
-        different betas. Ties prefer the smaller beta.
-
-    "max_gain":
-        The original rule: highest mean contrast gain, ties broken by
-        lower mean noise.
-    """
 
     candidates = summary_df[
         summary_df["acceptance_rate"]
@@ -833,34 +519,18 @@ def select_beta(
 
     gain_span = gain.max() - gain.min()
     if not np.isfinite(gain_span) or gain_span <= 0:
-        # Flat curve: extra clipping buys nothing, use the gentlest beta.
         return float(beta[0])
 
     beta_norm = (beta - beta[0]) / (beta[-1] - beta[0])
     gain_norm = (gain - gain.min()) / gain_span
 
-    # argmax returns the first (smallest-beta) index on ties.
     return float(beta[int(np.argmax(gain_norm - beta_norm))])
 
-
-
-# ============================================================
-# #11 CREATE VALIDATION SAMPLE
-# ============================================================
 
 def create_validation_sample(
     dataframe: pd.DataFrame,
     config: CLAHECalibrationConfig,
 ) -> pd.DataFrame:
-    """
-    Create a stratified validation sample.
-
-    Preferred strata:
-        disease_label + bracket
-
-    This helps ensure the QC sample covers different disease
-    classes and ITA brackets.
-    """
 
     rng = np.random.default_rng(
         config.random_seed
@@ -873,10 +543,6 @@ def create_validation_sample(
     if df.empty:
         return df
 
-    # --------------------------------------------------------
-    # If disease_label exists, stratify by disease + bracket.
-    # Otherwise stratify by bracket only.
-    # --------------------------------------------------------
 
     if (
         "disease_label" in df.columns
@@ -925,20 +591,12 @@ def create_validation_sample(
     ].copy()
 
 
-# ============================================================
-# #11 SAVE VISUAL QC SAMPLES
-# ============================================================
-
 def save_qc_samples(
     validation_df: pd.DataFrame,
     beta_mapping: dict,
     output_dir: str | Path,
     config: CLAHECalibrationConfig,
 ) -> pd.DataFrame:
-    """
-    Save raw image, mask overlay, and CLAHE output for the
-    validation sample.
-    """
 
     output_dir = Path(
         output_dir
@@ -992,13 +650,9 @@ def save_qc_samples(
                 )
             )
 
-            # ------------------------------------------------
-            # MASK OVERLAY
-            # ------------------------------------------------
 
             overlay = image.copy()
 
-            # Create visible mask overlay
             overlay[mask] = (
                 0.5 * overlay[mask]
                 + 0.5 * np.array(
@@ -1009,9 +663,6 @@ def save_qc_samples(
                 np.uint8
             )
 
-            # ------------------------------------------------
-            # SAVE
-            # ------------------------------------------------
 
             raw_path = (
                 output_dir
@@ -1143,36 +794,16 @@ def save_qc_samples(
     )
 
 
-# ============================================================
-# #12 APPLY FROZEN CLAHE TO ALL TRAINING IMAGES
-# ============================================================
-
 def export_all_clahe(
     dataframe: pd.DataFrame,
     beta_mapping: dict,
     output_dir: str | Path,
     config: CLAHECalibrationConfig,
 ) -> pd.DataFrame:
-    """
-    Apply the frozen ITA -> beta mapping to EVERY image in the
-    Member 1 manifest, not only calibration-eligible images.
-
-    Calibration uses only calibration_eligible=True images, but
-    the frozen beta values are then applied to the complete
-    training manifest. Therefore, if the manifest contains 1,776
-    training images, this function attempts to export 1,776 CLAHE
-    images.
-
-    No images are removed here. Any processing error is recorded
-    in the export manifest so the final count can be checked.
-    """
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Keep all final CLAHE images separated by their frozen ITA bracket.
-    # The bracket is determined by Member 1 ITA and is recorded in the
-    # export manifest.
     bracket_dirs = {
         "Darkest": output_dir / "Darkest",
         "Medium": output_dir / "Medium",
@@ -1192,7 +823,6 @@ def export_all_clahe(
         image_path = row["image_path"]
         bracket = str(row["bracket"])
 
-        # Use the frozen beta corresponding to the image's ITA bracket.
         if bracket not in beta_mapping:
             records.append({
                 "image_id": image_id,
@@ -1208,7 +838,6 @@ def export_all_clahe(
             continue
 
         beta = float(beta_mapping[bracket])
-        # Save the image inside the folder matching its ITA bracket.
         output_path = bracket_dirs[bracket] / f"{image_id}_clahe.png"
 
         try:
@@ -1294,10 +923,6 @@ def export_all_clahe(
     return export_df
 
 
-# ============================================================
-# #12 FROZEN CONFIGURATION
-# ============================================================
-
 def create_frozen_configuration(
     beta_high: float,
     beta_mid: float,
@@ -1305,19 +930,11 @@ def create_frozen_configuration(
     config: CLAHECalibrationConfig,
     beta_global: Optional[float] = None,
 ) -> dict:
-    """
-    Create the final phase0_calibration.json.
-    """
 
     return {
 
-        # ----------------------------------------------------
-        # VERSION
-        # ----------------------------------------------------
 
         "phase": "phase0",
-        # Only the research team may change this to FROZEN after
-        # reviewing the QC sheet and beta_search_summary.csv.
         "status": "PROVISIONAL",
 
         "configuration_version":
@@ -1326,9 +943,6 @@ def create_frozen_configuration(
         "calibration_date":
             datetime.now().isoformat(),
 
-        # ----------------------------------------------------
-        # #9 ITA BRACKETS
-        # ----------------------------------------------------
 
         "ITA_brackets": {
 
@@ -1342,9 +956,6 @@ def create_frozen_configuration(
                 "ITA > 41",
         },
 
-        # ----------------------------------------------------
-        # #9 PIECEWISE MAPPING
-        # ----------------------------------------------------
 
         "clip_limit_mapping": {
 
@@ -1367,14 +978,9 @@ def create_frozen_configuration(
         "beta_low":
             beta_low,
 
-        # Same calibration procedure on all brackets pooled; used by the
-        # fixed-beta ablation control (no ITA).
         "beta_global":
             beta_global,
 
-        # ----------------------------------------------------
-        # #10 SEARCH
-        # ----------------------------------------------------
 
         "beta_search": {
 
@@ -1390,9 +996,6 @@ def create_frozen_configuration(
                 config.selection_rule,
         },
 
-        # ----------------------------------------------------
-        # CLAHE
-        # ----------------------------------------------------
 
         "CLAHE": {
 
@@ -1407,9 +1010,6 @@ def create_frozen_configuration(
                 "L",
         },
 
-        # ----------------------------------------------------
-        # VALIDATION PARAMETERS
-        # ----------------------------------------------------
 
         "validation": {
 
@@ -1429,9 +1029,6 @@ def create_frozen_configuration(
                 "mean absolute L-channel change divided by 255, evaluated inside valid skin mask",
         },
 
-        # ----------------------------------------------------
-        # REPRODUCIBILITY
-        # ----------------------------------------------------
 
         "random_seed":
             config.random_seed,
@@ -1439,9 +1036,6 @@ def create_frozen_configuration(
         "calibration_dataset_version":
             config.calibration_dataset_version,
 
-        # ----------------------------------------------------
-        # MEMBER 1 REFERENCE
-        # ----------------------------------------------------
 
         "upstream_module":
             "masking_ita.py",
@@ -1458,10 +1052,6 @@ def create_frozen_configuration(
         ],
     }
 
-
-# ============================================================
-# SAVE JSON
-# ============================================================
 
 def save_json(
     data: dict,
@@ -1488,10 +1078,6 @@ def save_json(
         )
 
 
-# ============================================================
-# MAIN PIPELINE
-# ============================================================
-
 def run_phase0_calibration(
     manifest_path: str | Path,
     output_dir: str | Path = "phase0_outputs",
@@ -1499,9 +1085,6 @@ def run_phase0_calibration(
         CLAHECalibrationConfig
     ] = None,
 ):
-    """
-    Execute Member 2's complete Phase 0 work.
-    """
 
     config = (
         config
@@ -1521,9 +1104,6 @@ def run_phase0_calibration(
     print("MEMBER 2 - PHASE 0 CLAHE CALIBRATION")
     print("=" * 60)
 
-    # ========================================================
-    # READ MANIFEST
-    # ========================================================
 
     print("\n[1/6] Reading manifest...")
 
@@ -1531,9 +1111,6 @@ def run_phase0_calibration(
         manifest_path
     )
 
-    # ========================================================
-    # VALIDATE COLUMNS
-    # ========================================================
 
     required = [
         "image_id",
@@ -1560,9 +1137,6 @@ def run_phase0_calibration(
             )
         )
 
-    # ========================================================
-    # RECOMPUTE BRACKET TO VERIFY MEMBER 1
-    # ========================================================
 
     dataframe[
         "computed_bracket"
@@ -1572,7 +1146,6 @@ def run_phase0_calibration(
         lambda ita: assign_ita_bracket(ita) if pd.notna(ita) else ""
     )
 
-    # MASK_FAILED rows have no ITA and no bracket.
     dataframe["bracket"] = dataframe["bracket"].fillna("")
 
     dataframe[
@@ -1595,9 +1168,6 @@ def run_phase0_calibration(
             "mismatches detected."
         )
 
-    # ========================================================
-    # SAVE IMAGE ITA MANIFEST
-    # ========================================================
 
     manifest_output = (
         output_dir
@@ -1613,9 +1183,6 @@ def run_phase0_calibration(
         f"Manifest saved: {manifest_output}"
     )
 
-    # ========================================================
-    # #10 CALIBRATION
-    # ========================================================
 
     print("\n[2/6] Running beta calibration...")
 
@@ -1661,9 +1228,6 @@ def run_phase0_calibration(
             f"Best beta = {best_beta:.2f}"
         )
 
-    # ========================================================
-    # SAVE BETA SEARCH RESULTS
-    # ========================================================
 
     print(
         "\n[3/6] Saving beta search results..."
@@ -1681,9 +1245,6 @@ def run_phase0_calibration(
         index=False
     )
 
-    # Pooled (ITA-agnostic) calibration for the fixed-beta control.
-    # The pool is the union of the three brackets, so the per-image
-    # results already computed are reused instead of re-evaluated.
     print("\nCalibrating: ALL brackets pooled")
     global_summary = summarize_beta_search(
         pd.DataFrame(beta_search_records),
@@ -1710,9 +1271,6 @@ def run_phase0_calibration(
         index=False
     )
 
-    # ========================================================
-    # MAP BETA NAMES
-    # ========================================================
 
     beta_high = best_betas[
         "Darkest"
@@ -1753,9 +1311,6 @@ def run_phase0_calibration(
         f"  beta_global = {beta_global}  (pooled, fixed-beta control)"
     )
 
-    # ========================================================
-    # #11 VALIDATION
-    # ========================================================
 
     print(
         "\n[4/6] Creating validation sample..."
@@ -1782,9 +1337,6 @@ def run_phase0_calibration(
         )
     )
 
-    # ========================================================
-    # SAVE QC SHEET
-    # ========================================================
 
     validation_path = (
         output_dir
@@ -1800,9 +1352,6 @@ def run_phase0_calibration(
         f"QC sheet saved: {validation_path}"
     )
 
-    # ========================================================
-    # #12 FROZEN JSON
-    # ========================================================
 
     print(
         "\n[5/6] Creating frozen configuration..."
@@ -1832,9 +1381,6 @@ def run_phase0_calibration(
         f"Frozen config saved: {config_path}"
     )
 
-    # ========================================================
-    # #12 APPLY FROZEN SETTINGS TO ALL TRAINING IMAGES
-    # ========================================================
 
     clahe_all_dir = output_dir / "clahe_all"
 
@@ -1847,9 +1393,6 @@ def run_phase0_calibration(
 
     clahe_all_manifest_path = output_dir / "clahe_all_manifest.csv"
 
-    # ========================================================
-    # FINAL SUMMARY
-    # ========================================================
 
     print(
         "\n[7/7] Phase 0 complete."
@@ -1940,10 +1483,6 @@ def run_phase0_calibration(
     }
 
 
-# ============================================================
-# COMMAND LINE
-# ============================================================
-
 if __name__ == "__main__":
 
     import argparse
@@ -1977,4 +1516,4 @@ if __name__ == "__main__":
     run_phase0_calibration(
         manifest_path=args.manifest,
         output_dir=args.output,
-    )
+    )

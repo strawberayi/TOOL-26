@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Start the IDENTI-SKIN detection server for the phone app (same Wi-Fi).
-# The app's default server address is http://192.168.1.16:8000; if the
-# laptop IP differs, change it in the app when it asks.
 cd "$(dirname "$0")"
 WEIGHTS="${IDENTISKIN_WEIGHTS:-../weights/ablation_yolov26/best_ModelD_proposed.pt}"
 if [ ! -f "$WEIGHTS" ]; then

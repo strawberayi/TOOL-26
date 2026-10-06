@@ -1,19 +1,3 @@
-"""
-Create the self-contained split-training folder next to TOOL-26:
-
-    ~/Documents/TOOL2026/ablation_training/
-        izzy/     izzy_train_A_B_C.ipynb, combine_and_evaluate.ipynb
-        daniel/   daniel_train_C2_D.ipynb
-        backend/  the pipeline code the notebooks import
-        datasets/ source_yolo (images + labels) and the shared ITA table
-        training/ split_utils.py, fingerprints.json
-        results/  result zips (results/incoming/ for the other trainer's)
-
-and ablation_training.zip to send to Daniel.
-
-    .venv/bin/python training/build_package.py
-"""
-
 from __future__ import annotations
 
 import os
@@ -24,12 +8,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TOOL26 = HERE.parent
-# ABLATION_PACKAGE_DEST builds elsewhere (e.g. when the default folder already holds results).
 DEST = Path(os.environ.get("ABLATION_PACKAGE_DEST", TOOL26.parent / "ablation_training"))
 ZIP = DEST.parent / "ablation_training.zip"
 
 sys.path.insert(0, str(HERE))
-import build_notebooks as nb  # noqa: E402
+import build_notebooks as nb
 
 BACKEND_FILES = ["masking_ita.py", "clahe_calibration.py", "phase0_calibration.json", "member1_phase0_config.json"]
 CHECKPOINT = TOOL26 / "weights" / "yolo26n.pt"
@@ -131,7 +114,6 @@ def copy(src: Path, dst: Path) -> None:
 
 
 def add_d2_retraining(dest: Path) -> None:
-    """Daniel's D2 re-training: the script plus the Phase 0 inputs its calibration needs."""
     import pandas as pd
 
     phase0 = TOOL26 / "phase0_outputs"
@@ -168,7 +150,6 @@ def main() -> None:
     copy(TOOL26 / "datasets" / "ablation_yolov26" / "ita_table.csv",
          DEST / "datasets" / "ablation_yolov26" / "ita_table.csv")
 
-    # Same pretrained checkpoint for everyone (the notebooks load 'yolo26n.pt' from their folder).
     for trainer in ("izzy", "daniel"):
         copy(CHECKPOINT, DEST / trainer / "yolo26n.pt")
 
@@ -182,7 +163,6 @@ def main() -> None:
     (DEST / "README.md").write_text(README, encoding="utf-8")
     (DEST / "requirements.txt").write_text(REQUIREMENTS, encoding="utf-8")
 
-    # PNGs are already compressed; storing keeps zipping fast.
     with zipfile.ZipFile(ZIP, "w", zipfile.ZIP_STORED) as zf:
         for path in sorted(DEST.rglob("*")):
             if path.is_file():

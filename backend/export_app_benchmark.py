@@ -1,14 +1,3 @@
-"""
-Export the final SOP results to frontend/benchmark_data.json for the app's Benchmark view.
-
-Reads the test-set analysis written by ablation_training/final/sop_analysis.py
-(manuscript Models A-D, seed 42) and the runtime benchmark
-(ablation_training/final/runtime_benchmark.py), so the app shows exactly the numbers in
-the paper, together with the values each number is computed from:
-
-    .venv/bin/python backend/export_app_benchmark.py
-"""
-
 from __future__ import annotations
 
 import json
@@ -31,7 +20,6 @@ MODELS = [
     ("D", "Proposed", "ITA-guided adaptive L*-CLAHE + two-stage decoupled training + Focal Loss"),
 ]
 NAMES = ["Warts", "Molluscum", "Varicella", "HFMD", "Tinea versicolor", "Tinea corporis", "Tinea pedis", "Impetigo"]
-# App codes use the local disease names.
 CLASS_CODES = {
     "Warts": ("KU", "Kulugo (Warts)"),
     "Molluscum": ("MC", "Molluscum"),
@@ -71,7 +59,6 @@ def main() -> None:
     for model_id, short, name in MODELS:
         row = overall.loc[model_id]
         rows = per_class[per_class["model"] == model_id].set_index("class").reindex(NAMES)
-        # The overall numbers are the means of the 8 per-disease values (checked here).
         for column, key in [("mAP50", "mAP50"), ("mAP50_95", "mAP50_95"), ("precision", "precision"), ("recall", "recall")]:
             assert abs(rows[column].mean() - row[key]) < 1e-9, (model_id, column)
         wc = clusters[clusters["model"] == model_id].set_index("cluster")
@@ -92,7 +79,6 @@ def main() -> None:
                           "cross": int(wc.loc[c, "cross_cluster_errors"]), "missed": int(wc.loc[c, "missed"])}
                          for c in ["Vesiculopapular/Eruptive", "Papulosquamous/Verrucous"]],
         })
-        # sop_analysis stores rows = predicted (+ background), columns = actual (+ background FP).
         matrix = pd.read_csv(RESULTS / f"confusion_{model_id}_seed42.csv", index_col=0)
         confusion[model_id] = [[int(matrix.iloc[pred, actual]) for pred in range(len(NAMES))]
                                for actual in range(len(NAMES))]

@@ -1,14 +1,3 @@
-"""
-Export the ablation models for fully on-device inference in the app.
-
-Writes frontend/models/<id>.onnx (end-to-end YOLO26, no NMS needed) and
-frontend/models/manifest.json with the class names, calibrated betas and the
-Phase 0 masking configuration, so the JavaScript pipeline uses exactly the
-same parameters as the Python pipeline.
-
-    .venv/bin/python backend/export_app_models.py
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,13 +8,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TRAINING = ROOT.parent / "ablation_training"
-# Final manuscript models (seed 42) from ablation_training; ABLATION_WEIGHTS overrides the folder.
 WEIGHTS = Path(os.environ.get("ABLATION_WEIGHTS", TRAINING / "weights" / "ablation_split"))
-# Model D's ITA -> clip limit calibration (lesion-visibility, train images only).
 D_CALIBRATION = TRAINING / "backend" / "phase0_calibration_d2.json"
 OUTPUT = ROOT / "frontend" / "models"
 
-# (id, weights, preprocessing, description): the manuscript's four-model ablation.
 MODELS = [
     ("A", "best_ModelA_raw_seed42.pt", "raw", "Baseline (raw images)"),
     ("B", "best_ModelC_fixed_l_clahe_seed42.pt", "l_clahe_fixed", "Fixed L*-CLAHE, β=2.0"),
@@ -35,14 +21,6 @@ MODELS = [
 
 
 def add_cam_outputs(onnx_path: Path, cam_path: Path) -> None:
-    """Expose what on-device Grad-CAM needs, without changing output0.
-
-    The last layer of each class head (cv3, the one-to-many head used for evaluation) is a linear 1x1 convolution
-    (64 features -> class logits). The gradient of a class logit with respect to
-    those 64 features is therefore that layer's weight row, so Grad-CAM at this
-    layer is exact without backpropagation: the app needs the features, the
-    logits (to pick the detections to explain) and the weights.
-    """
     import onnx
     from onnx import helper, numpy_helper
 
@@ -82,11 +60,6 @@ def main() -> None:
         with tempfile.TemporaryDirectory() as tmp:
             local = Path(tmp) / f"{model_id}.pt"
             shutil.copy2(weights, local)
-            # nms=False keeps the end-to-end (one-to-one) head, matching PyTorch predict.
-            # Same inference as the test-set evaluation (Ultralytics val/predict):
-            # - one-to-many head with NMS (nms left at None; the app runs NMS, iou 0.7),
-            #   not the NMS-free one-to-one head;
-            # - dynamic=True: rectangular input padded to a multiple of 32, not a 640x640 square.
             onnx_path = YOLO(str(local)).export(format="onnx", imgsz=640, opset=17, simplify=True, dynamic=True)
             shutil.copy2(onnx_path, OUTPUT / f"{model_id}.onnx")
         add_cam_outputs(OUTPUT / f"{model_id}.onnx", OUTPUT / f"{model_id}_cam.json")
@@ -98,12 +71,10 @@ def main() -> None:
         "classes": classes,
         "imgsz": 640,
         "confidence": 0.25,
-        "nms_iou": 0.7,  # Ultralytics default (val and predict)
-        # Grad-CAM: detections to explain (same rule as ablation_training/final/gradcam_analysis.py).
+        "nms_iou": 0.7,
         "gradcam": {"confidence": 0.25, "max_targets": 10, "iou_threshold": 0.15},
         "fixed_beta": 2.0,
         "tile_grid_size": calibration["CLAHE"]["tile_grid_size"],
-        # beta_high = Darkest, beta_mid = Medium, beta_low = Lightest; no ITA -> Medium beta.
         "calibration": {"beta_high": d_betas["Darkest"], "beta_mid": d_betas["Medium"], "beta_low": d_betas["Lightest"],
                         "beta_fallback": d_betas["Medium"], "beta_global": calibration["beta_global"],
                         "status": "D2 lesion-visibility calibration (train images)"},

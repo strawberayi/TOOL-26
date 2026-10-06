@@ -6,11 +6,7 @@
   <title>IDENTI-SKIN | AI-Powered Skin Infection Analysis (PUP CCIS)</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2225%22 fill=%22%23D45B28%22/><path d=%22M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z%22 fill=%22none%22 stroke=%22white%22 stroke-width=%228%22/><path d=%22M50 35 L50 65 M35 50 L65 50%22 stroke=%22white%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
-  <style>
-    /* ==========================================================================
-       LANDING PAGE & WELCOME FLOW STYLES
-       ========================================================================== */
-    body, html {
+  <style>    body, html {
       margin: 0;
       padding: 0;
       width: 100vw;
@@ -22,7 +18,7 @@
       overflow-x: hidden;
     }
 
-    /* Ambient decorative rings */
+
     .ambient-ring-1 {
       position: absolute;
       width: 700px;
@@ -48,7 +44,7 @@
       z-index: 0;
     }
 
-    /* Top active user notification bar (if already logged in) */
+
     #active-session-banner {
       background: linear-gradient(90deg, #D45B28, #FF6F3C);
       color: #FFF;
@@ -79,9 +75,7 @@
       cursor: pointer;
     }
 
-    /* --------------------------------------------------------------------------
-       MOBILE VIEW: EXACT PAGE 1 SCREEN (Phones <= 768px)
-       -------------------------------------------------------------------------- */
+
     @media (max-width: 768px) {
       .desktop-landing-wrapper {
         display: none !important;
@@ -91,9 +85,7 @@
       }
     }
 
-    /* --------------------------------------------------------------------------
-       DESKTOP VIEW: CLINICAL PORTAL (Screens > 768px)
-       -------------------------------------------------------------------------- */
+
     @media (min-width: 769px) {
       .desktop-landing-wrapper {
         display: block !important;
@@ -103,7 +95,7 @@
       }
     }
 
-    /* Mobile Page 1 Container */
+
     .mobile-page1-wrapper {
       width: 100vw;
       height: 100vh;
@@ -211,7 +203,7 @@
       color: var(--text-muted);
     }
 
-    /* Desktop Landing Styles */
+
     .desktop-nav {
       max-width: 1200px;
       margin: 0 auto;
@@ -348,7 +340,7 @@
       max-width: 520px;
     }
 
-    /* Floating preview card on desktop */
+
     .hero-preview-phone {
       width: 320px;
       margin: 0 auto;
@@ -410,23 +402,21 @@
   </style>
 </head>
 <body>
-  <!-- Ambient rings -->
+
   <div class="ambient-ring-1"></div>
   <div class="ambient-ring-2"></div>
 
-  <!-- Active session banner if user is already signed in -->
+
   <div id="active-session-banner" style="display:none;">
     <span>Welcome back, <strong id="active-user-name">Dr. Maria Santos</strong>!</span>
     <a href="app.html">Launch Clinical Workstation →</a>
     <button onclick="clearActiveSession()">Sign Out</button>
   </div>
 
-  <!-- ========================================================================
-       1. MOBILE NATIVE VIEW (Matches Page 1 from reference photo)
-       ======================================================================== -->
+
   <div class="mobile-page1-wrapper">
     <div style="width: 100%;">
-      <!-- Glowing Orange Shield Logo -->
+
       <div class="mob-shield-box">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -435,15 +425,15 @@
         </svg>
       </div>
 
-      <!-- App Title & Subtitle -->
+
       <h1 class="mob-page1-title">IDENTI - SKIN</h1>
       <p class="mob-page1-tagline">
         AI - Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision
       </p>
 
-      <!-- Action Buttons -->
+
       <div class="mob-page1-actions">
-        <!-- Get Started -> Goes to full App or Camera -->
+
         <a href="app.html#home" class="mob-btn-primary">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -452,7 +442,7 @@
           Get Started
         </a>
 
-        <!-- I Have an Account -> Goes to separate Login Page -->
+
         <a href="login.html" class="mob-btn-secondary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -462,7 +452,7 @@
         </a>
       </div>
 
-      <!-- Quick 1-tap demo access for test evaluation -->
+
       <div style="display:flex; justify-content:center; gap:8px; margin-top:6px;">
         <button onclick="quickDemoLanding('clinician')" style="background:none; border:none; color:var(--brand-primary); font-size:0.75rem; font-weight:700; cursor:pointer; text-decoration:underline;">
            Clinician Demo
@@ -474,7 +464,7 @@
       </div>
     </div>
 
-    <!-- RA 10173 Security & Privacy Badge -->
+
     <div class="mob-page1-footer">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -484,11 +474,9 @@
     </div>
   </div>
 
-  <!-- ========================================================================
-       2. DESKTOP LANDING VIEW (Screens > 768px: Laptop / PC)
-       ======================================================================== -->
+
   <div class="desktop-landing-wrapper">
-    <!-- Desktop Navigation Header -->
+
     <nav class="desktop-nav">
       <a href="index.html" class="desktop-brand">
         <div class="desktop-brand-icon">
@@ -521,7 +509,7 @@
       </div>
     </nav>
 
-    <!-- Desktop Hero Section -->
+
     <section class="desktop-hero">
       <div>
         <div class="hero-badge">
@@ -536,7 +524,7 @@
           An AI-powered dermatological diagnostic framework combining <strong>Individual Typology Angle (ITA)-guided Adaptive L*-CLAHE</strong> with a <strong>dual-branch fine-grained YOLOv26</strong> architecture, engineered specifically for dark and melanin-rich Filipino skin.
         </p>
 
-        <!-- CTA Buttons -->
+
         <div class="hero-btn-row">
           <a href="login.html" class="btn-hero-primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
@@ -551,7 +539,7 @@
           </a>
         </div>
 
-        <!-- 1-Tap Quick Demo Strip -->
+
         <div class="demo-strip">
           <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Quick Demo:</span>
           <button onclick="quickDemoLanding('clinician')" class="btn-hero-secondary" style="padding:6px 12px; font-size:0.78rem; cursor:pointer;">
@@ -563,7 +551,7 @@
         </div>
       </div>
 
-      <!-- Right Column: Interactive Mockup Showcase -->
+
       <div>
         <div class="hero-preview-phone">
           <div class="mob-shield-box" style="margin-bottom:16px; width:72px; height:72px;">
@@ -593,7 +581,7 @@
       </div>
     </section>
 
-    <!-- 4-Feature Highlights Grid -->
+
     <section class="features-grid">
       <div class="feature-card">
         <div class="feature-icon-badge">
@@ -629,9 +617,7 @@
     </section>
   </div>
 
-  <script>
-    // Check if user is already signed in
-    window.addEventListener('DOMContentLoaded', () => {
+  <script>    window.addEventListener('DOMContentLoaded', () => {
       try {
         const saved = localStorage.getItem('identi_skin_user');
         if (saved) {

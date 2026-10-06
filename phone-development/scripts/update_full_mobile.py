@@ -3,8 +3,6 @@ import re
 with open('index.html', 'r', encoding='utf-8') as f:
     html = f.read()
 
-# Let's inspect index.html structure
-# We want to insert the mobile native container inside .app-container or main-viewport
 mobile_native_html = '''
     <!-- ====================================================================
          NATIVE MOBILE FULL-SCREEN APPLICATION (PHONE VIEWPORT < 768px)
@@ -421,7 +419,6 @@ mobile_native_html = '''
     </div>
 '''
 
-# Find the end of </main> and insert before mobile-persistent-nav
 insert_marker = '<nav class="mobile-persistent-nav hidden">'
 if insert_marker in html:
     html = html.replace(insert_marker, mobile_native_html + '\n    ' + insert_marker)

@@ -1,12 +1,3 @@
-"""
-Build the final zip for Izzy: the self-contained ablation_training folder plus
-Daniel's finished results, a one-click Windows launcher and a short README.
-
-    .venv/bin/python training/build_izzy_zip.py
-
-Writes ~/Documents/TOOL2026/for_izzy_ablation_training.zip
-"""
-
 from __future__ import annotations
 
 import os
@@ -20,7 +11,7 @@ TOOL2026 = HERE.parent.parent
 BUILD = TOOL2026 / "_for_izzy_build"
 os.environ["ABLATION_PACKAGE_DEST"] = str(BUILD / "ablation_training")
 sys.path.insert(0, str(HERE))
-import build_package  # noqa: E402  (reads ABLATION_PACKAGE_DEST)
+import build_package
 
 OUT = TOOL2026 / "for_izzy_ablation_training.zip"
 DANIEL_CANDIDATES = [

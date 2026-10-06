@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Sign In | IDENTI-SKIN</title>
   <link rel="stylesheet" href="styles.css">
-  <style>
-    body, html {
+  <style>    body, html {
       margin: 0;
       padding: 0;
       width: 100vw;
@@ -142,13 +141,13 @@
 <body>
   <div class="auth-page-box">
     <div>
-      <!-- Back button to Welcome / 1st Page -->
+
       <a href="index.html" class="auth-back-link">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         <span>Back to Welcome</span>
       </a>
 
-      <!-- Header with mini brand -->
+
       <div class="auth-header-row">
         <div class="auth-brand-badge">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -163,7 +162,7 @@
         </div>
       </div>
 
-      <!-- 1-Tap Quick Demo Access -->
+
       <div class="demo-bar">
         <div class="demo-title"> 1-Tap Quick Demo Access</div>
         <div class="demo-grid">
@@ -176,7 +175,7 @@
         </div>
       </div>
 
-      <!-- Sign In Form -->
+
       <form id="pure-signin-form" onsubmit="handlePureLogin(event)">
         <div class="form-group" style="margin-bottom: 14px;">
           <label class="form-label">Email or PUP WebMail</label>
@@ -204,13 +203,13 @@
         </button>
       </form>
 
-      <!-- Switch to Register -->
+
       <div style="text-align:center; margin-top:14px; font-size:0.75rem; color:var(--text-muted);">
         Don't have an account yet? <a href="register.html" style="color:var(--brand-primary); font-weight:700; text-decoration:none;">Create an Account</a>
       </div>
     </div>
 
-    <!-- Security Compliance Footer -->
+
     <div style="display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:var(--text-muted); margin-top:24px;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -220,8 +219,7 @@
     </div>
   </div>
 
-  <script>
-    function directLogin(role) {
+  <script>    function directLogin(role) {
       const user = role === 'clinician' ? {
         name: 'Dr. Maria Santos',
         email: 'm.santos@pup.edu.ph',

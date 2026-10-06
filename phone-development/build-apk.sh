@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-# ==============================================================================
-# IDENTI-SKIN Android APK One-Click Build Script
-# ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"

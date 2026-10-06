@@ -1,23 +1,3 @@
-"""
-Real Grad-CAM for Models A-D on the 200 test images, plus Grad-CAM IoU (the paper's XAI measure).
-
-Target: the class logits of the model's own detections (one-to-many head, the one Ultralytics val/predict
-use for the reported results; confidence >= 0.25, up to 10;
-the single top detection if none pass). Grad-CAM is taken at the last feature layer of the
-classification head (cv3) at each scale (P3, P4, P5; 64 channels, the input of the final 1x1 class
-convolution), each normalized, upsampled and averaged. The app computes the same map on the phone
-(frontend/ondevice.js), where the gradient is exact because the final class layer is linear.
-
-Grad-CAM IoU: heatmap >= 15% of its max (Selvaraju et al., 2017) vs the union of the ground-truth lesion boxes.
-Also reported: energy inside boxes = share of heatmap mass that falls inside the lesion boxes.
-
-Runs on the CPU (the GPU may be training).
-
-    ../TOOL-26/.venv/bin/python final/gradcam_analysis.py        (from ablation_training/)
-
-Writes final/gradcam_results/ (per-image CSV, summary, statistics, figures, app assets).
-"""
-
 from __future__ import annotations
 
 import json
@@ -42,7 +22,7 @@ D_WEIGHTS = "ModelD_full"
 _choice = HERE / "d_tuning_choice.json"
 if _choice.is_file():
     D_WEIGHTS = json.loads(_choice.read_text())["winner"]
-MODELS = {  # key: (label, dataset folder, weights name)
+MODELS = {
     "A": ("Baseline", "ModelA_raw", "ModelA_raw"),
     "B": ("Fixed L*-CLAHE (β=2.0)", "ModelC_fixed_l_clahe", "ModelC_fixed_l_clahe"),
     "C": ("Focal Loss", "ModelA_raw", "ModelC_focal"),
@@ -53,11 +33,10 @@ IMGSZ = 640
 N_SCALES = 3
 CONF = 0.25
 MAX_TARGETS = 10
-CAM_THRESHOLD = 0.15  # 15% of the maximum, the localization threshold of Selvaraju et al. (2017)
+CAM_THRESHOLD = 0.15
 
 
 def letterbox(img: np.ndarray, stride: int = 32) -> tuple[np.ndarray, float, tuple[int, int]]:
-    """Ultralytics LetterBox(auto=True): fit 640, pad only to a multiple of 32 (as predict and the app)."""
     h, w = img.shape[:2]
     r = min(IMGSZ / h, IMGSZ / w)
     nw, nh = round(w * r), round(h * r)
@@ -90,7 +69,7 @@ class GradCAM:
         x.requires_grad_(True)
         self.model.zero_grad()
         _, preds = self.model(x)
-        scores = preds["one2many"]["scores"][0]            # (nc, anchors) logits
+        scores = preds["one2many"]["scores"][0]
         probs = scores.sigmoid()
         best_p, best_c = probs.max(0)
         idx = torch.nonzero(best_p >= CONF).flatten()
@@ -130,7 +109,6 @@ def gt_mask(label: Path, h: int, w: int) -> tuple[np.ndarray, np.ndarray, list[t
 
 
 def overlay(img: np.ndarray, cam: np.ndarray, boxes: list[tuple] | None = None) -> np.ndarray:
-    # Colour only where the model looks: blend weight follows the heatmap value.
     heat = cv2.applyColorMap((cam * 255).astype(np.uint8), cv2.COLORMAP_JET).astype(np.float32)
     alpha = (0.65 * np.clip(cam, 0, 1))[..., None]
     out = (img.astype(np.float32) * (1 - alpha) + heat * alpha).astype(np.uint8)
@@ -206,7 +184,6 @@ def main() -> None:
     tests = pd.DataFrame(tests)
     tests.to_csv(OUT / "gradcam_statistics.csv", index=False)
 
-    # Figure + app assets: one single-disease test image per class, chosen by image ID (no cherry-picking).
     examples = []
     raw_dir = DATASETS / "ModelA_raw" / "images" / "test"
     single = df[(df["model"] == "A") & ~df["gt_classes"].str.contains(";")]
@@ -221,7 +198,6 @@ def main() -> None:
         h, w = raw.shape[:2]
         _, _, boxes = gt_mask(DATASETS / "ModelA_raw" / "labels" / "test" / f"{stem}.txt", h, w)
         def cell(image):
-            # Fixed 300x240 cell (letterboxed on white) so the columns line up.
             s_ = min(300 / image.shape[1], 240 / image.shape[0])
             small_ = cv2.resize(image, (round(image.shape[1] * s_), round(image.shape[0] * s_)))
             canvas = np.full((240, 300, 3), 255, np.uint8)

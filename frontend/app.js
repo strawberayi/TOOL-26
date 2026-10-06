@@ -1,24 +1,12 @@
-/**
- * IDENTI-SKIN app: Home, Image workspace, Analysis results (patients and clinicians),
- * Benchmark and Research views (clinicians).
- *
- * Every number shown comes from the on-device pipeline (ondevice.js), from
- * benchmark_data.json (backend/export_app_benchmark.py: the paper's test-set results) or
- * from assets/gradcam/gradcam.json (ablation_training/final/gradcam_analysis.py).
- */
-
-// ------------------------------------------------------------------ study definitions
-
-// Eight diseases in model output order (models/manifest.json).
 const CLASSES = ['Warts', 'Molluscum', 'Varicella', 'HFMD', 'Tinea versicolor', 'Tinea corporis', 'Tinea pedis', 'Impetigo'];
 
-// Two morphological clusters of four diseases (paper: analytical groupings, not medical categories).
+
 const CLUSTERS = [
   { name: 'Vesiculopapular / Eruptive', classes: ['Varicella', 'HFMD', 'Molluscum', 'Impetigo'] },
   { name: 'Papulosquamous / Verrucous', classes: ['Tinea corporis', 'Tinea versicolor', 'Warts', 'Tinea pedis'] },
 ];
 
-// Pathogen categories from the paper's scope (four viral, three fungal, one bacterial).
+
 const CATEGORY = {
   Molluscum: 'Viral', Varicella: 'Viral', HFMD: 'Viral', Warts: 'Viral',
   'Tinea corporis': 'Fungal', 'Tinea versicolor': 'Fungal', 'Tinea pedis': 'Fungal',
@@ -31,8 +19,7 @@ const DISPLAY_NAME = {
   'Tinea corporis': 'Buni (Ringworm)', 'Tinea pedis': "Alipunga (Athlete's foot)", Impetigo: 'Mamaso (Impetigo)',
 };
 
-// Typical appearance of each disease: reference text (literature), not measured from the photo.
-// Sources cited in the paper's review: Chauhan et al. (2023), Leung et al. (2022), Rahim et al. (2025).
+
 const MORPHOLOGY = {
   Warts: { texture: 'Rough, raised, cauliflower-like surface; tiny black dots (clotted capillaries)',
     crust: 'Usually none; thickened keratin instead', border: 'Well-circumscribed papules or plaques',
@@ -53,7 +40,7 @@ const MORPHOLOGY = {
     border: 'Irregular, spreading, often around the nose and mouth', apart: 'Honey-coloured crust, unlike Buni' },
 };
 
-// The four configurations of SOP 1 and SOP 2.
+
 const CONFIGS = {
   A: { short: 'Baseline', text: 'Baseline YOLOv26, raw images' },
   B: { short: 'Fixed L*-CLAHE', text: 'Fixed-parameter L*-CLAHE, clip limit 2.0' },
@@ -61,18 +48,17 @@ const CONFIGS = {
   D: { short: 'Proposed', text: 'ITA-guided adaptive L*-CLAHE + two-stage decoupled training + Focal Loss' },
 };
 
-// ITA brackets of the Phase 0 calibration and the SOP 3 skin-type groups (ITA proxy).
+
 const BRACKET_RULE = 'Darkest: ITA < 28° · Medium: 28° ≤ ITA ≤ 41° · Lightest: ITA > 41°';
 const BRACKET_EDGES = [28, 41];
 
-// ------------------------------------------------------------------ state
 
 const State = {
   user: null,
   tab: 'home',
-  current: null,        // { source, name, result, at }
+  current: null,
   history: [],
-  compare: null,        // runCompare result for the current photo
+  compare: null,
   consistency: null,
   deviceRuntime: null,
   sessionTimings: [],
@@ -80,23 +66,24 @@ const State = {
   gradcamExample: 0,
   split: 50,
   showBoxes: true,
+  showHeatmap: true,
+  heatmapOpacity: 70,
 };
 let BENCH = null;
 let GRADCAM = null;
 
-// ------------------------------------------------------------------ helpers
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pct = (x, d = 1) => `${(x * 100).toFixed(d)}%`;
-// Scores: small values keep two significant decimals instead of rounding to 0.0%.
+
 const pctS = x => (x >= 0.01 ? pct(x) : x >= 0.0001 ? `${(x * 100).toFixed(2)}%` : '< 0.01%');
 const num = (x, d = 3) => (x === null || x === undefined || Number.isNaN(x) ? '—' : Number(x).toFixed(d));
 const ms = x => `${Math.round(x)} ms`;
 const pText = p => (p < 0.001 ? 'p < 0.001' : `p = ${p.toFixed(3)}`);
 const clusterOf = label => CLUSTERS.find(c => c.classes.includes(label));
 const logit = p => { const q = Math.min(Math.max(p, 1e-12), 1 - 1e-12); return Math.log(q / (1 - q)); };
-// Sigmoid values: 4 decimals, or 3 significant digits when very small.
+
 const sig = p => (p >= 0.0001 ? p.toFixed(4) : p.toExponential(2));
 const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sd = xs => (xs.length > 1 ? Math.sqrt(xs.reduce((a, b) => a + (b - mean(xs)) ** 2, 0) / (xs.length - 1)) : 0);
@@ -111,10 +98,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
-// ------------------------------------------------------------------ progress dialog
 
-// Modal shown while the models run. Steps are driven by the real progress events of
-// ondevice.js; each finished step shows its measured time.
 const Progress = (() => {
   let job = null;
   let lastFocus = null;
@@ -218,10 +202,9 @@ const ANALYSIS_STEPS = [
   { id: 'clahe', label: 'L*-CLAHE enhancement' },
   { id: 'detect', label: 'Detecting lesions (YOLOv26, Model D)' },
   { id: 'gradcam', label: 'Grad-CAM' },
-  { id: 'features', label: 'Measuring lesion features' },
+  { id: 'features', label: 'Cropping the detected lesions' },
 ];
 
-// ------------------------------------------------------------------ analysis
 
 async function analyzePhoto(source, name) {
   const job = Progress.open({ title: 'Analyzing on device', photo: source, steps: ANALYSIS_STEPS });
@@ -265,7 +248,6 @@ async function handleFile(file) {
 function openFilePicker() { $('file-input').click(); }
 function openCamera() { $('camera-input').click(); }
 
-// ------------------------------------------------------------------ navigation
 
 const TAB_ALIASES = { patient: 'results', panel: 'benchmark', xai: 'research' };
 const CLINICIAN_TABS = ['benchmark', 'research'];
@@ -288,7 +270,6 @@ function switchTab(tab) {
 
 function toggleDrawer(open) { $('drawer').hidden = !open; }
 
-// ------------------------------------------------------------------ users
 
 function initUser() {
   try {
@@ -310,12 +291,11 @@ function initUser() {
 
 function authAction() {
   if (State.user?.isLoggedIn) {
-    try { localStorage.removeItem('identi_skin_user'); } catch (err) { /* storage unavailable */ }
+    try { localStorage.removeItem('identi_skin_user'); } catch (err) {  }
   }
   window.location.href = 'login.html';
 }
 
-// ------------------------------------------------------------------ rendering: home
 
 function renderHome() {
   $('recent-list').innerHTML = State.history.length ? State.history.map((h, i) => {
@@ -347,7 +327,6 @@ function openHistory(i) {
   switchTab('results');
 }
 
-// ------------------------------------------------------------------ rendering: workspace
 
 function renderWorkspace() {
   const cur = State.current;
@@ -360,32 +339,44 @@ function renderWorkspace() {
   const W = r.image.width, H = r.image.height;
   const viewer = $('viewer');
   viewer.style.aspectRatio = `${W} / ${H}`;
-  viewer.style.width = `min(100%, calc(62vh * ${(W / H).toFixed(4)}))`;  // keep the photo's shape under the height limit
+  viewer.style.width = `min(100%, calc(62vh * ${(W / H).toFixed(4)}))`;
   $('viewer-original').src = cur.source;
   $('viewer-enhanced').src = r.enhanced_image;
   setSplit(State.split);
 
+  const heat = $('viewer-heatmap');
+  heat.src = r.gradcam_heatmap || '';
+  heat.hidden = !State.showHeatmap || !r.gradcam_heatmap;
+  heat.style.opacity = State.heatmapOpacity / 100;
+  const below = r.below_cutoff;
+  $('heatmap-note').textContent = !r.gradcam_heatmap ? 'Grad-CAM is not available for this photo.'
+    : r.detections.length
+      ? `Grad-CAM: where Model D found the evidence for the ${r.detections.length} detected box(es). It shows where the model focused, not whether it is correct.`
+      : `No box reached the ${pct(r.settings.confidence, 0)} cutoff, so nothing is counted as a lesion. The warm areas are where the model saw weak signs of ${below ? below.label : 'a disease'}; the strongest one (dashed box, ${below ? pct(below.confidence) : '—'}) was still below the cutoff.`;
+
   const svg = $('viewer-boxes');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const font = Math.max(10, Math.round(Math.max(W, H) / 45));
-  svg.innerHTML = State.showBoxes ? r.detections.map((d, i) => {
+  const boxSvg = (d, label, cls) => {
     const [x1, y1, x2, y2] = [d.box[0] * W, d.box[1] * H, d.box[2] * W, d.box[3] * H];
-    const label = `${i + 1}. ${d.label} ${pct(d.confidence)}`;
-    return `<g class="det${i === 0 ? ' top' : ''}">
+    const ty = Math.max(0, y1 - font * 1.4);
+    const tw = label.length * font * 0.58 + font * 0.6;
+    const tx = Math.max(0, Math.min(x1, W - tw));
+    return `<g class="det ${cls}">
       <rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" stroke-width="${font / 5}"></rect>
-      <rect class="det-tag" x="${x1}" y="${Math.max(0, y1 - font * 1.4)}" width="${label.length * font * 0.58 + font * 0.6}" height="${font * 1.4}"></rect>
-      <text x="${x1 + font * 0.3}" y="${Math.max(0, y1 - font * 1.4) + font * 1.05}" font-size="${font}">${esc(label)}</text>
+      <rect class="det-tag" x="${tx}" y="${ty}" width="${tw}" height="${font * 1.4}"></rect>
+      <text x="${tx + font * 0.3}" y="${ty + font * 1.05}" font-size="${font}">${esc(label)}</text>
     </g>`;
-  }).join('') : '';
+  };
+  svg.innerHTML = !State.showBoxes ? ''
+    : r.detections.length
+      ? r.detections.map((d, i) => boxSvg(d, `${i + 1}. ${d.label} ${pct(d.confidence)}`, i === 0 ? 'top' : '')).join('')
+      : below ? boxSvg(below, `Not counted: ${below.label} ${pct(below.confidence)}`, 'below') : '';
 
-  $('workspace-boxes').innerHTML = r.detections.length ? `
-    <table class="data-table">
-      <thead><tr><th>#</th><th>Disease (box label)</th><th>Model confidence</th><th>Box (x1, y1, x2, y2) px</th></tr></thead>
-      <tbody>${r.detections.map((d, i) => `<tr><td>${i + 1}</td><td>${esc(d.label)}</td><td>${pct(d.confidence)}</td><td class="mono">${d.box_px.join(', ')}</td></tr>`).join('')}</tbody>
-    </table>
-    <p class="note">Boxes with confidence ≥ ${pct(r.settings.confidence, 0)} after per-class non-maximum suppression (IoU ${r.settings.nms_iou}).
-      Pixel coordinates of the analysed image (${W} × ${H}).</p>`
-    : `<p class="note">No box reached the ${pct(r.settings.confidence, 0)} cutoff.${r.below_cutoff ? ` Strongest candidate below it: ${esc(r.below_cutoff.label)} ${pct(r.below_cutoff.confidence)} (not counted).` : ''}</p>`;
+  const top = r.detections[0];
+  $('workspace-morph').innerHTML = top
+    ? morphologyCard(top.label, true)
+    : '<p class="note">Morphological features are shown when a lesion is detected.</p>';
 }
 
 function setSplit(p) {
@@ -446,7 +437,6 @@ async function runComparison() {
   }
 }
 
-// ------------------------------------------------------------------ rendering: results
 
 function scoreBars(scores, labels, highlight) {
   return labels.map(label => {
@@ -467,72 +457,54 @@ function candidateCard(det, counted) {
   return `
     <div class="card">
       <div class="card-head"><h2>Candidate diseases</h2><span class="tag">${counted ? 'Top box' : 'Not counted'}</span></div>
-      <p class="note">Model scores of the four diseases in the <b>${esc(cluster.name)}</b> group, read from the same box.
-        Each is an independent sigmoid score, so they do not add up to 100%.</p>
+      <p class="note">Model scores of the four diseases in the <b>${esc(cluster.name)}</b> group, read from the same box.</p>
       ${scoreBars(det.scores, ranked, det.label)}
       <p class="explain">${esc(DISPLAY_NAME[ranked[0]])} ranked first: ${pctS(s(ranked[0]))} versus ${esc(DISPLAY_NAME[ranked[1]])} ${pctS(s(ranked[1]))}
         (difference ${((s(ranked[0]) - s(ranked[1])) * 100).toFixed(1)} percentage points).
         Highest score outside this group: ${esc(DISPLAY_NAME[outside])} ${pctS(s(outside))}.</p>
+      <details class="calc">
+        <summary>Why don't these add up to 100%?</summary>
+        <p>The model asks a separate yes-or-no question for each disease: "Is this ${esc(DISPLAY_NAME[ranked[0]])}?", "Is this ${esc(DISPLAY_NAME[ranked[1]])}?", and so on.
+          Each answer is its own score from 0% to 100% (a sigmoid output), so the scores are not shares of one whole.</p>
+        <p>${pctS(s(ranked[0]))} for ${esc(DISPLAY_NAME[ranked[0]])} means the model is that sure this lesion is ${esc(DISPLAY_NAME[ranked[0]])}. The remaining
+          ${((1 - s(ranked[0])) * 100).toFixed(1)}% is its doubt about that answer; it is not given to the other diseases. Each of the other diseases got its own,
+          separate low score (for example ${esc(DISPLAY_NAME[ranked[1]])} ${pctS(s(ranked[1]))}), which means the model says "no" to them.</p>
+        <p>This is how YOLO detectors are trained (one yes/no loss per disease, binary cross-entropy / Focal Loss), so a lesion can also score low for every disease;
+          that is when "No lesion detected" appears.</p>
+      </details>
     </div>`;
 }
 
 function featureCard(r) {
   const crops = r.lesion_crops || [];
   if (!crops.length) return '';
-  const W = r.image.width, H = r.image.height;
-  const sign = v => (v > 0 ? `+${v}` : `${v}`);
   return `
     <div class="card">
-      <div class="card-head"><h2>Lesion feature extraction</h2><span class="tag">${crops.length} lesion(s)</span></div>
-      <p class="note">Each detected box, cropped from the photo, with values measured inside the box and in the ring of skin around it
-        (box enlarged by 50%). These measurements describe the lesion; they are not inputs to the model.</p>
+      <div class="card-head"><h2>Detected lesions</h2><span class="tag">${crops.length}</span></div>
+      <p class="note">Each lesion found by the model, cropped from the photo, with its model confidence.</p>
       <div class="crops">
-        ${crops.map((c, i) => {
-          const [lL, la, lb] = c.lesion_lab;
-          const [sL, sa, sb] = c.skin_lab;
-          const dL = +(lL - sL).toFixed(1), da = +(la - sa).toFixed(1), db = +(lb - sb).toFixed(1);
-          const z = logit(c.confidence);
-          return `
+        ${crops.map((c, i) => `
           <article class="crop">
             <div class="crop-top">
               <img src="${c.image}" alt="Lesion ${i + 1}">
               <div>
                 <div class="crop-conf">${(c.confidence * 100).toFixed(2)}</div>
-                <div class="crop-label">${esc(c.label)}</div>
+                <div class="crop-label">${esc(DISPLAY_NAME[c.label])}</div>
                 <div class="muted">model confidence (%)</div>
               </div>
             </div>
-            <table class="kv">
-              <tr><td>Box size</td><td>${c.box_px[0]} × ${c.box_px[1]} px (${(100 * c.box_px[0] * c.box_px[1] / (W * H)).toFixed(1)}% of the photo)</td></tr>
-              <tr><td>Colour difference ΔE*ab</td><td>${c.delta_e}</td></tr>
-              <tr><td>Δa* (redness)</td><td>${sign(da)}</td></tr>
-              <tr><td>Δb* (yellowness)</td><td>${sign(db)}</td></tr>
-              <tr><td>ΔL* (lightness)</td><td>${sign(dL)}</td></tr>
-              <tr><td>Texture ratio</td><td>${c.roughness_ratio}</td></tr>
-            </table>
-            <details class="calc">
-              <summary>How these were calculated</summary>
-              <p><b>Confidence</b> = σ(z) = 1 / (1 + e<sup>−z</sup>) with z = ${z.toFixed(3)} → ${c.confidence.toFixed(4)}.</p>
-              <p><b>CIELAB</b> means: lesion (L*, a*, b*) = (${lL}, ${la}, ${lb}); surrounding skin = (${sL}, ${sa}, ${sb}).</p>
-              <p><b>ΔE*ab</b> = √(ΔL*² + Δa*² + Δb*²) = √(${dL}² + ${da}² + ${db}²) = ${c.delta_e}.</p>
-              <p><b>Δa*</b> = ${la} − ${sa} = ${sign(da)} (positive = redder than the skin); <b>Δb*</b> = ${lb} − ${sb} = ${sign(db)} (positive = more yellow);
-                <b>ΔL*</b> = ${lL} − ${sL} = ${sign(dL)} (negative = darker).</p>
-              <p><b>Texture ratio</b> = σ(Laplacian of grey levels) in the box ÷ σ in the skin ring = ${c.lesion_rough} ÷ ${c.skin_rough} = ${c.roughness_ratio}
-                (above 1 = more local intensity variation than the surrounding skin).</p>
-            </details>
-          </article>`;
-        }).join('')}
+          </article>`).join('')}
       </div>
     </div>`;
 }
 
-function morphologyCard(label) {
+function morphologyCard(label, embedded = false) {
   const m = MORPHOLOGY[label];
   return `
-    <div class="card morphology">
+    <div class="${embedded ? 'morphology embedded' : 'card morphology'}">
       <div class="card-head"><h2>Morphological view</h2><span class="tag">Reference</span></div>
       <p class="note">Typical appearance of <b>${esc(DISPLAY_NAME[label])}</b> from the literature, to compare with the photo.
-        <b>Not measured from your photo</b> and not used by the model; the measured values are in Lesion feature extraction.</p>
+        <b>Not measured from your photo</b> and not used by the model.</p>
       <table class="kv">
         <tr><td>Surface texture</td><td>${esc(m.texture)}</td></tr>
         <tr><td>Crust and exudate</td><td>${esc(m.crust)}</td></tr>
@@ -574,6 +546,7 @@ function calculationCard(r) {
     </details>`;
 }
 const BENCH_D_WEIGHTS = 'best_ModelD_g1.0_f11_seed42.pt';
+const PLAIN_METRIC = { 'AP@50': 'Box accuracy', 'AP@50–95': 'Strict box accuracy', Precision: 'Precision', Recall: 'Recall', F1: 'F1' };
 
 function renderResults() {
   const cur = State.current;
@@ -623,7 +596,6 @@ function renderResults() {
   $('results-body').innerHTML = html;
 }
 
-// ------------------------------------------------------------------ rendering: benchmark
 
 function selectBenchModel(id) {
   State.benchModel = id;
@@ -633,7 +605,7 @@ function selectBenchModel(id) {
 function renderBenchmark() {
   const body = $('bench-body');
   if (!BENCH) { $('bench-note').textContent = 'benchmark_data.json not found.'; body.innerHTML = ''; return; }
-  $('bench-note').textContent = BENCH.note;
+  $('bench-note').textContent = `The four models (A–D) tested on the same ${BENCH.testImages} photos that were never used in training.`;
   const models = BENCH.models;
   const sel = models.find(m => m.id === State.benchModel) || models[3];
   const cell = (m, v) => `<td class="${m.id === sel.id ? 'sel' : ''}">${v}</td>`;
@@ -644,36 +616,49 @@ function renderBenchmark() {
 
   const sopMap = `
     <div class="card">
-      <div class="card-head"><h2>What each SOP is answered by</h2></div>
+      <div class="card-head"><h2>What this page answers</h2></div>
       <table class="data-table">
-        <tr><td><b>SOP 1</b> Localization of A–D: mAP@50, mAP@50–95</td><td>Section 1 below</td></tr>
-        <tr><td><b>SOP 2</b> Classification of A–D: precision, recall, F1, within-cluster misclassification</td><td>Section 2</td></tr>
-        <tr><td><b>SOP 3</b> ΔAP50 (D − A), Fitzpatrick I–II vs III–V (ITA proxy)</td><td>Section 3</td></tr>
-        <tr><td><b>H01</b> Differences among A–D (Friedman, Wilcoxon, Bonferroni, rank-biserial)</td><td>Section 4</td></tr>
-        <tr><td><b>H02</b> Skin-type difference (Mann-Whitney U)</td><td>Section 3</td></tr>
-        <tr><td>System check: inference time</td><td>Section 5</td></tr>
-        <tr><td>Framework on one photo</td><td>Workspace, Results, Research</td></tr>
+        <tr><td><b>SOP 1</b> How well does each model find and box the lesions?</td><td>Section 1</td></tr>
+        <tr><td><b>SOP 2</b> How well does each model name the right disease, especially look-alike diseases?</td><td>Section 2</td></tr>
+        <tr><td><b>SOP 3</b> Does Model D help darker skin (Fitzpatrick III–V) as much as lighter skin (I–II)?</td><td>Section 3</td></tr>
+        <tr><td><b>H01, H02</b> Are the differences real or just chance?</td><td>Sections 3 and 4</td></tr>
+        <tr><td>How fast is it?</td><td>Section 5</td></tr>
       </table>
+      <details class="calc"><summary>Words used on this page</summary>
+        <p><b>Box accuracy (mAP@50)</b>: how often the model's box lands on the real lesion and has the right disease, averaged over the 8 diseases.
+          The box counts if it overlaps the real lesion by at least half (IoU ≥ 0.5).</p>
+        <p><b>Strict box accuracy (mAP@50–95)</b>: the same, but the box must fit the lesion more tightly (overlap from 50% up to 95%).</p>
+        <p><b>Precision</b>: of the lesions the model reported, how many were really that disease. Low precision = many false alarms.</p>
+        <p><b>Recall</b>: of the real lesions, how many the model found. Low recall = many missed lesions.</p>
+        <p><b>F1</b>: one score that balances precision and recall (0 to 1, higher is better).</p>
+        <p><b>Look-alike errors (within-cluster rate)</b>: how often a lesion was named as a different disease from the same look-alike group.
+          Lower is better.</p>
+        <p><b>Confusion matrix</b>: a table of real disease (rows) versus the model's answer (columns). The diagonal is correct.</p>
+        <p><b>Skin-tone group</b>: from the ITA, a colour measure of the skin in the photo (an estimate of Fitzpatrick type, not a clinical assessment).</p>
+        <p><b>p-value</b>: below 0.05 means the difference is unlikely to be due to chance (statistically significant).</p>
+        <p class="muted">Technical note: ${esc(BENCH.note)}</p>
+      </details>
     </div>`;
 
   const keys = `
     <div class="model-keys selectable">${models.map(m => `
       <button type="button" class="model-key${m.id === sel.id ? ' selected' : ''}" onclick="selectBenchModel('${m.id}')" aria-pressed="${m.id === sel.id}">
         <b>${m.id}</b><span>${esc(CONFIGS[m.id].text)}</span></button>`).join('')}</div>
-    <p class="note">Tap a configuration to show its computations, per-disease values and confusion matrix.</p>`;
+    <p class="note">Tap a model to see its details: results per disease, how each number was computed, and which diseases it mixes up.</p>`;
 
   const sop1 = `
     <div class="card">
-      <div class="card-head"><h2>1 · Localization (SOP 1)</h2></div>
+      <div class="card-head"><h2>1 · Finding the lesions (SOP 1)</h2></div>
+      <p class="note">How well each model puts a box on the real lesion with the right disease, on the 200 test images. Higher is better.</p>
       <table class="data-table center"><thead>${head}</thead><tbody>
-        <tr><th>mAP@50</th>${models.map(m => cell(m, `${m.map50.toFixed(1)}%`)).join('')}</tr>
-        <tr><th>mAP@50–95</th>${models.map(m => cell(m, `${m.map5095.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>Box accuracy<small>mAP@50</small></th>${models.map(m => cell(m, `${m.map50.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>Strict box accuracy<small>mAP@50–95</small></th>${models.map(m => cell(m, `${m.map5095.toFixed(1)}%`)).join('')}</tr>
       </tbody></table>
       <h3>Per disease, Model ${sel.id}</h3>
       <table class="data-table"><thead><tr><th>Disease</th><th>Boxes</th><th>AP@50</th><th>AP@50–95</th></tr></thead><tbody>
         ${pc.map(c => `<tr><td>${esc(c.class)}</td><td>${c.instances}</td><td class="mono">${c.AP50.toFixed(4)}</td><td class="mono">${c.AP50_95.toFixed(4)}</td></tr>`).join('')}
       </tbody></table>
-      <details class="calc"><summary>Computation for Model ${sel.id}</summary>
+      <details class="calc"><summary>How it was computed (Model ${sel.id})</summary>
         <p>AP@50 of a disease = area under its precision–recall curve, a predicted box counting as correct when IoU ≥ 0.50 with a labelled box of the same disease.
           AP@50–95 averages AP over IoU 0.50, 0.55, …, 0.95.</p>
         <p><b>mAP@50</b> = (1/8) Σ AP@50 = (${pc.map(c => c.AP50.toFixed(4)).join(' + ')}) / 8 = ${(sum('AP50') / 8).toFixed(4)} = ${(ex.mAP50 * 100).toFixed(1)}%</p>
@@ -684,19 +669,20 @@ function renderBenchmark() {
   const cl = sel.clusters;
   const sop2 = `
     <div class="card">
-      <div class="card-head"><h2>2 · Classification (SOP 2)</h2></div>
+      <div class="card-head"><h2>2 · Naming the right disease (SOP 2)</h2></div>
+      <p class="note">Higher precision, recall and F1 are better; fewer look-alike errors are better.</p>
       <table class="data-table center"><thead>${head}</thead><tbody>
-        <tr><th>Precision</th>${models.map(m => cell(m, `${m.precision.toFixed(1)}%`)).join('')}</tr>
-        <tr><th>Recall</th>${models.map(m => cell(m, `${m.recall.toFixed(1)}%`)).join('')}</tr>
-        <tr><th>F1</th>${models.map(m => cell(m, m.f1.toFixed(3))).join('')}</tr>
-        <tr><th>Within-cluster errors, eruptive</th>${models.map(m => cell(m, `${m.withinEruptive.toFixed(1)}%`)).join('')}</tr>
-        <tr><th>Within-cluster errors, scaly/verrucous</th>${models.map(m => cell(m, `${m.withinScaly.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>Precision<small>reported lesions that were right</small></th>${models.map(m => cell(m, `${m.precision.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>Recall<small>real lesions that were found</small></th>${models.map(m => cell(m, `${m.recall.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>F1<small>balance of the two (0–1)</small></th>${models.map(m => cell(m, m.f1.toFixed(3))).join('')}</tr>
+        <tr><th>Look-alike errors<small>bumps and blisters group</small></th>${models.map(m => cell(m, `${m.withinEruptive.toFixed(1)}%`)).join('')}</tr>
+        <tr><th>Look-alike errors<small>scaly patches and warts group</small></th>${models.map(m => cell(m, `${m.withinScaly.toFixed(1)}%`)).join('')}</tr>
       </tbody></table>
       <h3>Per disease, Model ${sel.id}</h3>
       <table class="data-table"><thead><tr><th>Disease</th><th>P</th><th>R</th><th>F1</th></tr></thead><tbody>
         ${pc.map(c => `<tr><td>${esc(c.class)}</td><td class="mono">${c.precision.toFixed(4)}</td><td class="mono">${c.recall.toFixed(4)}</td><td class="mono">${c.F1.toFixed(4)}</td></tr>`).join('')}
       </tbody></table>
-      <details class="calc"><summary>Computation for Model ${sel.id}</summary>
+      <details class="calc"><summary>How it was computed (Model ${sel.id})</summary>
         <p>Per disease: precision = TP / (TP + FP), recall = TP / (TP + FN), at the confidence that maximizes the mean F1 (Ultralytics evaluation).</p>
         <p><b>Precision</b> = (1/8) Σ P = (${pc.map(c => c.precision.toFixed(4)).join(' + ')}) / 8 = ${ex.precision.toFixed(4)}</p>
         <p><b>Recall</b> = (1/8) Σ R = (${pc.map(c => c.recall.toFixed(4)).join(' + ')}) / 8 = ${ex.recall.toFixed(4)}</p>
@@ -707,22 +693,25 @@ function renderBenchmark() {
           ${cl.map(c => `<tr><td>${esc(c.cluster)}</td><td>${c.gt}</td><td>${c.detected}</td><td>${c.correct}</td><td>${c.within}</td><td>${c.cross}</td><td class="mono">${c.within} / ${c.detected} = ${(100 * c.within / c.detected).toFixed(1)}%</td></tr>`).join('')}
         </tbody></table>
       </details>
-      <h3>Confusion matrix, Model ${sel.id}</h3>
+      <h3>Which diseases get mixed up (confusion matrix), Model ${sel.id}</h3>
       ${confusionMatrix(sel)}
     </div>`;
 
   const ft = BENCH.fairnessTest;
   const sop3 = `
     <div class="card">
-      <div class="card-head"><h2>3 · Skin-type groups (SOP 3, H02)</h2></div>
-      <p class="note">Groups from the ITA of each test image (ITA proxy of Fitzpatrick type; ITA ≤ −30°, type VI, excluded: ${ft.excludedVI} images; no ITA: ${ft.excludedNoIta}).</p>
-      <table class="data-table center"><thead><tr><th>Group</th><th>Images</th>${models.map(m => `<th>${m.id}</th>`).join('')}<th>ΔAP50 (D − A)</th></tr></thead><tbody>
+      <div class="card-head"><h2>3 · Lighter vs darker skin (SOP 3)</h2></div>
+      <p class="note">Box accuracy (mAP@50) of each model for lighter and darker skin, and how much Model D changed it compared with the baseline (Model A).
+        Skin tone comes from the ITA of each test image (very dark, type VI, excluded: ${ft.excludedVI} images; no ITA: ${ft.excludedNoIta}).</p>
+      <table class="data-table center"><thead><tr><th>Group</th><th>Images</th>${models.map(m => `<th>${m.id}</th>`).join('')}<th>Change, D vs A</th></tr></thead><tbody>
         ${BENCH.fairness.map(g => `<tr><td>${esc(g.group)}<small>${esc(g.range)}</small></td><td>${g.images}</td>${models.map(m => `<td>${g.scores[m.id].toFixed(1)}%</td>`).join('')}<td class="mono">${g.dAP50 >= 0 ? '+' : ''}${(g.dAP50 * 100).toFixed(1)} pts</td></tr>`).join('')}
       </tbody></table>
-      <p class="explain">Mann-Whitney U on the per-image ΔAP50 (D − A), III–V (n = ${ft.n2}) versus I–II (n = ${ft.n1}):
-        U = ${ft.U}, <b>${pText(ft.p)}</b>, rank-biserial r = ${ft.r.toFixed(3)}; bootstrap 95% CI of the difference ${ft.ciLow.toFixed(3)} to ${ft.ciHigh.toFixed(3)}.
-        ${ft.p < 0.05 ? 'H02 is rejected at α = 0.05.' : 'H02 is not rejected at α = 0.05.'}</p>
-      <details class="calc"><summary>Computation</summary>
+      <p class="explain">${ft.p < 0.05
+        ? `Model D's change compared with Model A was significantly different between the two groups (${pText(ft.p)}): ${BENCH.fairness.map(g => `${g.dAP50 >= 0 ? '+' : ''}${(g.dAP50 * 100).toFixed(1)} points for ${g.group.replace(' (ITA proxy)', '')}`).join(', ')}. H02 is rejected. The effect is small (r = ${ft.r.toFixed(2)}, and the bootstrap interval includes 0).`
+        : `No significant difference between the two skin groups (${pText(ft.p)}). H02 is not rejected.`}</p>
+      <details class="calc"><summary>How it was computed</summary>
+        <p>Mann-Whitney U on the per-image ΔAP50 (D − A), III–V (n = ${ft.n2}) versus I–II (n = ${ft.n1}): U = ${ft.U}, ${pText(ft.p)},
+          rank-biserial r = ${ft.r.toFixed(3)}; bootstrap 95% CI of the difference ${ft.ciLow.toFixed(3)} to ${ft.ciHigh.toFixed(3)}.</p>
         <p>For each test image: ΔAP50 = AP50 of Model D − AP50 of Model A. Group mAP@50 values above are computed on the images of each group.</p>
         ${BENCH.fairness.map(g => `<p>${esc(g.group)}: mAP@50 D − A = ${g.scores.D.toFixed(1)}% − ${g.scores.A.toFixed(1)}% = ${(g.dAP50 * 100).toFixed(1)} points; mean per-image ΔAP50 = ${g.meanPerImageDAP50.toFixed(4)}, median = ${g.medianPerImageDAP50.toFixed(4)}.</p>`).join('')}
       </details>
@@ -730,13 +719,19 @@ function renderBenchmark() {
 
   const h01 = `
     <div class="card">
-      <div class="card-head"><h2>4 · Differences among A–D (H01)</h2></div>
-      <p class="note">Per-image scores on the ${BENCH.testImages} test images. Friedman test across A–D, then Wilcoxon signed-rank D versus A, B, C with Bonferroni correction (× 3); r = rank-biserial correlation.</p>
-      <div class="table-scroll"><table class="data-table center"><thead><tr><th>Metric</th><th>Friedman χ²</th><th>p</th><th>D vs A</th><th>D vs B</th><th>D vs C</th></tr></thead><tbody>
-        ${BENCH.tests.map(t => `<tr><td>${esc(t.metric)}</td><td>${t.friedmanChi2}</td><td class="${t.friedmanP < 0.05 ? 'sig' : ''}">${pText(t.friedmanP)}</td>
-          ${t.pairs.map(p => `<td class="${p.pBonf < 0.05 ? 'sig' : ''}">${pText(p.pBonf)}<small>r = ${p.r.toFixed(2)}</small></td>`).join('')}</tr>`).join('')}
+      <div class="card-head"><h2>4 · Are the differences real? (H01)</h2></div>
+      <p class="note">"Yes" = statistically significant (p < 0.05): the difference is unlikely to be chance. First across all four models, then Model D against each other model.</p>
+      <div class="table-scroll"><table class="data-table center"><thead><tr><th>Score</th><th>Any difference among A–D?</th><th>D vs A</th><th>D vs B</th><th>D vs C</th></tr></thead><tbody>
+        ${BENCH.tests.map(t => `<tr><td>${esc(PLAIN_METRIC[t.metric] || t.metric)}</td><td class="${t.friedmanP < 0.05 ? 'sig' : ''}">${t.friedmanP < 0.05 ? 'Yes' : 'No'}<small>${pText(t.friedmanP)}</small></td>
+          ${t.pairs.map(p => `<td class="${p.pBonf < 0.05 ? 'sig' : ''}">${p.pBonf < 0.05 ? (t.means.D > t.means[p.vs] ? 'D better' : 'D worse') : 'No'}<small>${pText(p.pBonf)}</small></td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
-      <p class="note">Highlighted: p < 0.05 after correction.</p>
+      <details class="calc"><summary>How it was computed</summary>
+        <p>Per-image scores on the ${BENCH.testImages} test images. Friedman test across A–D, then Wilcoxon signed-rank test of D versus A, B and C
+          with Bonferroni correction (p × 3); r = rank-biserial correlation (effect size).</p>
+        <table class="data-table center"><thead><tr><th>Score</th><th>Friedman χ²</th><th>r, D vs A</th><th>r, D vs B</th><th>r, D vs C</th></tr></thead><tbody>
+          ${BENCH.tests.map(t => `<tr><td>${esc(t.metric)}</td><td>${t.friedmanChi2}</td>${t.pairs.map(p => `<td>${p.r.toFixed(2)}</td>`).join('')}</tr>`).join('')}
+        </tbody></table>
+      </details>
     </div>`;
 
   const rt = BENCH.runtime;
@@ -744,15 +739,16 @@ function renderBenchmark() {
   const dev = State.deviceRuntime;
   const runtime = `
     <div class="card">
-      <div class="card-head"><h2>5 · Inference time</h2></div>
+      <div class="card-head"><h2>5 · Speed</h2></div>
+      <p class="note">How long one photo takes. GFLOPs = amount of computation per photo (same for all four models).</p>
       ${rt ? `
-      <h3>Training hardware (${esc(rt.hardware.device)})</h3>
-      <table class="data-table center"><thead><tr><th>Model</th><th>GFLOPs</th><th>Params (M)</th><th>Inference (ms)</th><th>Total (ms)</th></tr></thead><tbody>
+      <h3>On the training computer (${esc(rt.hardware.device)})</h3>
+      <table class="data-table center"><thead><tr><th>Model</th><th>GFLOPs</th><th>Parameters (millions)</th><th>Model time (ms)</th><th>Total time (ms)</th></tr></thead><tbody>
         ${Object.entries(rt.models).map(([id, m]) => `<tr><td>${id}</td><td>${m.gflops_640}</td><td>${m.params_million}</td><td>${m.inference_ms_mean} ± ${m.inference_ms_sd}</td><td>${m.total_ms_mean} ± ${m.total_ms_sd}</td></tr>`).join('')}
       </tbody></table>
       <p class="note">${esc(rt.hardware.framework)}; batch ${rt.hardware.batch}, input ${rt.hardware.imgsz} px (${esc(rt.hardware.letterbox)}), ${rt.models.D.images_timed} test images after ${rt.hardware.warmup_images} warm-up images; mean ± SD.
         Total = preprocess + inference + postprocess. ${esc(rt.hardware.note)}</p>` : '<p class="note">Runtime file not found.</p>'}
-      <h3>This device (on-device pipeline, Model D)</h3>
+      <h3>On this phone (Model D, whole analysis)</h3>
       ${dev ? runtimeTable(dev.runs, `${dev.runs.length} timed runs on a ${dev.image.width} × ${dev.image.height} px photo, after one warm-up run`) : ''}
       ${sess.length ? runtimeTable(sess, `${sess.length} analyses in this session (first one includes model loading)`) : ''}
       <button type="button" class="btn wide" onclick="measureDeviceRuntime()">Measure on this device (current photo, 5 runs)</button>
@@ -827,7 +823,6 @@ function alertInDialog(text) {
   Progress.finish({ title: 'IDENTI-SKIN', message: `<p>${esc(text)}</p>`, tone: 'warn' });
 }
 
-// ------------------------------------------------------------------ rendering: research
 
 function itaGroup(ita) {
   if (ita === null) return 'not available (no ITA)';
@@ -891,10 +886,19 @@ function renderResearch() {
       <div class="card">
         <div class="card-head"><h2>Grad-CAM of this photo</h2><span class="tag">Research only</span></div>
         ${r.gradcam_image ? `<img class="figure" src="${r.gradcam_image}" alt="Grad-CAM of Model D on this photo">` : '<p class="note">Not available.</p>'}
-        <p class="note">Shows where Model D's class evidence is strongest (Grad-CAM at the last feature layer of the class head; target anchors with score ≥ 0.25, up to 10:
-          ${r.gradcam_targets.length ? r.gradcam_targets.map(t => `${esc(t.label)} ${t.score.toFixed(3)}`).join(', ') : 'none'}).
-          ${r.lesion_measures && r.lesion_measures.gradcam_in_box_percent !== null ? `Share of the heatmap inside the detected boxes: ${r.lesion_measures.gradcam_in_box_percent}%.` : ''}
+        <p class="note">${r.detections.length
+          ? `The heatmap explains the ${r.detections.length} detected box(es) (targets: ${r.gradcam_targets.map(t => `${esc(t.label)} ${pct(t.score)}`).join(', ')}).`
+          : `No box reached the ${pct(r.settings.confidence, 0)} cutoff, so nothing is counted as a lesion. The heatmap shows where the model saw weak signs of ${r.below_cutoff ? esc(r.below_cutoff.label) : 'a disease'}; the strongest (${r.below_cutoff ? pct(r.below_cutoff.confidence) : '—'}) was still below the cutoff.`}
+          ${r.detections.length && r.lesion_measures && r.lesion_measures.gradcam_in_box_percent !== null ? `Share of the heatmap inside the detected boxes: ${r.lesion_measures.gradcam_in_box_percent}%.` : ''}
           A heatmap shows where the model focused. It is not a measure of accuracy and not a validated explanation of the diagnosis.</p>
+        <details class="calc">
+          <summary>Why does the heatmap focus on the lesion?</summary>
+          <p>Grad-CAM is computed from the part of the model that names the disease (the last layer of the class head) and only for the boxes the model detected.
+            For each box, it weights the model's feature maps by how much each map raised that disease's score, then keeps the positive part.</p>
+          <p>The model was trained only on the labelled lesion boxes, so the features that raise a disease score are the lesion's own colour, texture and
+            shape. Normal skin and background do not raise any disease score, so they stay cold. That is why the heat sits on the lesion; a heatmap
+            spreading outside the lesion would mean the model also used the surroundings.</p>
+        </details>
         ${State.compare ? `
           <h3>Per configuration (same photo)</h3>
           <div class="cam-grid">${State.compare.models.map(m => m.gradcam_image ? `<figure><img src="${m.gradcam_image}" alt="Grad-CAM of Model ${m.id}"><figcaption>Model ${m.id}</figcaption></figure>` : '').join('')}</div>` : ''}
@@ -925,7 +929,7 @@ function gradcamAudit() {
     </div>`;
 }
 
-// Signature of a result for the consistency check (everything except timings and images).
+
 function signature(r) {
   return {
     ita: r.ita, beta: r.beta,
@@ -979,7 +983,6 @@ async function runConsistency() {
     message: `<p>${identical} of ${runs} repeated runs gave exactly the same ITA, β, boxes and scores as the first run.${difference ? ` First difference: ${esc(difference)}.` : ''}</p>` });
 }
 
-// ------------------------------------------------------------------ report
 
 function openReport() {
   const cur = State.current;
@@ -1011,7 +1014,6 @@ function openReport() {
 
 function closeReport() { $('report-dialog').hidden = true; }
 
-// ------------------------------------------------------------------ init
 
 function renderAll() {
   renderHome();
@@ -1039,6 +1041,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('camera-input').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
   $('split-slider').addEventListener('input', e => setSplit(+e.target.value));
   $('toggle-boxes').addEventListener('change', e => { State.showBoxes = e.target.checked; renderWorkspace(); });
+  $('toggle-heatmap').addEventListener('change', e => { State.showHeatmap = e.target.checked; renderWorkspace(); });
+  $('heatmap-opacity').addEventListener('input', e => { State.heatmapOpacity = +e.target.value; $('viewer-heatmap').style.opacity = State.heatmapOpacity / 100; });
   renderAll();
   loadData();
   const hash = window.location.hash.replace('#', '');

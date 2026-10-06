@@ -13,18 +13,13 @@ from masking_ita import MaskingITAConfig, MaskingITAProcessor, MaskingITAResult,
 BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent
 
-# Model D weights by default; override with IDENTISKIN_WEIGHTS=/path/to/best.pt
 WEIGHTS = Path(os.environ.get(
     "IDENTISKIN_WEIGHTS",
     PROJECT_ROOT / "weights" / "ablation_yolov26" / "best_ModelD_proposed.pt",
 ))
-# Inference runs on CPU by default so it never competes with GPU training.
 DEVICE = os.environ.get("IDENTISKIN_DEVICE", "cpu")
-# Phone photos are downscaled for speed; ITA is a mean colour and the
-# detector sees 640 px anyway.
 MAX_SIDE = int(os.environ.get("IDENTISKIN_MAX_SIDE", "1280"))
 CONFIDENCE = float(os.environ.get("IDENTISKIN_CONF", "0.25"))
-# ITA is a mean skin colour, so the K-means mask runs on a small copy.
 ITA_MAX_SIDE = int(os.environ.get("IDENTISKIN_ITA_MAX_SIDE", "512"))
 
 calibration = json.loads((BACKEND_DIR / "phase0_calibration.json").read_text(encoding="utf-8"))
@@ -36,9 +31,8 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 ABLATION_WEIGHTS = PROJECT_ROOT / "weights" / "ablation_yolov26"
-FIXED_BETA = 2.0  # Models B and C, as in the notebook.
+FIXED_BETA = 2.0
 
-# id, weights file, description. Preprocessing matches the ablation notebook.
 COMPARE_MODELS = [
     ("A", "best_ModelA_raw.pt", "Raw image"),
     ("B", "best_ModelB_rgb_clahe.pt", f"RGB CLAHE, β={FIXED_BETA}"),
@@ -76,7 +70,6 @@ def read_and_resize(contents: bytes):
 
 
 def compute_ita(rgb):
-    # ITA is a mean skin colour, so the K-means mask runs on a small copy.
     height, width = rgb.shape[:2]
     scale = min(1.0, ITA_MAX_SIDE / max(height, width))
     small = rgb if scale == 1.0 else cv2.resize(
@@ -87,7 +80,6 @@ def compute_ita(rgb):
 def model_d_beta(ita_result):
     if ita_result.ita is not None:
         return ita_to_beta(ita_result.ita, calibration["beta_high"], calibration["beta_mid"], calibration["beta_low"]), "ita_bracket"
-    # Same rule as the notebook: no ITA -> ITA-agnostic beta_global.
     return float(calibration["beta_global"]), "beta_global_fallback"
 
 
@@ -139,7 +131,6 @@ async def analyze_image(file: UploadFile = File(...)):
 
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
-    """Model D pipeline: skin mask + ITA -> bracket beta -> L*-CLAHE -> YOLO."""
     rgb = read_and_resize(await file.read())
     ita_result = compute_ita(rgb)
     beta, beta_source = model_d_beta(ita_result)
@@ -153,19 +144,16 @@ async def detect(file: UploadFile = File(...)):
         detections.append({
             "label": model.names[int(cls)],
             "confidence": round(float(conf), 4),
-            # Normalised to the image so the app can draw at any size.
             "box": [round(box[0] / w, 4), round(box[1] / h, 4), round(box[2] / w, 4), round(box[3] / h, 4)],
         })
     detections.sort(key=lambda d: d["confidence"], reverse=True)
 
-    # Image-level suggestion: class with the highest summed confidence.
     totals = {}
     for d in detections:
         totals[d["label"]] = totals.get(d["label"], 0.0) + d["confidence"]
     top = max(totals, key=totals.get) if totals else None
 
     return {
-        # The real L*-CLAHE output, so the app shows it instead of an imitation.
         "enhanced_image": to_jpeg_data_url(enhanced),
         "top_label": top,
         "top_confidence": max((d["confidence"] for d in detections if d["label"] == top), default=None),
@@ -182,7 +170,6 @@ async def detect(file: UploadFile = File(...)):
 
 @app.post("/compare")
 async def compare(file: UploadFile = File(...)):
-    """Same photo through every ablation model, each with its own preprocessing."""
     rgb = read_and_resize(await file.read())
     ita_result = compute_ita(rgb)
     beta_d, beta_source = model_d_beta(ita_result)
@@ -205,7 +192,7 @@ async def compare(file: UploadFile = File(...)):
         model = load_yolo(weights)
         prediction = model.predict(image[:, :, ::-1].copy(), conf=CONFIDENCE, device=DEVICE, verbose=False)[0]
         top, top_conf = summarize(prediction, model.names)
-        annotated = prediction.plot(line_width=2)[:, :, ::-1]  # plot() returns BGR
+        annotated = prediction.plot(line_width=2)[:, :, ::-1]
         results.append({
             "id": model_id, "description": description, "available": True, "beta": beta,
             "top_label": top, "top_confidence": top_conf, "boxes": len(prediction.boxes),

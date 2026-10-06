@@ -13,13 +13,13 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from masking_ita import (  # noqa: E402
+from masking_ita import (
     MaskingITAConfig,
     MaskingITAProcessor,
     MaskingITAResult,
     ProcessingStatus,
 )
-from run_member1_batch import (  # noqa: E402
+from run_member1_batch import (
     DISEASE_LABELS,
     archive_lineage_id,
     build_pilot_manifest,

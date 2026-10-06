@@ -112,7 +112,6 @@ for split_name, ann_name, class_name, class_id in CLASSES:
             print(f"[SKIP] No valid rectangle in {json_path.name}")
             continue
 
-        # Option B: fixed L*-CLAHE, clipLimit = 2.0
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
         clahe = cv2.createCLAHE(

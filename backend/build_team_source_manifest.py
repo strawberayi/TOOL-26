@@ -1,25 +1,3 @@
-"""
-Build the source manifest for the team's annotated dataset archive
-("Data Set-*.zip": "1. Filtered" images + "2. Annotated" AnyLabeling JSON).
-
-Only images with a verified annotation are listed: the JSON imagePath (or
-file name) must match the image file name within the same class folder AND
-the JSON imageWidth/imageHeight must equal the EXIF-oriented image size.
-Everything else is written to a separate exclusion log with the reason.
-
-The team's "3. Stratefied-Split" folder is intentionally NOT used: it has
-exact and near-duplicate images across train/val/test. The output of this
-script goes to ``run_member1_batch.py prepare-split-manifest``, which removes
-duplicates before creating the 70/20/10 split.
-
-Usage:
-
-    python backend/build_team_source_manifest.py \\
-        --dataset-root "phase0_work/team_dataset/Data Set" \\
-        --source-repository "TEAM_DATASET:Data Set-20260925T122828Z-1-001.zip" \\
-        --output phase0_work/team_inventory/team_source_manifest.csv
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -30,7 +8,6 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
-# Class folders are numbered identically in "1. Filtered" and "2. Annotated".
 FOLDER_PREFIX_TO_DISEASE = {
     "0": "Varicella",
     "1": "HFMD",
@@ -57,7 +34,6 @@ def oriented_size(path: Path) -> tuple[int, int] | None:
 
 
 def read_manual_exclusions(path: Path | None) -> dict[str, str]:
-    """Map "1. Filtered"-relative image path -> documented reason."""
     if path is None:
         return {}
     with path.open(encoding="utf-8") as handle:
@@ -81,8 +57,6 @@ def build(dataset_root: Path, source_repository: str, output: Path, manual_exclu
         data = json.loads(json_path.read_text(encoding="utf-8"))
         stem = Path(str(data.get("imagePath", "")).replace("\\", "/")).stem.lower()
         candidates = images.get((disease, stem)) or images.get((disease, json_path.stem.lower()), [])
-        # Tinea pedis reuses file names across dataset1 / dataset1-(fork) /
-        # dataset2, so prefer the image in the same sub-folder as the JSON.
         subfolder = json_path.parent.relative_to(annotated).parts[1:]
         same_folder = [p for p in candidates if p.parent.relative_to(filtered).parts[1:] == subfolder]
         candidates = same_folder or candidates
@@ -106,7 +80,6 @@ def build(dataset_root: Path, source_repository: str, output: Path, manual_exclu
                 "annotation_path": str(json_path.resolve()),
                 "annotation_match_status": "MATCHED",
                 "proxy_skin_tone_group": "",
-                # prepare-split-manifest rejects any value other than PASS.
                 "manual_quality_status": manual.get(relative, "PASS"),
             })
             continue
