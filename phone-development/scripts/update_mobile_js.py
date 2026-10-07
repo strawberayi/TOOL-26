@@ -1,25 +1,18 @@
 mobile_js = '''
-// ==========================================================================
-// 12. DEDICATED FULL-SCREEN NATIVE MOBILE APP LOGIC (< 768px)
-// ==========================================================================
 function switchMobileTab(tabName) {
-  // Update tab pane active states
   const panes = ['home', 'workspace', 'patient', 'panel', 'xai'];
   panes.forEach(name => {
     const pane = document.getElementById(`mob-tab-${name}`);
     if (pane) pane.classList.toggle('active', name === tabName);
   });
 
-  // Update bottom navigation buttons active states
   document.querySelectorAll('.mob-nav-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.mobtab === tabName);
   });
 
-  // Scroll to top of content
   const content = document.querySelector('.mobile-native-content');
   if (content) content.scrollTop = 0;
 
-  // Render workspace if active
   if (tabName === 'workspace') {
     setTimeout(() => {
       renderWorkspace('mobile-canvas-container', AppState.currentPreset, AppState.comparisonSplit, AppState.heatmapOpacity);
@@ -47,13 +40,11 @@ function toggleMobileDrawer(open) {
 function updateMobileView() {
   const data = AppState.customImageData || PRESETS[AppState.currentPreset] || PRESETS.buni;
 
-  // Update preset chip carousel active state
   document.querySelectorAll('.mob-preset-chip').forEach(chip => {
     const chipKey = chip.textContent.toLowerCase().replace(/[^a-z]/g, '');
     chip.classList.toggle('active', chipKey === AppState.currentPreset || chip.textContent.includes(data.name.split(' ')[0]));
   });
 
-  // Patient elements
   const elTitle = document.getElementById('mob-patient-title');
   if (elTitle) elTitle.textContent = data.name;
 
@@ -72,7 +63,6 @@ function updateMobileView() {
   const elItaChip = document.getElementById('mob-patient-ita');
   if (elItaChip) elItaChip.textContent = `${data.fitzpatrick.split(' ')[1]} (Melanin-Rich) | ITA: ${data.ita}° • Clip: ${data.clipLimit}`;
 
-  // Morphological cues
   const elTexture = document.getElementById('mob-feat-texture');
   if (elTexture) elTexture.textContent = data.morphologicalFeatures.texture;
 
@@ -85,7 +75,6 @@ function updateMobileView() {
   const elDiff = document.getElementById('mob-feat-diff');
   if (elDiff) elDiff.textContent = data.morphologicalFeatures.differential;
 
-  // Insights
   const elInsights = document.getElementById('mob-insights-list');
   if (elInsights) {
     elInsights.innerHTML = data.insights.map((s, idx) => `
@@ -93,7 +82,6 @@ function updateMobileView() {
     `).join('');
   }
 
-  // Clinician panel
   const elIta = document.getElementById('mob-ita-val');
   if (elIta) elIta.textContent = `${data.ita}°`;
 
@@ -106,7 +94,6 @@ function updateMobileView() {
   const elGain = document.getElementById('mob-gain-val');
   if (elGain) elGain.textContent = data.contrastGain;
 
-  // Overlap bars
   const elOverlap = document.getElementById('mob-overlap-bars');
   if (elOverlap) {
     elOverlap.innerHTML = data.overlapProfile.map(item => `
@@ -120,7 +107,6 @@ function updateMobileView() {
     `).join('');
   }
 
-  // Evaluation Metrics
   const m = data.metrics;
   if (document.getElementById('mob-metric-precision')) document.getElementById('mob-metric-precision').textContent = m.precision;
   if (document.getElementById('mob-metric-recall')) document.getElementById('mob-metric-recall').textContent = m.recall;
@@ -129,14 +115,12 @@ function updateMobileView() {
   if (document.getElementById('mob-metric-gflops')) document.getElementById('mob-metric-gflops').textContent = m.gflops;
   if (document.getElementById('mob-metric-attribution')) document.getElementById('mob-metric-attribution').textContent = m.attribution;
 
-  // Coordinates
   const b = data.bbox;
   if (document.getElementById('mob-coord-xmin')) document.getElementById('mob-coord-xmin').textContent = b.xmin;
   if (document.getElementById('mob-coord-ymin')) document.getElementById('mob-coord-ymin').textContent = b.ymin;
   if (document.getElementById('mob-coord-xmax')) document.getElementById('mob-coord-xmax').textContent = b.xmax;
   if (document.getElementById('mob-coord-ymax')) document.getElementById('mob-coord-ymax').textContent = b.ymax;
 
-  // Differential
   const elDiffList = document.getElementById('mob-differential-list');
   if (elDiffList) {
     elDiffList.innerHTML = data.differential.map(d => `
@@ -148,7 +132,6 @@ function updateMobileView() {
   }
 }
 
-// Hook mobile slider inputs
 document.addEventListener('DOMContentLoaded', () => {
   const mobSplit = document.getElementById('mob-split-slider');
   if (mobSplit) {
@@ -169,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Check if initial viewport is mobile phone
   if (window.innerWidth <= 768) {
     updateMobileView();
     renderWorkspace('mobile-canvas-container', AppState.currentPreset);

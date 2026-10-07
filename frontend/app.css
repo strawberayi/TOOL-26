@@ -46,7 +46,6 @@ body.role-patient .clinician-only { display: none !important; }
   padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; background: var(--surface); border-bottom: 1px solid var(--line);
 }
 .app-brand { display: flex; align-items: center; gap: 8px; background: none; border: 0; font-weight: 800; font-size: 1rem; color: var(--title); letter-spacing: 0.02em; }
-.brand-mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF6F3C, var(--brand)); display: grid; place-items: center; }
 .icon-btn { width: 40px; height: 40px; border-radius: 12px; border: 0; background: none; display: grid; place-items: center; color: var(--title); font-size: 1.4rem; }
 .icon-btn:hover { background: var(--subtle); }
 .app-content { flex: 1; padding: 14px 14px calc(var(--nav-h) + 24px + env(safe-area-inset-bottom)); }
@@ -329,3 +328,4 @@ details.calc p { margin: 6px 0; overflow-wrap: anywhere; }
 .data-table th { overflow-wrap: normal; word-break: normal; hyphens: none; }
 .data-table { table-layout: auto; }
 .table-scroll { max-width: 100%; }
+.brand-wordmark { height: 30px; width: auto; display: block; }

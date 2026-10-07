@@ -1,0 +1,98 @@
+{
+  "ModelD_r3_freeze3": [
+    {
+      "candidate": "ModelD_r3_freeze3",
+      "best_epoch": 44,
+      "epochs_run": 94,
+      "val_P": 55.83,
+      "val_R": 46.17,
+      "val_mAP50": 46.61,
+      "val_mAP50_95": 22.13,
+      "score": 34.371
+    },
+    {
+      "candidate": "ModelD_r3_freeze3",
+      "best_epoch": 52,
+      "epochs_run": 102,
+      "val_P": 52.38,
+      "val_R": 45.54,
+      "val_mAP50": 45.18,
+      "val_mAP50_95": 20.75,
+      "score": 32.962
+    },
+    {
+      "candidate": "ModelD_r3_freeze3",
+      "best_epoch": 70,
+      "epochs_run": 120,
+      "val_P": 54.18,
+      "val_R": 45.71,
+      "val_mAP50": 44.54,
+      "val_mAP50_95": 21.58,
+      "score": 33.059
+    }
+  ],
+  "ModelD_r2_unfreeze": [
+    {
+      "candidate": "ModelD_r2_unfreeze",
+      "best_epoch": 19,
+      "epochs_run": 69,
+      "val_P": 51.59,
+      "val_R": 46.09,
+      "val_mAP50": 45.93,
+      "val_mAP50_95": 22.2,
+      "score": 34.066
+    },
+    {
+      "candidate": "ModelD_r2_unfreeze",
+      "best_epoch": 102,
+      "epochs_run": 150,
+      "val_P": 53.19,
+      "val_R": 44.52,
+      "val_mAP50": 45.68,
+      "val_mAP50_95": 21.15,
+      "score": 33.416
+    },
+    {
+      "candidate": "ModelD_r2_unfreeze",
+      "best_epoch": 40,
+      "epochs_run": 90,
+      "val_P": 55.56,
+      "val_R": 44.27,
+      "val_mAP50": 45.16,
+      "val_mAP50_95": 22.01,
+      "score": 33.585
+    }
+  ],
+  "ModelD_g1.0_f11": [
+    {
+      "candidate": "ModelD_g1.0_f11",
+      "best_epoch": 16,
+      "epochs_run": 66,
+      "val_P": 54.71,
+      "val_R": 46.25,
+      "val_mAP50": 45.43,
+      "val_mAP50_95": 21.43,
+      "score": 33.431
+    },
+    {
+      "candidate": "ModelD_g1.0_f11",
+      "best_epoch": 18,
+      "epochs_run": 68,
+      "val_P": 52.62,
+      "val_R": 44.32,
+      "val_mAP50": 44.33,
+      "val_mAP50_95": 20.88,
+      "score": 32.605
+    },
+    {
+      "candidate": "ModelD_g1.0_f11",
+      "best_epoch": 20,
+      "epochs_run": 70,
+      "val_P": 59.07,
+      "val_R": 43.84,
+      "val_mAP50": 44.47,
+      "val_mAP50_95": 21.37,
+      "score": 32.919
+    }
+  ]
+}

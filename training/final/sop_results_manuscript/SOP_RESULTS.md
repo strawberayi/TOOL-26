@@ -10,47 +10,47 @@ mAP, precision, recall and F1 tables are the official Ultralytics test evaluatio
 | A Baseline YOLOv26 (seed 42) | 42.6 | 19.0 | 45.2 | 47.9 | 46.5 |
 | B Fixed L*-CLAHE (β = 2.0) (seed 42) | 39.5 | 20.3 | 50.2 | 41.6 | 45.5 |
 | C Focal Loss Optimization (seed 42) | 36.8 | 17.3 | 43.0 | 39.0 | 40.9 |
-| D ITA-guided L*-CLAHE + two-stage + Focal Loss (proposed) (seed 42) | 42.5 | 19.9 | 51.5 | 43.8 | 47.3 |
-| D ITA-guided L*-CLAHE + two-stage + Focal Loss (proposed) (3 seeds) | 41.2 ± 1.2 | 19.9 ± 0.5 | 50.1 ± 1.2 | 43.3 ± 0.8 | 46.5 ± 0.8 |
+| D ITA-guided L*-CLAHE + two-stage + Focal Loss (proposed) (seed 42) | 43.1 | 20.2 | 53.3 | 45.0 | 48.8 |
+| D ITA-guided L*-CLAHE + two-stage + Focal Loss (proposed) (3 seeds) | 41.7 ± 1.2 | 20.0 ± 0.3 | 49.6 ± 4.0 | 42.9 ± 2.0 | 46.0 ± 2.5 |
 
 ### Per disease: mAP@50 (seed 42)
 
 | Disease | n | A | B | C | D | Best |
 |---|---|---|---|---|---|---|
-| Warts | 110 | 47.0 | 48.5 | 46.3 | 46.0 | B |
-| Molluscum | 213 | 54.3 | 50.4 | 57.4 | 58.4 | D |
-| Varicella | 329 | 40.3 | 23.6 | 23.0 | 32.9 | A |
-| HFMD | 368 | 32.2 | 27.9 | 24.0 | 25.2 | A |
-| Tinea versicolor | 233 | 14.5 | 11.5 | 15.1 | 15.4 | D |
-| Tinea corporis | 42 | 59.2 | 63.1 | 43.8 | 60.5 | B |
-| Tinea pedis | 8 | 61.5 | 62.5 | 60.0 | 64.6 | D |
-| Impetigo | 132 | 31.7 | 28.1 | 24.7 | 36.8 | D |
+| Warts | 110 | 47.0 | 48.5 | 46.3 | 40.7 | B |
+| Molluscum | 213 | 54.3 | 50.4 | 57.4 | 64.2 | D |
+| Varicella | 329 | 40.3 | 23.6 | 23.0 | 32.3 | A |
+| HFMD | 368 | 32.2 | 27.9 | 24.0 | 27.1 | A |
+| Tinea versicolor | 233 | 14.5 | 11.5 | 15.1 | 14.7 | C |
+| Tinea corporis | 42 | 59.2 | 63.1 | 43.8 | 65.5 | D |
+| Tinea pedis | 8 | 61.5 | 62.5 | 60.0 | 63.5 | D |
+| Impetigo | 132 | 31.7 | 28.1 | 24.7 | 36.7 | D |
 
 ### Per disease: mAP@50-95 (seed 42)
 
 | Disease | n | A | B | C | D | Best |
 |---|---|---|---|---|---|---|
-| Warts | 110 | 18.4 | 24.2 | 19.8 | 20.5 | B |
-| Molluscum | 213 | 23.3 | 22.8 | 24.3 | 23.5 | C |
-| Varicella | 329 | 14.5 | 8.3 | 8.6 | 11.4 | A |
-| HFMD | 368 | 11.2 | 9.3 | 8.2 | 8.8 | A |
-| Tinea versicolor | 233 | 6.1 | 5.0 | 5.8 | 6.2 | D |
-| Tinea corporis | 42 | 29.6 | 37.6 | 29.6 | 34.4 | B |
-| Tinea pedis | 8 | 36.7 | 45.0 | 32.3 | 42.5 | B |
-| Impetigo | 132 | 12.1 | 10.3 | 10.1 | 12.2 | D |
+| Warts | 110 | 18.4 | 24.2 | 19.8 | 19.2 | B |
+| Molluscum | 213 | 23.3 | 22.8 | 24.3 | 26.4 | D |
+| Varicella | 329 | 14.5 | 8.3 | 8.6 | 10.6 | A |
+| HFMD | 368 | 11.2 | 9.3 | 8.2 | 9.4 | A |
+| Tinea versicolor | 233 | 6.1 | 5.0 | 5.8 | 5.6 | A |
+| Tinea corporis | 42 | 29.6 | 37.6 | 29.6 | 35.3 | B |
+| Tinea pedis | 8 | 36.7 | 45.0 | 32.3 | 41.8 | B |
+| Impetigo | 132 | 12.1 | 10.3 | 10.1 | 12.9 | D |
 
 ### Per disease: F1 (seed 42)
 
 | Disease | n | A | B | C | D | Best |
 |---|---|---|---|---|---|---|
-| Warts | 110 | 50.0 | 55.1 | 47.5 | 48.7 | B |
-| Molluscum | 213 | 54.4 | 55.0 | 51.0 | 60.7 | D |
-| Varicella | 329 | 42.3 | 33.3 | 31.4 | 37.6 | A |
-| HFMD | 368 | 40.7 | 35.9 | 32.6 | 31.9 | A |
-| Tinea versicolor | 233 | 20.1 | 17.4 | 24.2 | 21.6 | C |
-| Tinea corporis | 42 | 58.5 | 60.2 | 44.0 | 61.4 | D |
-| Tinea pedis | 8 | 54.5 | 63.4 | 53.1 | 63.8 | D |
-| Impetigo | 132 | 39.3 | 36.7 | 33.0 | 43.4 | D |
+| Warts | 110 | 50.0 | 55.1 | 47.5 | 47.3 | B |
+| Molluscum | 213 | 54.4 | 55.0 | 51.0 | 63.3 | D |
+| Varicella | 329 | 42.3 | 33.3 | 31.4 | 38.2 | A |
+| HFMD | 368 | 40.7 | 35.9 | 32.6 | 32.6 | A |
+| Tinea versicolor | 233 | 20.1 | 17.4 | 24.2 | 22.0 | C |
+| Tinea corporis | 42 | 58.5 | 60.2 | 44.0 | 60.9 | D |
+| Tinea pedis | 8 | 54.5 | 63.4 | 53.1 | 75.6 | D |
+| Impetigo | 132 | 39.3 | 36.7 | 33.0 | 39.3 | D |
 
 ### Within-cluster misclassification rate (seed 42)
 
@@ -58,8 +58,8 @@ Share of detected lesions (IoU >= 0.5) assigned to a *different disease in the s
 
 | Cluster | A | B | C | D |
 |---|---|---|---|---|
-| Vesiculopapular/Eruptive | 7.0% (32/457) | 10.3% (37/360) | 15.2% (54/356) | 4.7% (16/338) |
-| Papulosquamous/Verrucous | 0.0% (0/112) | 2.9% (3/105) | 2.6% (3/116) | 1.8% (2/111) |
+| Vesiculopapular/Eruptive | 7.0% (32/457) | 10.3% (37/360) | 15.2% (54/356) | 4.3% (16/371) |
+| Papulosquamous/Verrucous | 0.0% (0/112) | 2.9% (3/105) | 2.6% (3/116) | 1.8% (2/112) |
 
 ## H01: difference among Models A, B, C, D
 
@@ -67,11 +67,11 @@ Friedman test on the 200 matched test images (per-image score), then Wilcoxon si
 
 | Metric | Friedman χ² | p | D vs A p (r) | D vs B p (r) | D vs C p (r) | Decision |
 |---|---|---|---|---|---|---|
-| AP50 | 5.77 | 0.124 | 0.449 (-0.14) | 0.685 (+0.12) | 1.000 (+0.07) | fail to reject H01 |
-| AP50_95 | 0.85 | 0.838 | 1.000 (-0.00) | 1.000 (-0.01) | 1.000 (-0.01) | fail to reject H01 |
-| precision | 14.72 | 0.002 | 0.782 (+0.12) | 1.000 (+0.06) | 0.005 (+0.33) | reject H01 |
-| recall | 15.93 | 0.001 | 1.000 (-0.10) | 0.987 (+0.12) | 0.007 (+0.36) | reject H01 |
-| F1 | 16.78 | 0.001 | 1.000 (-0.00) | 1.000 (+0.09) | 0.000 (+0.39) | reject H01 |
+| AP50 | 4.44 | 0.218 | 0.504 (-0.14) | 1.000 (+0.06) | 1.000 (+0.02) | fail to reject H01 |
+| AP50_95 | 2.61 | 0.456 | 1.000 (-0.04) | 1.000 (-0.06) | 0.790 (-0.09) | fail to reject H01 |
+| precision | 15.19 | 0.002 | 0.942 (+0.11) | 1.000 (+0.04) | 0.007 (+0.32) | reject H01 |
+| recall | 17.37 | 0.001 | 0.955 (-0.12) | 1.000 (+0.07) | 0.009 (+0.35) | reject H01 |
+| F1 | 19.59 | 0.000 | 1.000 (-0.02) | 1.000 (+0.06) | 0.000 (+0.40) | reject H01 |
 
 ## SOP 3 / H02: ΔAP50 (D − A) by skin type
 
@@ -79,7 +79,7 @@ Fitzpatrick proxy from ITA: I–II = ITA > 41, III–V = −30 < ITA ≤ 41; VI 
 
 | Group | Images | mAP@50 A | mAP@50 D | ΔmAP@50 | Median per-image ΔAP50 | Wilcoxon D vs A p (r) |
 |---|---|---|---|---|---|---|
-| I-II | 85 | 50.7 | 48.9 | -1.8 | +0.0 | 0.325 (-0.15) |
-| III-V | 102 | 37.6 | 38.3 | +0.7 | +0.0 | 0.420 (-0.11) |
+| I-II | 85 | 50.7 | 49.5 | -1.2 | +0.0 | 0.479 (-0.11) |
+| III-V | 102 | 37.6 | 38.7 | +1.1 | +0.0 | 0.151 (-0.20) |
 
-Mann-Whitney U (per-image ΔAP50, III–V vs I–II): U = 4565, p = 0.526, rank-biserial r = +0.05 (positive = III–V gained more). Difference in ΔmAP@50 (III–V − I–II) = +2.5 points, bootstrap 95% CI [-5.1, +12.3]. Decision: fail to reject H02 (not significant).
+Mann-Whitney U (per-image ΔAP50, III–V vs I–II): U = 4280, p = 0.879, rank-biserial r = -0.01 (positive = III–V gained more). Difference in ΔmAP@50 (III–V − I–II) = +2.3 points, bootstrap 95% CI [-4.8, +12.8]. Decision: fail to reject H02 (not significant).

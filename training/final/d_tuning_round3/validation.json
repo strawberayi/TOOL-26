@@ -1,0 +1,55 @@
+{
+  "rule": "mean of validation mAP50 and mAP50-95 at the best epoch, seed 42",
+  "candidates": [
+    {
+      "candidate": "ModelD_g1.0_f11",
+      "best_epoch": 16,
+      "epochs_run": 66,
+      "val_P": 54.71,
+      "val_R": 46.25,
+      "val_mAP50": 45.43,
+      "val_mAP50_95": 21.43,
+      "score": 33.431
+    },
+    {
+      "candidate": "ModelD_r2_unfreeze",
+      "best_epoch": 19,
+      "epochs_run": 69,
+      "val_P": 51.59,
+      "val_R": 46.09,
+      "val_mAP50": 45.93,
+      "val_mAP50_95": 22.2,
+      "score": 34.066
+    },
+    {
+      "candidate": "ModelD_r3_freeze3",
+      "best_epoch": 44,
+      "epochs_run": 94,
+      "val_P": 55.83,
+      "val_R": 46.17,
+      "val_mAP50": 46.61,
+      "val_mAP50_95": 22.13,
+      "score": 34.371
+    },
+    {
+      "candidate": "ModelD_r3_freeze5",
+      "best_epoch": 31,
+      "epochs_run": 81,
+      "val_P": 57.65,
+      "val_R": 43.54,
+      "val_mAP50": 45.53,
+      "val_mAP50_95": 22.09,
+      "score": 33.806
+    },
+    {
+      "candidate": "ModelD_r3_freeze7",
+      "best_epoch": 18,
+      "epochs_run": 61,
+      "val_P": 54.81,
+      "val_R": 44.62,
+      "val_mAP50": 45.38,
+      "val_mAP50_95": 22.05,
+      "score": 33.714
+    }
+  ]
+}

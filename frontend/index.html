@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>IDENTI-SKIN | AI-Powered Skin Infection Analysis (PUP CCIS)</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2225%22 fill=%22%23D45B28%22/><path d=%22M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z%22 fill=%22none%22 stroke=%22white%22 stroke-width=%228%22/><path d=%22M50 35 L50 65 M35 50 L65 50%22 stroke=%22white%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
   <style>    body, html {
       margin: 0;
       padding: 0;
@@ -130,6 +130,7 @@
       to { transform: translateY(-7px); }
     }
 
+    .brand-wordmark-lg { display: block; width: min(100%, 300px); height: auto; margin: 0 auto; }
     .mob-page1-title {
       font-size: 1.85rem;
       font-weight: 900;
@@ -225,7 +226,7 @@
       width: 42px;
       height: 42px;
       border-radius: 12px;
-      background: linear-gradient(135deg, #FF6F3C, #D45B28);
+      background: #FFF; border: 1px solid var(--brand-border);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -417,16 +418,7 @@
   <div class="mobile-page1-wrapper">
     <div style="width: 100%;">
 
-      <div class="mob-shield-box">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-          <line x1="12" y1="8" x2="12" y2="16"></line>
-          <line x1="8" y1="12" x2="16" y2="12"></line>
-        </svg>
-      </div>
-
-
-      <h1 class="mob-page1-title">IDENTI - SKIN</h1>
+      <h1 class="mob-page1-title"><img class="brand-wordmark-lg" src="assets/logo-wordmark.png" alt="IDENTI-SKIN"></h1>
       <p class="mob-page1-tagline">
         AI - Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision
       </p>
@@ -480,11 +472,7 @@
     <nav class="desktop-nav">
       <a href="index.html" class="desktop-brand">
         <div class="desktop-brand-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            <line x1="12" y1="8" x2="12" y2="16"></line>
-            <line x1="8" y1="12" x2="16" y2="12"></line>
-          </svg>
+          <img src="assets/logo-icon.png" alt="" style="width:78%;height:78%;object-fit:contain;">
         </div>
         <div>
           <div class="desktop-brand-text">IDENTI - SKIN</div>
@@ -554,14 +542,7 @@
 
       <div>
         <div class="hero-preview-phone">
-          <div class="mob-shield-box" style="margin-bottom:16px; width:72px; height:72px;">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              <line x1="12" y1="8" x2="12" y2="16"></line>
-              <line x1="8" y1="12" x2="16" y2="12"></line>
-            </svg>
-          </div>
-          <h2 style="font-size:1.35rem; font-weight:900; margin-bottom:6px; color:var(--text-title);">IDENTI - SKIN</h2>
+          <h2 style="margin-bottom:6px;"><img class="brand-wordmark-lg" src="assets/logo-wordmark.png" alt="IDENTI-SKIN" style="width:86%;"></h2>
           <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.4; margin-bottom:24px;">
             AI-Powered Skin Infection Analysis for Smarter, Faster, and Safer Decision
           </p>

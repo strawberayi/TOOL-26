@@ -5,7 +5,7 @@
 | A | Baseline YOLO26n, raw images | `best_ModelA_raw_seed42.pt` |
 | B | Fixed L*-CLAHE, β = 2.0 | `best_ModelC_fixed_l_clahe_seed42.pt` |
 | C | Raw images + Focal Loss (α 0.25, γ 2.0) | `best_ModelC_focal_seed42.pt` |
-| D | ITA-guided L*-CLAHE + two-stage + Focal Loss (α 0.25, γ 1.0). Stage 2: all layers trainable, lr0 0.00005 (round-2 validation search, `d_tuning_round2/validation.json`) | `best_ModelD_r2_unfreeze_seed{42,43,44}.pt` |
+| D | ITA-guided L*-CLAHE + two-stage + Focal Loss (α 0.25, γ 1.0). Stage 2: backbone layers 0-2 frozen, lr0 0.00005 (round-3 validation search, `d_tuning_round3/validation.json`) | `best_ModelD_r3_freeze3_seed{42,43,44}.pt` |
 
 D's ITA → clip limit calibration: `backend/phase0_calibration_d2.json` (Darkest 5.0, Medium 3.5, Lightest 1.0).
 
