@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Sign In | IDENTI-SKIN</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="stylesheet" href="styles.css">
   <style>    body, html {
       margin: 0;
@@ -74,13 +75,13 @@
     .auth-brand-badge {
       width: 44px;
       height: 44px;
-      background: linear-gradient(135deg, #FF6F3C 0%, #D45B28 100%);
+      background: #FFF; border: 1px solid var(--brand-border);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #FFF;
-      box-shadow: 0 4px 12px rgba(212, 91, 40, 0.3);
+      box-shadow: none;
       flex-shrink: 0;
     }
 
@@ -150,11 +151,7 @@
 
       <div class="auth-header-row">
         <div class="auth-brand-badge">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            <line x1="12" y1="8" x2="12" y2="16"></line>
-            <line x1="8" y1="12" x2="16" y2="12"></line>
-          </svg>
+          <img src="assets/logo-icon.png" alt="" style="width:78%;height:78%;object-fit:contain;">
         </div>
         <div>
           <h2 class="auth-heading">Sign In</h2>
