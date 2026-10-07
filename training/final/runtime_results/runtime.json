@@ -17,48 +17,48 @@
       "gflops_640": 5.91,
       "params_million": 2.507,
       "images_timed": 190,
-      "preprocess_ms": 0.84,
-      "inference_ms_mean": 7.35,
-      "inference_ms_sd": 1.47,
-      "postprocess_ms": 0.74,
-      "total_ms_mean": 8.93,
-      "total_ms_sd": 1.52
+      "preprocess_ms": 0.86,
+      "inference_ms_mean": 7.62,
+      "inference_ms_sd": 1.43,
+      "postprocess_ms": 0.81,
+      "total_ms_mean": 9.29,
+      "total_ms_sd": 1.48
     },
     "B": {
       "weights": "best_ModelC_fixed_l_clahe_seed42.pt",
       "gflops_640": 5.91,
       "params_million": 2.507,
       "images_timed": 190,
-      "preprocess_ms": 0.86,
-      "inference_ms_mean": 7.17,
-      "inference_ms_sd": 0.45,
-      "postprocess_ms": 0.76,
-      "total_ms_mean": 8.8,
-      "total_ms_sd": 0.6
+      "preprocess_ms": 0.93,
+      "inference_ms_mean": 7.7,
+      "inference_ms_sd": 0.69,
+      "postprocess_ms": 0.85,
+      "total_ms_mean": 9.48,
+      "total_ms_sd": 0.88
     },
     "C": {
       "weights": "best_ModelC_focal_seed42.pt",
       "gflops_640": 5.91,
       "params_million": 2.507,
       "images_timed": 190,
-      "preprocess_ms": 0.86,
-      "inference_ms_mean": 7.35,
-      "inference_ms_sd": 0.41,
-      "postprocess_ms": 0.73,
-      "total_ms_mean": 8.94,
-      "total_ms_sd": 0.61
+      "preprocess_ms": 1.05,
+      "inference_ms_mean": 8.44,
+      "inference_ms_sd": 1.07,
+      "postprocess_ms": 0.89,
+      "total_ms_mean": 10.38,
+      "total_ms_sd": 1.32
     },
     "D": {
-      "weights": "best_ModelD_r2_unfreeze_seed42.pt",
+      "weights": "best_ModelD_r3_freeze3_seed42.pt",
       "gflops_640": 5.91,
       "params_million": 2.507,
       "images_timed": 190,
-      "preprocess_ms": 0.86,
-      "inference_ms_mean": 7.05,
-      "inference_ms_sd": 0.43,
-      "postprocess_ms": 0.73,
-      "total_ms_mean": 8.64,
-      "total_ms_sd": 0.63
+      "preprocess_ms": 1.03,
+      "inference_ms_mean": 8.41,
+      "inference_ms_sd": 1.13,
+      "postprocess_ms": 0.93,
+      "total_ms_mean": 10.37,
+      "total_ms_sd": 1.41
     }
   }
 }

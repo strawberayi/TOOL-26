@@ -26,6 +26,9 @@ CANDIDATES = {
     "ModelD_r2_alpha05": dict(focal_alpha=0.5),
     "ModelD_r2_box10": dict(box=10.0),
     "ModelD_r2_img800": dict(imgsz=800, batch=4),
+    "ModelD_r3_freeze3": dict(freeze=3, lr0=0.00005),
+    "ModelD_r3_freeze5": dict(freeze=5, lr0=0.00005),
+    "ModelD_r3_freeze7": dict(freeze=7, lr0=0.00005),
 }
 FOCAL_GAMMA = 1.0
 
