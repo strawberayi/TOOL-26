@@ -4,11 +4,7 @@ with open('index.html', 'r', encoding='utf-8') as f:
     html = f.read()
 
 mobile_native_html = '''
-    <!-- ====================================================================
-         NATIVE MOBILE FULL-SCREEN APPLICATION (PHONE VIEWPORT < 768px)
-         ==================================================================== -->
     <div id="mobile-native-view" class="mobile-app-root">
-      <!-- Mobile Native Top Bar -->
       <header class="mobile-native-header">
         <button class="mobile-header-icon-btn" onclick="toggleMobileDrawer(true)" title="Menu">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
@@ -26,16 +22,13 @@ mobile_native_html = '''
         </button>
       </header>
 
-      <!-- Mobile Content Container (100% full screen) -->
       <div class="mobile-native-content">
-        <!-- 1. HOME TAB -->
         <div id="mob-tab-home" class="mob-tab-pane active">
           <div class="mob-greeting-box">
             <h1 class="mob-greeting-title">Welcome Back!</h1>
             <p class="mob-greeting-sub">Analyze skin images and get AI-assisted insights in seconds.</p>
           </div>
 
-          <!-- Quick Upload / Camera Dropzone -->
           <div class="upload-dropzone mob-upload-card" onclick="document.getElementById('main-file-input').click()">
             <div class="upload-icon-circle">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
@@ -54,7 +47,6 @@ mobile_native_html = '''
             </div>
           </div>
 
-          <!-- Recent Analysis / Philippine Presets Section -->
           <div class="mob-section-header">
             <span class="mob-section-title">Verified Cases (Philippine Context)</span>
             <span class="mob-section-link" onclick="switchMobileTab('workspace')">Open Workspace</span>
@@ -116,7 +108,6 @@ mobile_native_html = '''
             </div>
           </div>
 
-          <!-- Compliance Note in Home -->
           <div class="compliance-box" style="margin-top:16px;">
             <div class="compliance-box-title">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
@@ -128,7 +119,6 @@ mobile_native_html = '''
           </div>
         </div>
 
-        <!-- 2. WORKSPACE TAB -->
         <div id="mob-tab-workspace" class="mob-tab-pane">
           <div class="med-card" style="padding:14px; margin-bottom:12px;">
             <div class="med-card-header">
@@ -139,10 +129,8 @@ mobile_native_html = '''
               <span class="badge-tag green">YOLOv26</span>
             </div>
 
-            <!-- Full width Mobile Canvas Container -->
             <div id="mobile-canvas-container" class="workspace-canvas-container" style="aspect-ratio:1/1; max-height:360px; margin-bottom:14px;"></div>
 
-            <!-- Controls -->
             <div class="workspace-controls" style="gap:10px;">
               <div class="control-row">
                 <span class="slider-label" style="font-size:0.75rem;">Comparison Slider</span>
@@ -183,9 +171,7 @@ mobile_native_html = '''
           </div>
         </div>
 
-        <!-- 3. PATIENT VIEW TAB -->
         <div id="mob-tab-patient" class="mob-tab-pane">
-          <!-- Preset Selector Bar -->
           <div class="mob-presets-carousel">
             <button class="mob-preset-chip active" onclick="selectPreset('buni'); updateMobileView();">Buni</button>
             <button class="mob-preset-chip" onclick="selectPreset('mamaso'); updateMobileView();">Mamaso</button>
@@ -252,7 +238,6 @@ mobile_native_html = '''
           </div>
         </div>
 
-        <!-- 4. CLINICIAN PANEL TAB -->
         <div id="mob-tab-panel" class="mob-tab-pane">
           <div class="med-card" style="padding:14px;">
             <div class="med-card-header">
@@ -345,7 +330,6 @@ mobile_native_html = '''
           </div>
         </div>
 
-        <!-- 5. XAI TAB -->
         <div id="mob-tab-xai" class="mob-tab-pane">
           <div class="gradients-section" style="padding:14px;">
             <div class="tensor-header">
@@ -361,7 +345,6 @@ mobile_native_html = '''
         </div>
       </div>
 
-      <!-- Mobile Bottom Navigation Bar -->
       <nav class="mobile-native-bottom-nav">
         <button class="mob-nav-btn active" data-mobtab="home" onclick="switchMobileTab('home')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
@@ -385,7 +368,6 @@ mobile_native_html = '''
         </button>
       </nav>
 
-      <!-- Slide-Over Drawer for Mobile -->
       <div id="mobile-drawer" class="mobile-drawer-overlay hidden" onclick="toggleMobileDrawer(false)">
         <div class="mobile-drawer-panel" onclick="event.stopPropagation()">
           <div class="mobile-drawer-header">
