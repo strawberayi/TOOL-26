@@ -31,7 +31,14 @@ LABEL_ALIASES = {
     "Impetigo": {"impetigo"},
 }
 
-SPLIT_NAMES = {"train": "train", "validation": "val", "test_a": "test"}
+SPLIT_NAMES = {
+    "train": "train", "validation": "val", "test_a": "test", "stress_test": "stress_test",
+}
+
+
+def is_background(row: dict) -> bool:
+    """Background is an explicit manifest property, never a disease class."""
+    return str(row.get("is_background", "")).strip().lower() in {"true", "1", "yes"}
 
 
 def index_annotations(roots: list[Path]) -> dict[str, list[dict]]:
@@ -112,11 +119,16 @@ def build(manifest: Path, annotation_roots: list[Path], output: Path, min_train_
     matched = []
     records = []
     for row in rows:
+        background = is_background(row)
         key = (row["disease_label"], Path(row["image_path"]).stem.lower())
-        if stem_counts[key] > 1 and not row.get("annotation_path", "").strip():
+        if background and row.get("background_review_status", "").strip().upper() != "APPROVED":
+            status, annotation = "BACKGROUND_NOT_APPROVED", None
+        elif stem_counts[key] > 1 and not row.get("annotation_path", "").strip():
             status, annotation = "DUPLICATE_IMAGE_STEM", None
         else:
             status, annotation = match_annotation(row, index)
+        if background and annotation and annotation["shapes"]:
+            status, annotation = "BACKGROUND_HAS_ANNOTATIONS", None
         record = {
             "image_id": row["image_id"],
             "split": SPLIT_NAMES[row["split"]],
@@ -125,12 +137,14 @@ def build(manifest: Path, annotation_roots: list[Path], output: Path, min_train_
             "raw_image_path": row["image_path"],
             "annotation_path": str(annotation["path"]) if annotation else "",
             "match_status": status,
+            "is_background": background,
         }
         records.append(record)
         if annotation:
             matched.append((record, annotation))
 
-    train_counts = Counter(r["disease_label"] for r, _ in matched if r["split"] == "train")
+    train_counts = Counter(r["disease_label"] for r, _ in matched
+                           if r["split"] == "train" and not r["is_background"])
     classes = [name for name in CLASS_ORDER if train_counts[name] >= min_train_images]
     excluded = {name: train_counts[name] for name in CLASS_ORDER if name not in classes}
     class_ids = {name: i for i, name in enumerate(classes)}
@@ -143,26 +157,29 @@ def build(manifest: Path, annotation_roots: list[Path], output: Path, min_train_
 
     for record, annotation in matched:
         disease = record["disease_label"]
-        if disease not in class_ids:
+        if record["is_background"]:
+            lines, foreign = [], 0
+        elif disease not in class_ids:
             record["match_status"] = "CLASS_EXCLUDED_TOO_FEW_TRAIN_LABELS"
             continue
-        lines, foreign = shapes_to_yolo(
-            annotation["shapes"], annotation["width"], annotation["height"],
-            disease, class_ids[disease],
-        )
+        else:
+            lines, foreign = shapes_to_yolo(
+                annotation["shapes"], annotation["width"], annotation["height"],
+                disease, class_ids[disease],
+            )
         record["foreign_label_shapes"] = foreign
-        if not lines:
+        if not lines and not record["is_background"]:
             record["match_status"] = "NO_VALID_BOXES"
             continue
         split = record["split"]
         image_target = output / "images" / split / f"{record['image_id']}.png"
         shutil.copy2(record["source_image"], image_target)
         (output / "labels" / split / f"{record['image_id']}.txt").write_text(
-            "\n".join(lines) + "\n", encoding="utf-8"
+            "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8"
         )
         record.update({
             "match_status": "INCLUDED",
-            "class_id": class_ids[disease],
+            "class_id": "" if record["is_background"] else class_ids[disease],
             "boxes": len(lines),
             "yolo_image": str(image_target.resolve()),
         })
@@ -171,6 +188,7 @@ def build(manifest: Path, annotation_roots: list[Path], output: Path, min_train_
     fields = [
         "image_id", "split", "disease_label", "class_id", "boxes", "match_status",
         "foreign_label_shapes", "source_image", "raw_image_path", "annotation_path", "yolo_image",
+        "is_background",
     ]
     with (output / "source_yolo_manifest.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
@@ -189,9 +207,17 @@ def build(manifest: Path, annotation_roots: list[Path], output: Path, min_train_
             k: round(v / max(1, len(included)), 3) for k, v in split_counts.items()
         },
         "included_by_split_and_class": {
-            split: dict(Counter(r["disease_label"] for r in included if r["split"] == split))
+            split: dict(Counter(r["disease_label"] for r in included
+                                if r["split"] == split and not r["is_background"]))
             for split in SPLIT_NAMES.values()
         },
+        "background_images_by_split": {
+            split: sum(r["split"] == split and r["is_background"] for r in included)
+            for split in SPLIT_NAMES.values()
+        },
+        "background_status_counts": dict(Counter(
+            r["match_status"] for r in records if r["is_background"]
+        )),
         "status_by_class": {
             name: dict(Counter(r["match_status"] for r in records if r["disease_label"] == name))
             for name in CLASS_ORDER

@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "archive": "UPDATED_SKIN_DATASETS_2026-10-12.zip",
+  "archive_bytes": 12907237362,
+  "packaged_source_files": 28112,
+  "archive_entries": 28114,
+  "source_bytes": 12941462198,
+  "crc_verified_every_entry": true,
+  "folder_inventory": {
+    "Combined_dataset_600": {
+      "files": 16934,
+      "bytes": 4525665744
+    },
+    "Healthy_skin_300": {
+      "files": 927,
+      "bytes": 459896319
+    },
+    "Combined_dataset_600_YOLO": {
+      "files": 10211,
+      "bytes": 7941353594
+    },
+    "Combined_dataset_600_reports": {
+      "files": 16,
+      "bytes": 11154070
+    },
+    "A_NEW_DATASETS_support": {
+      "files": 24,
+      "bytes": 3392471
+    }
+  },
+  "elapsed_seconds": 617
+}
